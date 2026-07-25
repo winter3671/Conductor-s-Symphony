@@ -6,14 +6,14 @@ namespace ConductorSymphony.Enemy
 {
     public class EnemySpawner : MonoBehaviour
     {
-        [Header("Spawn Settings")]
-        [SerializeField] private float spawnInterval = 1.5f;
-        [SerializeField] private float spawnRadius = 8.0f;
-        [SerializeField] private int maxActiveEnemies = 20;
-        [SerializeField] private float bossInterval = 60.0f; // Elite boss spawns every 60s
+        public static EnemySpawner Instance { get; private set; }
 
-        private float nextBossSpawnTime = 60.0f;
-        private int bossCycleCount = 0;
+        [Header("Spawn Settings")]
+        [SerializeField] private float spawnRadius = 8.0f;
+        [SerializeField] private float bossInterval = 120.0f; // 2 minutes of farming after boss defeat
+
+        private float bossTimer = 0f; // Accumulates only during normal farming phase
+        private int stageLevel = 1; // Stage 1, Stage 2, Stage 3...
         private float nextSpawnTime;
         private Transform playerTransform;
         private List<EnemyMonster> activeEnemies = new List<EnemyMonster>();
@@ -22,9 +22,17 @@ namespace ConductorSymphony.Enemy
         private Sprite enemySprite;
 
         public IReadOnlyList<EnemyMonster> ActiveEnemies => activeEnemies;
+        public int StageLevel => stageLevel;
 
         private void Awake()
         {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+
             CreateEnemySprite();
         }
 
@@ -35,8 +43,22 @@ namespace ConductorSymphony.Enemy
             {
                 playerTransform = player.transform;
             }
-            nextSpawnTime = Time.time + spawnInterval;
-            nextBossSpawnTime = Time.time + bossInterval;
+            nextSpawnTime = Time.time + GetSpawnIntervalForStage();
+            bossTimer = 0f;
+        }
+
+        private float GetSpawnIntervalForStage()
+        {
+            if (stageLevel <= 2) return 1.3f;
+            else if (stageLevel <= 4) return 0.9f;
+            else return 0.5f;
+        }
+
+        private int GetMaxEnemiesForStage()
+        {
+            if (stageLevel <= 2) return 18;
+            else if (stageLevel <= 4) return 28;
+            else return 42;
         }
 
         private void CreateEnemySprite()
@@ -69,14 +91,6 @@ namespace ConductorSymphony.Enemy
 
         private void Update()
         {
-            // Trigger Recurring Elite Boss Spawn every bossInterval (60s)
-            if (BossMonster.Instance == null && Time.time >= nextBossSpawnTime)
-            {
-                bossCycleCount++;
-                SpawnBoss();
-                nextBossSpawnTime = Time.time + bossInterval;
-            }
-
             // Clean dead enemies
             for (int i = activeEnemies.Count - 1; i >= 0; i--)
             {
@@ -86,16 +100,29 @@ namespace ConductorSymphony.Enemy
                 }
             }
 
-            // Pause trash mob spawns during Boss battle
+            // Pause trash mob spawns & freeze boss timer during Boss battle
             if (BossMonster.Instance != null) return;
+
+            // Increment boss timer only during normal farming phase
+            bossTimer += Time.deltaTime;
+            if (bossTimer >= bossInterval)
+            {
+                bossTimer = 0f;
+                stageLevel++;
+                SpawnBoss();
+                return;
+            }
+
+            float currentSpawnInterval = GetSpawnIntervalForStage();
+            int currentMaxEnemies = GetMaxEnemiesForStage();
 
             if (Time.time >= nextSpawnTime)
             {
-                if (activeEnemies.Count < maxActiveEnemies)
+                if (activeEnemies.Count < currentMaxEnemies)
                 {
                     SpawnEnemy();
                 }
-                nextSpawnTime = Time.time + spawnInterval;
+                nextSpawnTime = Time.time + currentSpawnInterval;
             }
         }
 
@@ -104,9 +131,13 @@ namespace ConductorSymphony.Enemy
             Vector3 centerPos = playerTransform != null ? playerTransform.position : Vector3.zero;
             Vector3 spawnPos = centerPos + new Vector3(0f, spawnRadius, 0f);
 
-            GameObject bossObj = new GameObject($"EliteBossMonster_{bossCycleCount}");
+            GameObject bossObj = new GameObject($"EliteBossMonster_Stage_{stageLevel}");
             bossObj.transform.position = spawnPos;
-            bossObj.AddComponent<BossMonster>();
+            BossMonster boss = bossObj.AddComponent<BossMonster>();
+
+            // Scaled Elite Boss HP: Stage 1 Boss = 120 HP, Stage 2 Boss = 200 HP, Stage 3 Boss = 280 HP
+            int bossHp = 120 + (stageLevel - 1) * 80;
+            boss.Initialize(bossHp);
         }
 
         private void SpawnEnemy()
@@ -123,8 +154,11 @@ namespace ConductorSymphony.Enemy
             collider.radius = 0.4f;
             collider.isTrigger = true;
 
+            // Tight Tense Scaling HP per Stage: Stage 1 = 4 HP (2 Perfect hits), Stage 2 = 12 HP, Stage 3 = 24 HP, Stage 4 = 36 HP
+            int currentMonsterHp = 4 + (stageLevel - 1) * 8;
+
             EnemyMonster enemy = enemyObj.AddComponent<EnemyMonster>();
-            enemy.Initialize(playerTransform, enemySprite, new Color(1.0f, 0.3f, 0.8f));
+            enemy.Initialize(playerTransform, enemySprite, new Color(1.0f, 0.3f, 0.8f), currentMonsterHp);
 
             activeEnemies.Add(enemy);
         }

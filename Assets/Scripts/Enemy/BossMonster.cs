@@ -10,7 +10,7 @@ namespace ConductorSymphony.Enemy
         public static BossMonster Instance { get; private set; }
 
         [Header("Boss Stats")]
-        [SerializeField] private int maxHp = 60;
+        [SerializeField] private int maxHp = 120;
         private int currentHp;
 
         [Header("Movement")]
@@ -40,6 +40,16 @@ namespace ConductorSymphony.Enemy
             SetupComponents();
         }
 
+        public void Initialize(int hp)
+        {
+            maxHp = hp;
+            currentHp = maxHp;
+            if (RhythmUI.Instance != null)
+            {
+                RhythmUI.Instance.ShowBossHpBar(true, maxHp);
+            }
+        }
+
         private void SetupComponents()
         {
             spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
@@ -51,7 +61,7 @@ namespace ConductorSymphony.Enemy
             circleCollider.radius = 0.8f;
             circleCollider.isTrigger = true;
 
-            transform.localScale = new Vector3(2.5f, 2.5f, 1f); // 2.5x larger giant boss
+            transform.localScale = new Vector3(2.5f, 2.5f, 1f);
         }
 
         private static Sprite CreateBossSprite()
@@ -68,11 +78,11 @@ namespace ConductorSymphony.Enemy
                     float d = Vector2.Distance(new Vector2(x, y), center);
                     if (d <= 20f && d >= 12f)
                     {
-                        px[y * size + x] = new Color(1.0f, 0.85f, 0.0f); // Gold crown outer ring
+                        px[y * size + x] = new Color(1.0f, 0.85f, 0.0f);
                     }
                     else if (d < 12f)
                     {
-                        px[y * size + x] = new Color(0.9f, 0.1f, 0.1f); // Ruby Red Boss Core
+                        px[y * size + x] = new Color(0.9f, 0.1f, 0.1f);
                     }
                     else
                     {
@@ -99,7 +109,6 @@ namespace ConductorSymphony.Enemy
             if (player == null) player = FindAnyObjectByType<PlayerController>();
             if (player != null)
             {
-                // Hover around player at distance
                 Vector3 dir = (player.transform.position - transform.position).normalized;
                 float dist = Vector3.Distance(transform.position, player.transform.position);
                 if (dist > 4.0f)
@@ -108,7 +117,6 @@ namespace ConductorSymphony.Enemy
                 }
             }
 
-            // Boss Bullet-Hell Attack Loop
             attackTimer += Time.deltaTime;
             if (attackTimer >= attackInterval)
             {
@@ -123,7 +131,6 @@ namespace ConductorSymphony.Enemy
             switch (index)
             {
                 case 0:
-                    // Pattern A: 360-degree Radial Shockwave (12 bullets)
                     for (int i = 0; i < 12; i++)
                     {
                         float angle = i * (360f / 12f);
@@ -133,7 +140,6 @@ namespace ConductorSymphony.Enemy
                     break;
 
                 case 1:
-                    // Pattern B: Targeted 3-burst volley at Player
                     if (player != null)
                     {
                         StartCoroutine(TargetedVolleyRoutine());
@@ -141,7 +147,6 @@ namespace ConductorSymphony.Enemy
                     break;
 
                 case 2:
-                    // Pattern C: Spiral Starburst
                     for (int i = 0; i < 16; i++)
                     {
                         float angle = i * (360f / 16f) + 15f;
@@ -203,7 +208,6 @@ namespace ConductorSymphony.Enemy
                 RhythmUI.Instance.ShowBossHpBar(false, maxHp);
             }
 
-            // Spawn Special Elite Reward Chest (strict physical pickup)
             GameObject chestObj = new GameObject("EliteRewardChest");
             chestObj.transform.position = transform.position;
             chestObj.AddComponent<Item.EliteRewardChest>();
