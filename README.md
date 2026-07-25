@@ -6,6 +6,7 @@
 * **플랫폼:** 웹(Web) 브라우저 및 깃허브 액션(GitHub Actions) 기반
 * **장르:** 리듬 뱀파이어 서바이버 (로그라이트)
 * **핵심 컨셉:** 지휘자가 된 캐릭터가 최대 4개의 악기를 조율하며, 몰려오는 음표 몬스터들을 연주(공격)로 물리치는 탑뷰 생존 게임.
+* 📖 **[상세 개발 기록 및 기술/기획 의도 문서 (DOCUMENTATION.md)](file:///c:/Users/admin/Desktop/My%20project/DOCUMENTATION.md)**
 
 ---
 
