@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using ConductorSymphony.Instrument;
 using ConductorSymphony.Player;
 
 namespace ConductorSymphony.Rhythm
@@ -11,21 +12,23 @@ namespace ConductorSymphony.Rhythm
 
         public event System.Action<HitRating, RhythmLane> OnHitSuccessEvent;
 
-        [Header("Rhythm Settings")]
-        [SerializeField] private float bpm = 120f;
+        [Header("Rhythm Sequencer Settings")]
+        [SerializeField] private float bpm = 90f;
         [SerializeField] private float spawnDistance = 4.0f;
-        [SerializeField] private float noteTravelDuration = 1.2f;
+        [SerializeField] private float noteTravelDuration = 1.4f;
 
         [Header("Timing Windows (Seconds)")]
-        [SerializeField] private float perfectWindow = 0.08f;
-        [SerializeField] private float greatWindow = 0.18f;
+        [SerializeField] private float perfectWindow = 0.10f;
+        [SerializeField] private float greatWindow = 0.22f;
 
         [Header("Target Tracking")]
         [SerializeField] private Transform targetTransform;
 
         private List<RhythmNote> activeNotes = new List<RhythmNote>();
-        private float secPerBeat;
-        private float nextBeatTime;
+        private float stepDuration; // Seconds per step in 32-step grid
+        private float nextStepTime;
+        private int currentStep = 0; // 0 to 31
+
         private int currentScore = 0;
         private int currentCombo = 0;
 
@@ -41,8 +44,9 @@ namespace ConductorSymphony.Rhythm
             }
             Instance = this;
 
-            secPerBeat = 60f / bpm;
-            nextBeatTime = Time.time + secPerBeat;
+            // 90 BPM: 32-beat cycle over ~10.6s => 0.333s per step
+            stepDuration = (60f / bpm) / 2f;
+            nextStepTime = Time.time + stepDuration;
 
             CreateDefaultSprite();
         }
@@ -72,14 +76,7 @@ namespace ConductorSymphony.Rhythm
                 for (int x = 0; x < size; x++)
                 {
                     float dist = Vector2.Distance(new Vector2(x, y), center);
-                    if (dist <= radius)
-                    {
-                        pixels[y * size + x] = Color.cyan;
-                    }
-                    else
-                    {
-                        pixels[y * size + x] = Color.clear;
-                    }
+                    pixels[y * size + x] = (dist <= radius) ? Color.cyan : Color.clear;
                 }
             }
             defaultNoteTexture.SetPixels(pixels);
@@ -89,14 +86,15 @@ namespace ConductorSymphony.Rhythm
 
         private void Update()
         {
-            // BPM Beat Spawner
-            if (Time.time >= nextBeatTime)
+            // 32-Step Sequencer Loop
+            if (Time.time >= nextStepTime)
             {
-                SpawnBeatNote();
-                nextBeatTime += secPerBeat;
+                ProcessSequencerStep(currentStep);
+                currentStep = (currentStep + 1) % 32;
+                nextStepTime += stepDuration;
             }
 
-            // Left-hand inputs (W, A, S, D) via New Input System
+            // Left-hand inputs (WASD) via New Input System
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
@@ -107,17 +105,33 @@ namespace ConductorSymphony.Rhythm
             }
         }
 
-        private void SpawnBeatNote()
+        private void ProcessSequencerStep(int step)
         {
-            // Randomly select lane (Left=A, Up=W, Down=S, Right=D)
-            RhythmLane lane = (RhythmLane)Random.Range(0, 4);
+            if (InstrumentManager.Instance == null) return;
+
+            var equipped = InstrumentManager.Instance.AcquiredInstruments;
+            for (int slot = 0; slot < equipped.Count && slot < 4; slot++)
+            {
+                InstrumentInfo inst = equipped[slot];
+                int[] pattern = InstrumentPatternDatabase.GetPattern(inst.type, inst.level);
+
+                if (pattern != null && step < pattern.Length && pattern[step] == 1)
+                {
+                    RhythmLane lane = (RhythmLane)slot;
+                    SpawnNoteForLane(lane, inst.themeColor);
+                }
+            }
+        }
+
+        private void SpawnNoteForLane(RhythmLane lane, Color color)
+        {
             Vector3 spawnDir = GetLaneDirection(lane);
             float targetTime = Time.time + noteTravelDuration;
 
             GameObject noteObj = new GameObject($"Note_{lane}_{Time.frameCount}");
             SpriteRenderer sr = noteObj.AddComponent<SpriteRenderer>();
             sr.sprite = defaultNoteSprite;
-            sr.color = GetLaneColor(lane);
+            sr.color = color;
             sr.sortingOrder = 10;
 
             RhythmNote note = noteObj.AddComponent<RhythmNote>();
@@ -135,18 +149,6 @@ namespace ConductorSymphony.Rhythm
                 case RhythmLane.Down:  return Vector3.down;
                 case RhythmLane.Right: return Vector3.right;
                 default: return Vector3.up;
-            }
-        }
-
-        private Color GetLaneColor(RhythmLane lane)
-        {
-            switch (lane)
-            {
-                case RhythmLane.Left:  return new Color(1.0f, 0.4f, 0.4f); // Reddish Q
-                case RhythmLane.Up:    return new Color(0.4f, 0.8f, 1.0f); // Cyan W
-                case RhythmLane.Down:  return new Color(1.0f, 0.9f, 0.3f); // Yellow E
-                case RhythmLane.Right: return new Color(0.4f, 1.0f, 0.4f); // Green R
-                default: return Color.white;
             }
         }
 
