@@ -623,6 +623,8 @@ MonoBehaviour:
   hpText: {fileID: 548033049}
   expText: {fileID: 1547840301}
   instrumentSlotText: {fileID: 959669667}
+  bossHpText: {fileID: 0}
+  victoryText: {fileID: 0}
 --- !u!114 &489520276
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2797,6 +2799,7 @@ MonoBehaviour:
   spawnInterval: 1.5
   spawnRadius: 8
   maxActiveEnemies: 20
+  bossInterval: 60
 --- !u!4 &1708175327
 Transform:
   m_ObjectHideFlags: 0

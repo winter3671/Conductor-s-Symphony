@@ -98,6 +98,18 @@ namespace ConductorSymphony.Combat
             int projCount = 1 + extraProj;
             Color projColor = (rating == HitRating.Perfect) ? Color.yellow : Color.cyan;
 
+            BossMonster boss = BossMonster.Instance;
+            if (boss != null)
+            {
+                for (int i = 0; i < projCount; i++)
+                {
+                    GameObject projObj = new GameObject($"Proj_Boss_{i}_{Time.frameCount}");
+                    AttackProjectile proj = projObj.AddComponent<AttackProjectile>();
+                    proj.Initialize(boss, spawnPos, projectileSprite, projColor, damage);
+                }
+                return;
+            }
+
             EnemyMonster[] enemies = FindObjectsByType<EnemyMonster>();
             if (enemies == null || enemies.Length == 0)
             {

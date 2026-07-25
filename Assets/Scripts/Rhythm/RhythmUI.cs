@@ -17,6 +17,8 @@ namespace ConductorSymphony.Rhythm
         [SerializeField] private Text hpText;
         [SerializeField] private Text expText;
         [SerializeField] private Text instrumentSlotText;
+        [SerializeField] private Text bossHpText;
+        [SerializeField] private Text victoryText;
 
         private float ratingTimer = 0f;
 
@@ -28,6 +30,52 @@ namespace ConductorSymphony.Rhythm
                 return;
             }
             Instance = this;
+
+            EnsureBossUIElements();
+        }
+
+        private void EnsureBossUIElements()
+        {
+            // Create BossHpText if null
+            if (bossHpText == null)
+            {
+                GameObject bObj = new GameObject("BossHpText");
+                bObj.transform.SetParent(transform, false);
+                bossHpText = bObj.AddComponent<Text>();
+                bossHpText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                bossHpText.fontSize = 28;
+                bossHpText.color = new Color(1.0f, 0.2f, 0.2f);
+                bossHpText.alignment = TextAnchor.UpperCenter;
+                bossHpText.text = "";
+
+                RectTransform r = bObj.GetComponent<RectTransform>();
+                r.anchorMin = new Vector2(0.5f, 1f);
+                r.anchorMax = new Vector2(0.5f, 1f);
+                r.pivot = new Vector2(0.5f, 1f);
+                r.anchoredPosition = new Vector2(0, -60);
+                r.sizeDelta = new Vector2(600, 40);
+                bObj.SetActive(false);
+            }
+
+            // Create VictoryText if null
+            if (victoryText == null)
+            {
+                GameObject vObj = new GameObject("VictoryText");
+                vObj.transform.SetParent(transform, false);
+                victoryText = vObj.AddComponent<Text>();
+                victoryText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                victoryText.fontSize = 42;
+                victoryText.color = Color.gold;
+                victoryText.alignment = TextAnchor.MiddleCenter;
+                victoryText.text = "CONCERTO COMPLETE!\nVICTORY!";
+
+                RectTransform vr = vObj.GetComponent<RectTransform>();
+                vr.anchorMin = new Vector2(0.5f, 0.5f);
+                vr.anchorMax = new Vector2(0.5f, 0.5f);
+                vr.anchoredPosition = Vector2.zero;
+                vr.sizeDelta = new Vector2(800, 160);
+                vObj.SetActive(false);
+            }
         }
 
         private void OnEnable()
@@ -116,6 +164,32 @@ namespace ConductorSymphony.Rhythm
             }
 
             ratingTimer = 0.8f;
+        }
+
+        public void ShowBossHpBar(bool show, int maxHp)
+        {
+            if (bossHpText != null)
+            {
+                bossHpText.gameObject.SetActive(show);
+                if (show) bossHpText.text = $"★ BOSS HP: {maxHp} / {maxHp} ★";
+            }
+        }
+
+        public void UpdateBossHp(int currentHp, int maxHp)
+        {
+            if (bossHpText != null)
+            {
+                bossHpText.text = $"★ BOSS HP: {currentHp} / {maxHp} ★";
+            }
+        }
+
+        public void ShowVictoryScreen()
+        {
+            if (victoryText != null)
+            {
+                victoryText.gameObject.SetActive(true);
+            }
+            Time.timeScale = 0f; // Pause game on victory
         }
     }
 }

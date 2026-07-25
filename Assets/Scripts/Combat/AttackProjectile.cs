@@ -8,26 +8,38 @@ namespace ConductorSymphony.Combat
         [SerializeField] private float speed = 12.0f;
         [SerializeField] private int damage = 1;
 
+        private Transform targetTransform;
+        private BossMonster targetBoss;
         private EnemyMonster targetEnemy;
         private Vector3 targetPos;
         private bool hasTarget = false;
         private SpriteRenderer spriteRenderer;
 
-        public void Initialize(EnemyMonster enemy, Vector3 startPos, Sprite sprite, Color color, int damageAmount = 1)
+        public void Initialize(Component target, Vector3 startPos, Sprite sprite, Color color, int damageAmount = 1)
         {
-            targetEnemy = enemy;
             damage = damageAmount;
             transform.position = startPos;
             hasTarget = true;
+
+            if (target is BossMonster boss)
+            {
+                targetBoss = boss;
+                targetTransform = boss.transform;
+            }
+            else if (target is EnemyMonster enemy)
+            {
+                targetEnemy = enemy;
+                targetTransform = enemy.transform;
+            }
 
             spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
             spriteRenderer.sprite = sprite;
             spriteRenderer.color = color;
             spriteRenderer.sortingOrder = 15;
 
-            if (targetEnemy != null)
+            if (targetTransform != null)
             {
-                targetPos = targetEnemy.transform.position;
+                targetPos = targetTransform.position;
             }
             else
             {
@@ -39,16 +51,16 @@ namespace ConductorSymphony.Combat
         {
             if (!hasTarget) return;
 
-            if (targetEnemy != null)
+            if (targetTransform != null)
             {
-                targetPos = targetEnemy.transform.position;
+                targetPos = targetTransform.position;
             }
 
             Vector3 direction = (targetPos - transform.position).normalized;
             transform.position += direction * speed * Time.deltaTime;
 
             float dist = Vector3.Distance(transform.position, targetPos);
-            if (dist <= 0.3f)
+            if (dist <= 0.4f)
             {
                 HitTarget();
             }
@@ -56,7 +68,11 @@ namespace ConductorSymphony.Combat
 
         private void HitTarget()
         {
-            if (targetEnemy != null)
+            if (targetBoss != null)
+            {
+                targetBoss.TakeDamage(damage);
+            }
+            else if (targetEnemy != null)
             {
                 targetEnemy.TakeDamage(damage);
             }

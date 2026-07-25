@@ -1,6 +1,6 @@
 # 🎼 Conductor's Symphony - 상세 개발 기록, 트러블슈팅 및 기획/기술 의도 문서 (DOCUMENTATION.md)
 
-본 문서는 **Conductor's Symphony** 프로젝트의 전체 개발 과정, 발생했던 주요 오류 및 트러블슈팅 내역, 4마디 음악 곡 구조 설계, 그리고 시스템별 기획/기술적 의도를 상세히 기록한 종합 개발 보고서입니다.
+본 문서는 **Conductor's Symphony** 프로젝트의 전체 개발 과정, 발생했던 주요 오류 및 트러블슈팅 내역, 4마디 음악 곡 구조 설계, 엘리트 보스전 및 특수 전리품 보상 시스템, 그리고 코드 아키텍처를 상세히 기록한 종합 개발 보고서입니다.
 
 IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제든지 개발 잔혹사, 개선 이력, 코드 아키텍처를 파악할 수 있습니다.
 
@@ -30,6 +30,10 @@ IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제�
 ### 🔹 Step 3: 10종 악기 로그라이크 덱빌딩 & 32비트 음악 시퀀서 시스템
 * **구현 목표:** 시작 악기 선택 카드 + EXP 보석 습득 레벨업 + 10종 악기 중 4개 슬롯 선택 덱빌딩 + 32박자(4마디) 음악 시퀀서 루프 엔진 + 10종 악기 고유 키음(Key-Sound)
 * **의도:** 게임 시작 시 바로 1개 악기(A키)를 가지고 시작하여 전투 가능하게 하고, 레벨업 시 3장 카드로 악기를 추가/강화하는 로그라이크 재미 요소와 음악성을 결합.
+
+### 🔹 Step 4-A: 엘리트 보스 주기적 순환 & 특수 전리품 상자 보상 시스템
+* **구현 목표:** 60초 주기 엘리트 보스 재등장 + 3가지 360도 탄막 공격 + 직접 근접 습득 황금 보물상자(`EliteRewardChest.cs`) + `ELITE CHEST REWARD` 3카드 선택 팝업
+* **의도:** 보스 처치 시 게임이 종료되지 않고 잡몹전과 보스전이 주기적으로 순환하여 무한 생존을 즐기게 하고, 먼거리에서 자동 흡수되는 경험치 보석과 달리 플레이어가 직접 발로 다가가 부딪쳐야 습득되는 엄격한 전리품 상자로 특수 성장의 쾌감을 제공.
 
 ---
 
@@ -72,17 +76,21 @@ Assets/Scripts/
 ├── Camera/
 │   └── CameraController.cs         # 지휘자 1:1 화면 중앙 고정 카메라 추적 스크립트
 ├── Combat/
-│   ├── AttackProjectile.cs         # 유도 음파 발사체 (타겟 몬스터 추적 및 데미지 전달)
+│   ├── AttackProjectile.cs         # 유도 음파 발사체 (일반 몬스터 & 엘리트 보스 타겟팅)
 │   └── RhythmAttackManager.cs      # WASD 리듬 성공 시 오토 타겟팅 Multi-Shot 발사 & 키음 재생
 ├── Enemy/
+│   ├── BossMonster.cs              # 거대 엘리트 보스 AI, 60 HP, 3가지 360도 탄막 패턴 및 특수 상자 드롭
+│   ├── BossProjectile.cs           # 보스 전용 360도/조준/스파이럴 탄막 발사체
 │   ├── EnemyMonster.cs             # 음표 몬스터 추적 AI, HP, 피격 플래시 & ExpGem 드롭
-│   └── EnemySpawner.cs             # 화면 360도 외곽 몬스터 주기적 스폰 스포너
+│   └── EnemySpawner.cs             # 60초 주기 엘리트 보스 스폰 및 잡몹 스폰 억제/재개 루프
 ├── Instrument/
 │   ├── InstrumentData.cs            # 악기 데이터 클래스 & 레벨업 스탯(데미지/멀티샷/점수)
 │   ├── InstrumentItem.cs            # 몬스터 드롭 악기 수집 아이템 개체
 │   ├── InstrumentManager.cs         # 10종 악기 중 4슬롯 덱빌딩 및 호위 펫 관리
 │   ├── InstrumentOrbit.cs           # 지휘자 호위 펫 둥둥 부유 & Lerp 추적 모션
 │   └── InstrumentPatternDatabase.cs # 10종 악기 Lv.1~5 (4마디 32비트 곡 구조 패턴 DB)
+├── Item/
+│   └── EliteRewardChest.cs         # 엘리트 보스 처치 시 드롭되는 황금 보물상자 (엄격한 근접 픽업)
 ├── Player/
 │   ├── ExpGem.cs                    # 몬스터 사망 시 드롭되는 에메랄드 경험치 보석 (자석 흡수)
 │   ├── PlayerController.cs          # 오른손 방향키 이동, HP 및 무적 프레임 관리
@@ -90,9 +98,9 @@ Assets/Scripts/
 ├── Rhythm/
 │   ├── RhythmManager.cs             # 90 BPM 32비트(4마디) 시퀀서 루프 엔진 & WASD 판정
 │   ├── RhythmNote.cs                # 실시간 상대 좌표 추적 노트 개체
-│   └── RhythmUI.cs                  # Score, Combo, HP, EXP, Instrument Slot UI
+│   └── RhythmUI.cs                  # Score, Combo, HP, EXP, Boss HP, Instrument Slot UI
 └── UI/
-    └── LevelUpUI.cs                 # 스타팅/레벨업 3카드 팝업, EventSystem 검증 및 키보드 1,2,3 단축키
+    └── LevelUpUI.cs                 # 스타팅/레벨업/엘리트상자 3카드 팝업, EventSystem 검증 및 키보드 1,2,3 단축키
 ```
 
 ---

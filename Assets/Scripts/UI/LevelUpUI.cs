@@ -86,6 +86,21 @@ namespace ConductorSymphony.UI
             if (cardPanel != null) cardPanel.SetActive(true);
         }
 
+        public void ShowEliteRewardSelection()
+        {
+            isGameStartSelection = false;
+            Time.timeScale = 0f; // Pause game
+
+            if (titleText != null)
+            {
+                titleText.text = "★ ELITE CHEST REWARD! CHOOSE AN UPGRADE ★";
+            }
+
+            GenerateChoices(isGameStart: false);
+
+            if (cardPanel != null) cardPanel.SetActive(true);
+        }
+
         private void GenerateChoices(bool isGameStart)
         {
             currentChoices.Clear();

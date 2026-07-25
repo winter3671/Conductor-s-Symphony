@@ -10,7 +10,10 @@ namespace ConductorSymphony.Enemy
         [SerializeField] private float spawnInterval = 1.5f;
         [SerializeField] private float spawnRadius = 8.0f;
         [SerializeField] private int maxActiveEnemies = 20;
+        [SerializeField] private float bossInterval = 60.0f; // Elite boss spawns every 60s
 
+        private float nextBossSpawnTime = 60.0f;
+        private int bossCycleCount = 0;
         private float nextSpawnTime;
         private Transform playerTransform;
         private List<EnemyMonster> activeEnemies = new List<EnemyMonster>();
@@ -33,6 +36,7 @@ namespace ConductorSymphony.Enemy
                 playerTransform = player.transform;
             }
             nextSpawnTime = Time.time + spawnInterval;
+            nextBossSpawnTime = Time.time + bossInterval;
         }
 
         private void CreateEnemySprite()
@@ -65,6 +69,14 @@ namespace ConductorSymphony.Enemy
 
         private void Update()
         {
+            // Trigger Recurring Elite Boss Spawn every bossInterval (60s)
+            if (BossMonster.Instance == null && Time.time >= nextBossSpawnTime)
+            {
+                bossCycleCount++;
+                SpawnBoss();
+                nextBossSpawnTime = Time.time + bossInterval;
+            }
+
             // Clean dead enemies
             for (int i = activeEnemies.Count - 1; i >= 0; i--)
             {
@@ -74,6 +86,9 @@ namespace ConductorSymphony.Enemy
                 }
             }
 
+            // Pause trash mob spawns during Boss battle
+            if (BossMonster.Instance != null) return;
+
             if (Time.time >= nextSpawnTime)
             {
                 if (activeEnemies.Count < maxActiveEnemies)
@@ -82,6 +97,16 @@ namespace ConductorSymphony.Enemy
                 }
                 nextSpawnTime = Time.time + spawnInterval;
             }
+        }
+
+        private void SpawnBoss()
+        {
+            Vector3 centerPos = playerTransform != null ? playerTransform.position : Vector3.zero;
+            Vector3 spawnPos = centerPos + new Vector3(0f, spawnRadius, 0f);
+
+            GameObject bossObj = new GameObject($"EliteBossMonster_{bossCycleCount}");
+            bossObj.transform.position = spawnPos;
+            bossObj.AddComponent<BossMonster>();
         }
 
         private void SpawnEnemy()
