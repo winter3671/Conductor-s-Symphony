@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using ConductorSymphony.Enemy;
 using ConductorSymphony.Player;
@@ -98,36 +99,36 @@ namespace ConductorSymphony.Combat
             int projCount = 1 + extraProj;
             Color projColor = (rating == HitRating.Perfect) ? Color.yellow : Color.cyan;
 
-            BossMonster boss = BossMonster.Instance;
-            if (boss != null)
-            {
-                for (int i = 0; i < projCount; i++)
-                {
-                    GameObject projObj = new GameObject($"Proj_Boss_{i}_{Time.frameCount}");
-                    AttackProjectile proj = projObj.AddComponent<AttackProjectile>();
-                    proj.Initialize(boss, spawnPos, projectileSprite, projColor, damage);
-                }
-                return;
-            }
+            // Collect all potential target components (regular trash mobs + boss)
+            List<Component> potentialTargets = new List<Component>();
+            if (BossMonster.Instance != null) potentialTargets.Add(BossMonster.Instance);
 
             EnemyMonster[] enemies = FindObjectsByType<EnemyMonster>();
-            if (enemies == null || enemies.Length == 0)
+            if (enemies != null)
             {
-                // Fire default single projectile forward if no enemies
+                foreach (var enemy in enemies)
+                {
+                    if (enemy != null) potentialTargets.Add(enemy);
+                }
+            }
+
+            if (potentialTargets.Count == 0)
+            {
+                // Fire default single projectile forward if no targets
                 GameObject projObj = new GameObject($"Proj_{Time.frameCount}");
                 AttackProjectile proj = projObj.AddComponent<AttackProjectile>();
                 proj.Initialize(null, spawnPos, projectileSprite, projColor, damage);
                 return;
             }
 
-            // Sort enemies by distance
-            System.Array.Sort(enemies, (a, b) => Vector3.Distance(spawnPos, a.transform.position).CompareTo(Vector3.Distance(spawnPos, b.transform.position)));
+            // Sort targets by distance to player
+            potentialTargets.Sort((a, b) => Vector3.Distance(spawnPos, a.transform.position).CompareTo(Vector3.Distance(spawnPos, b.transform.position)));
 
-            for (int i = 0; i < Mathf.Min(projCount, enemies.Length); i++)
+            for (int i = 0; i < Mathf.Min(projCount, potentialTargets.Count); i++)
             {
                 GameObject projObj = new GameObject($"Proj_{i}_{Time.frameCount}");
                 AttackProjectile proj = projObj.AddComponent<AttackProjectile>();
-                proj.Initialize(enemies[i], spawnPos, projectileSprite, projColor, damage);
+                proj.Initialize(potentialTargets[i], spawnPos, projectileSprite, projColor, damage);
             }
         }
 

@@ -45,7 +45,8 @@ namespace ConductorSymphony.Player
         {
             CurrentExp -= MaxExp;
             CurrentLevel++;
-            MaxExp = CurrentLevel * 40;
+            // Exponential EXP scaling: Lv1->2: 40, Lv2->3: 55, Lv3->4: 76, Lv4->5: 105, etc.
+            MaxExp = Mathf.RoundToInt(40f * Mathf.Pow(1.38f, CurrentLevel - 1));
 
             OnExpChangedEvent?.Invoke(CurrentLevel, CurrentExp, MaxExp);
 

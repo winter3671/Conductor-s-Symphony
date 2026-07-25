@@ -22,18 +22,25 @@ namespace ConductorSymphony.Instrument
             this.instrumentName = def.name;
             this.themeColor = def.themeColor;
             
-            // Calculate stats based on level
-            this.extraDamage = level - 1;
-            this.extraProjectiles = (level >= 3) ? (level >= 5 ? 2 : 1) : 0;
-            this.scoreMultiplier = 1.0f + (level * 0.1f);
+            CalculateStats();
         }
 
         public void UpgradeLevel()
         {
             level = Mathf.Min(5, level + 1);
-            extraDamage = level - 1;
-            extraProjectiles = (level >= 3) ? (level >= 5 ? 2 : 1) : 0;
-            scoreMultiplier = 1.0f + (level * 0.1f);
+            CalculateStats();
+        }
+
+        private void CalculateStats()
+        {
+            // Moderate scaling to prevent DPS explosion
+            // Extra Damage: Lv 1..2: +0, Lv 3..4: +1, Lv 5: +2
+            this.extraDamage = (level >= 5) ? 2 : ((level >= 3) ? 1 : 0);
+
+            // Extra Projectiles: Lv 1..3: +0 (1 proj), Lv 4..5: +1 (2 proj max)
+            this.extraProjectiles = (level >= 4) ? 1 : 0;
+
+            this.scoreMultiplier = 1.0f + (level * 0.1f);
         }
     }
 }

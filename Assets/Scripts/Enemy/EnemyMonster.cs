@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace ConductorSymphony.Enemy
@@ -5,8 +6,8 @@ namespace ConductorSymphony.Enemy
     public class EnemyMonster : MonoBehaviour
     {
         [Header("Enemy Stats")]
-        [SerializeField] private float moveSpeed = 2.0f;
-        [SerializeField] private int maxHealth = 2;
+        [SerializeField] private float moveSpeed = 1.1f;
+        [SerializeField] private int maxHealth = 8;
         [SerializeField] private int damageToPlayer = 10;
 
         private int currentHealth;
@@ -25,10 +26,13 @@ namespace ConductorSymphony.Enemy
             }
         }
 
-        public void Initialize(Transform targetPlayer, Sprite defaultSprite, Color color)
+        public void Initialize(Transform targetPlayer, Sprite defaultSprite, Color color, int initialHp = 8)
         {
             playerTransform = targetPlayer;
-            if (spriteRenderer != null && spriteRenderer.sprite == null)
+            maxHealth = initialHp;
+            currentHealth = maxHealth;
+
+            if (spriteRenderer != null)
             {
                 spriteRenderer.sprite = defaultSprite;
                 spriteRenderer.color = color;
@@ -40,8 +44,42 @@ namespace ConductorSymphony.Enemy
         {
             if (playerTransform == null) return;
 
+            // Move towards player
             Vector3 direction = (playerTransform.position - transform.position).normalized;
             transform.position += direction * moveSpeed * Time.deltaTime;
+
+            // Apply mutual separation force from neighboring enemies to prevent stacking into a single point
+            ApplySeparation();
+        }
+
+        private void ApplySeparation()
+        {
+            if (EnemySpawner.Instance == null) return;
+            var enemies = EnemySpawner.Instance.ActiveEnemies;
+            if (enemies == null) return;
+
+            Vector3 separation = Vector3.zero;
+            int count = 0;
+            float minRadius = 0.65f;
+
+            for (int i = 0; i < enemies.Count; i++)
+            {
+                var other = enemies[i];
+                if (other == null || other == this) continue;
+
+                float dist = Vector3.Distance(transform.position, other.transform.position);
+                if (dist < minRadius && dist > 0.01f)
+                {
+                    Vector3 pushDir = (transform.position - other.transform.position).normalized;
+                    separation += pushDir / dist; // Stronger push when closer
+                    count++;
+                }
+            }
+
+            if (count > 0)
+            {
+                transform.position += separation.normalized * 0.9f * Time.deltaTime;
+            }
         }
 
         public void TakeDamage(int damage)
@@ -60,11 +98,11 @@ namespace ConductorSymphony.Enemy
             }
         }
 
-        private System.Collections.IEnumerator FlashRedRoutine()
+        private IEnumerator FlashRedRoutine()
         {
             Color originalColor = spriteRenderer.color;
-            spriteRenderer.color = Color.red;
-            yield return new WaitForSeconds(0.1f);
+            spriteRenderer.color = Color.white;
+            yield return new WaitForSeconds(0.08f);
             if (spriteRenderer != null)
             {
                 spriteRenderer.color = originalColor;
@@ -73,13 +111,10 @@ namespace ConductorSymphony.Enemy
 
         private void Die()
         {
-            // 75% chance to drop EXP Gem
-            if (Random.value <= 0.75f)
-            {
-                GameObject gemObj = new GameObject($"ExpGem_{Time.frameCount}");
-                Player.ExpGem gem = gemObj.AddComponent<Player.ExpGem>();
-                gem.Initialize(transform.position, 15);
-            }
+            // 100% Guaranteed EXP Gem Drop on every kill
+            GameObject gemObj = new GameObject($"ExpGem_{Time.frameCount}");
+            Player.ExpGem gem = gemObj.AddComponent<Player.ExpGem>();
+            gem.Initialize(transform.position, 15);
 
             Destroy(gameObject);
         }

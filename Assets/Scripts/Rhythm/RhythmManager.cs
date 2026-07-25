@@ -86,6 +86,9 @@ namespace ConductorSymphony.Rhythm
 
         private void Update()
         {
+            // Block rhythm note updates and WASD inputs when paused
+            if (Time.timeScale <= 0f) return;
+
             // 32-Step Sequencer Loop
             if (Time.time >= nextStepTime)
             {
