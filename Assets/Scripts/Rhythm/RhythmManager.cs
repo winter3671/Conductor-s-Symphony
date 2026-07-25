@@ -86,7 +86,7 @@ namespace ConductorSymphony.Rhythm
 
         private void Update()
         {
-            // Block rhythm note updates and WASD inputs when paused
+            // Block rhythm note updates and QWER inputs when paused
             if (Time.timeScale <= 0f) return;
 
             // 32-Step Sequencer Loop
@@ -97,14 +97,14 @@ namespace ConductorSymphony.Rhythm
                 nextStepTime += stepDuration;
             }
 
-            // Left-hand inputs (WASD) via New Input System
+            // Left-hand inputs (QWER Arc Keys) via New Input System
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                if (keyboard.aKey.wasPressedThisFrame) CheckHit(RhythmLane.Left);
-                if (keyboard.wKey.wasPressedThisFrame) CheckHit(RhythmLane.Up);
-                if (keyboard.sKey.wasPressedThisFrame) CheckHit(RhythmLane.Down);
-                if (keyboard.dKey.wasPressedThisFrame) CheckHit(RhythmLane.Right);
+                if (keyboard.qKey.wasPressedThisFrame) CheckHit(RhythmLane.Left);    // Slot 0 (Q = Left)
+                if (keyboard.wKey.wasPressedThisFrame) CheckHit(RhythmLane.UpLeft);  // Slot 1 (W = Upper-Left)
+                if (keyboard.eKey.wasPressedThisFrame) CheckHit(RhythmLane.UpRight); // Slot 2 (E = Upper-Right)
+                if (keyboard.rKey.wasPressedThisFrame) CheckHit(RhythmLane.Right);   // Slot 3 (R = Right)
             }
         }
 
@@ -113,16 +113,47 @@ namespace ConductorSymphony.Rhythm
             if (InstrumentManager.Instance == null) return;
 
             var equipped = InstrumentManager.Instance.AcquiredInstruments;
-            for (int slot = 0; slot < equipped.Count && slot < 4; slot++)
+            int maxUnlocked = InstrumentManager.Instance.GetUnlockedSlotsCount();
+
+            for (int slot = 0; slot < equipped.Count && slot < maxUnlocked; slot++)
             {
                 InstrumentInfo inst = equipped[slot];
                 int[] pattern = InstrumentPatternDatabase.GetPattern(inst.type, inst.level);
 
                 if (pattern != null && step < pattern.Length && pattern[step] == 1)
                 {
-                    RhythmLane lane = (RhythmLane)slot;
+                    // Map slot to lane: 
+                    // Slot 0 -> Q (Left)
+                    // Slot 1 -> R (Right) if only 2 slots, else W (UpLeft)
+                    // Slot 2 -> R (Right) if 3 slots, else E (UpRight)
+                    // Slot 3 -> R (Right)
+                    RhythmLane lane = GetLaneForSlot(slot);
                     SpawnNoteForLane(lane, inst.themeColor);
                 }
+            }
+        }
+
+        public static RhythmLane GetLaneForSlot(int slot)
+        {
+            switch (slot)
+            {
+                case 0: return RhythmLane.Left;    // Slot 0 = Q (Left)
+                case 1: return RhythmLane.Right;   // Slot 1 = R (Right)
+                case 2: return RhythmLane.UpLeft;  // Slot 2 = W (UpLeft)
+                case 3: return RhythmLane.UpRight; // Slot 3 = E (UpRight)
+                default: return RhythmLane.Left;
+            }
+        }
+
+        public static int GetSlotForLane(RhythmLane lane)
+        {
+            switch (lane)
+            {
+                case RhythmLane.Left:    return 0; // Q
+                case RhythmLane.Right:   return 1; // R
+                case RhythmLane.UpLeft:  return 2; // W
+                case RhythmLane.UpRight: return 3; // E
+                default: return 0;
             }
         }
 
@@ -147,11 +178,11 @@ namespace ConductorSymphony.Rhythm
         {
             switch (lane)
             {
-                case RhythmLane.Left:  return Vector3.left;
-                case RhythmLane.Up:    return Vector3.up;
-                case RhythmLane.Down:  return Vector3.down;
-                case RhythmLane.Right: return Vector3.right;
-                default: return Vector3.up;
+                case RhythmLane.Left:    return Vector3.left; // 180 deg
+                case RhythmLane.UpLeft:  return new Vector3(-0.707f, 0.707f, 0f); // 135 deg (Upper Left)
+                case RhythmLane.UpRight: return new Vector3(0.707f, 0.707f, 0f);  // 45 deg (Upper Right)
+                case RhythmLane.Right:   return Vector3.right; // 0 deg
+                default: return Vector3.left;
             }
         }
 

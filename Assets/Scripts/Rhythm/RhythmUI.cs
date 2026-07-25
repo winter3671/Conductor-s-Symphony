@@ -124,17 +124,25 @@ namespace ConductorSymphony.Rhythm
         {
             if (instrumentSlotText == null) return;
 
-            string text = "INSTRUMENTS: ";
+            int unlocked = InstrumentManager.Instance != null ? InstrumentManager.Instance.GetUnlockedSlotsCount() : 2;
+            string[] keyLabels = new string[] { "Q", "R", "W", "E" };
+            string[] lockReqs = new string[] { "", "", "Lv.5", "Lv.8" };
+
+            string text = "SLOTS: ";
             for (int i = 0; i < 4; i++)
             {
                 if (i < instruments.Count)
                 {
                     string colorHex = ColorUtility.ToHtmlStringRGB(instruments[i].themeColor);
-                    text += $"[<color=#{colorHex}>{instruments[i].instrumentName} Lv.{instruments[i].level}</color>] ";
+                    text += $"[<color=#FFFF00>{keyLabels[i]}:</color> <color=#{colorHex}>{instruments[i].instrumentName} Lv.{instruments[i].level}</color>] ";
+                }
+                else if (i < unlocked)
+                {
+                    text += $"[<color=#FFFF00>{keyLabels[i]}:</color> EMPTY] ";
                 }
                 else
                 {
-                    text += "[ EMPTY ] ";
+                    text += $"[<color=#888888>LOCKED ({lockReqs[i]})</color>] ";
                 }
             }
             instrumentSlotText.text = text;

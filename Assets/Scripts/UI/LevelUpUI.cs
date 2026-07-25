@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
-using UnityEngine.EventSystems;
 using ConductorSymphony.Instrument;
 
 namespace ConductorSymphony.UI
@@ -11,15 +10,14 @@ namespace ConductorSymphony.UI
     {
         public static LevelUpUI Instance { get; private set; }
 
-        [Header("UI References")]
+        [Header("UI Panel & Buttons")]
         [SerializeField] private GameObject cardPanel;
-        [SerializeField] private Text titleText;
         [SerializeField] private Button[] cardButtons;
         [SerializeField] private Text[] cardTitleTexts;
         [SerializeField] private Text[] cardDescTexts;
+        [SerializeField] private Text panelTitleText;
 
         private List<InstrumentInfo> currentChoices = new List<InstrumentInfo>();
-        private bool isGameStartSelection = false;
 
         private void Awake()
         {
@@ -30,81 +28,125 @@ namespace ConductorSymphony.UI
             }
             Instance = this;
 
-            EnsureEventSystemExists();
-
-            if (cardPanel != null) cardPanel.SetActive(false);
-        }
-
-        private void EnsureEventSystemExists()
-        {
-            if (FindAnyObjectByType<EventSystem>() == null)
-            {
-                GameObject esObj = new GameObject("EventSystem");
-                esObj.AddComponent<EventSystem>();
-                esObj.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
-            }
+            EnsureUIComponents();
         }
 
         private void Start()
         {
-            // Trigger Starting Instrument selection at game start
-            Invoke(nameof(TriggerGameStartSelection), 0.1f);
+            if (InstrumentManager.Instance != null && InstrumentManager.Instance.AcquiredInstruments.Count == 0)
+            {
+                ShowLevelUpSelection(isGameStart: true);
+            }
         }
 
-        private void TriggerGameStartSelection()
+        private void EnsureUIComponents()
         {
-            ShowLevelUpSelection(isGameStart: true);
+            if (cardPanel == null)
+            {
+                cardPanel = transform.gameObject;
+            }
+
+            // Create EventSystem if missing
+            if (FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
+            {
+                GameObject esObj = new GameObject("EventSystem");
+                esObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                esObj.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+            }
+
+            if (cardButtons == null || cardButtons.Length == 0)
+            {
+                cardButtons = new Button[3];
+                cardTitleTexts = new Text[3];
+                cardDescTexts = new Text[3];
+
+                float cardWidth = 220f;
+
+                for (int i = 0; i < 3; i++)
+                {
+                    GameObject btnObj = new GameObject($"CardButton_{i}");
+                    btnObj.transform.SetParent(cardPanel.transform, false);
+
+                    Image img = btnObj.AddComponent<Image>();
+                    img.color = new Color(0.15f, 0.15f, 0.25f, 0.95f);
+
+                    Button btn = btnObj.AddComponent<Button>();
+                    cardButtons[i] = btn;
+
+                    RectTransform rt = btnObj.GetComponent<RectTransform>();
+                    rt.sizeDelta = new Vector2(cardWidth, 260f);
+                    rt.anchoredPosition = new Vector2(-250f + (i * 250f), 0f);
+
+                    // Title Text
+                    GameObject tObj = new GameObject("TitleText");
+                    tObj.transform.SetParent(btnObj.transform, false);
+                    Text title = tObj.AddComponent<Text>();
+                    title.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    title.fontSize = 20;
+                    title.color = Color.white;
+                    title.alignment = TextAnchor.MiddleCenter;
+
+                    RectTransform trt = tObj.GetComponent<RectTransform>();
+                    trt.anchorMin = new Vector2(0, 0.6f);
+                    trt.anchorMax = new Vector2(1, 1);
+                    trt.offsetMin = Vector2.zero;
+                    trt.offsetMax = Vector2.zero;
+
+                    cardTitleTexts[i] = title;
+
+                    // Desc Text
+                    GameObject dObj = new GameObject("DescText");
+                    dObj.transform.SetParent(btnObj.transform, false);
+                    Text desc = dObj.AddComponent<Text>();
+                    desc.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    desc.fontSize = 14;
+                    desc.color = new Color(0.8f, 0.8f, 0.8f);
+                    desc.alignment = TextAnchor.MiddleCenter;
+
+                    RectTransform drt = dObj.GetComponent<RectTransform>();
+                    drt.anchorMin = new Vector2(0, 0);
+                    drt.anchorMax = new Vector2(1, 0.6f);
+                    drt.offsetMin = Vector2.zero;
+                    drt.offsetMax = Vector2.zero;
+
+                    cardDescTexts[i] = desc;
+                }
+            }
+
+            cardPanel.SetActive(false);
         }
 
         private void Update()
         {
-            // Allow keyboard shortcuts (1, 2, 3) to select cards even when paused
-            if (cardPanel != null && cardPanel.activeSelf)
+            if (cardPanel != null && cardPanel.activeSelf && Time.timeScale <= 0f)
             {
                 var keyboard = Keyboard.current;
                 if (keyboard != null)
                 {
-                    if (keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame) OnCardSelected(0);
-                    else if (keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame) OnCardSelected(1);
-                    else if (keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame) OnCardSelected(2);
+                    if (keyboard.digit1Key.wasPressedThisFrame && currentChoices.Count >= 1) OnCardSelected(0);
+                    if (keyboard.digit2Key.wasPressedThisFrame && currentChoices.Count >= 2) OnCardSelected(1);
+                    if (keyboard.digit3Key.wasPressedThisFrame && currentChoices.Count >= 3) OnCardSelected(2);
                 }
             }
         }
 
-        public void ShowLevelUpSelection(bool isGameStart)
+        public void ShowLevelUpSelection(bool isGameStart = false)
         {
-            isGameStartSelection = isGameStart;
-            Time.timeScale = 0f; // Pause game
+            Time.timeScale = 0.0f; // Pause game
+            cardPanel.SetActive(true);
 
-            if (titleText != null)
-            {
-                titleText.text = isGameStart ? "CHOOSING STARTING INSTRUMENT (Press 1, 2, 3 or Click)" : "LEVEL UP! CHOOSE AN UPGRADE (Press 1, 2, 3 or Click)";
-            }
-
-            GenerateChoices(isGameStart);
-
-            if (cardPanel != null) cardPanel.SetActive(true);
-        }
-
-        public void ShowEliteRewardSelection()
-        {
-            isGameStartSelection = false;
-            Time.timeScale = 0f; // Pause game
-
-            if (titleText != null)
-            {
-                titleText.text = "★ ELITE CHEST REWARD! CHOOSE AN UPGRADE ★";
-            }
-
-            GenerateChoices(isGameStart: false);
-
-            if (cardPanel != null) cardPanel.SetActive(true);
-        }
-
-        private void GenerateChoices(bool isGameStart)
-        {
             currentChoices.Clear();
             List<InstrumentType> availableTypes = new List<InstrumentType>();
+
+            List<InstrumentInfo> equipped = InstrumentManager.Instance != null ? InstrumentManager.Instance.AcquiredInstruments : new List<InstrumentInfo>();
+            int unlocked = InstrumentManager.Instance != null ? InstrumentManager.Instance.GetUnlockedSlotsCount() : 2;
+            bool slotsFull = equipped.Count >= unlocked;
+
+            HashSet<InstrumentGroup> equippedGroups = new HashSet<InstrumentGroup>();
+            foreach (var inst in equipped)
+            {
+                equippedGroups.Add(InstrumentPatternDatabase.GetGroup(inst.type));
+            }
 
             if (isGameStart)
             {
@@ -116,17 +158,17 @@ namespace ConductorSymphony.UI
             }
             else
             {
-                // If slots < 4, allow unequipped types AND equipped instrument level ups (< 5)
-                List<InstrumentInfo> equipped = InstrumentManager.Instance != null ? InstrumentManager.Instance.AcquiredInstruments : new List<InstrumentInfo>();
-                bool slotsFull = equipped.Count >= 4;
-
                 if (!slotsFull)
                 {
                     foreach (InstrumentType t in System.Enum.GetValues(typeof(InstrumentType)))
                     {
                         if (!InstrumentManager.Instance.HasInstrument(t))
                         {
-                            availableTypes.Add(t);
+                            // Exclude instruments that belong to an already equipped group
+                            if (!equippedGroups.Contains(InstrumentPatternDatabase.GetGroup(t)))
+                            {
+                                availableTypes.Add(t);
+                            }
                         }
                     }
                 }
@@ -159,12 +201,27 @@ namespace ConductorSymphony.UI
                 currentChoices.Add(info);
             }
 
+            // Center alignment for available choices (1, 2, or 3 cards)
+            int activeCount = currentChoices.Count;
+            float cardWidth = 220f;
+            float spacing = 30f;
+            float totalWidth = (activeCount * cardWidth) + ((activeCount - 1) * spacing);
+            float startX = -totalWidth / 2f + cardWidth / 2f;
+
             // Setup buttons
             for (int i = 0; i < cardButtons.Length; i++)
             {
-                if (i < currentChoices.Count)
+                if (i < activeCount)
                 {
                     cardButtons[i].gameObject.SetActive(true);
+
+                    RectTransform rt = cardButtons[i].GetComponent<RectTransform>();
+                    if (rt != null)
+                    {
+                        float posX = startX + i * (cardWidth + spacing);
+                        rt.anchoredPosition = new Vector2(posX, 0f);
+                    }
+
                     InstrumentInfo choice = currentChoices[i];
                     InstrumentDefinition def = InstrumentPatternDatabase.GetDefinition(choice.type);
 
@@ -189,6 +246,11 @@ namespace ConductorSymphony.UI
                     if (i < cardButtons.Length) cardButtons[i].gameObject.SetActive(false);
                 }
             }
+        }
+
+        public void ShowEliteRewardSelection()
+        {
+            ShowLevelUpSelection(isGameStart: false);
         }
 
         public void OnCardSelected(int index)

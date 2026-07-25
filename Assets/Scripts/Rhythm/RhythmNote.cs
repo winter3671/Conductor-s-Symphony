@@ -4,10 +4,10 @@ namespace ConductorSymphony.Rhythm
 {
     public enum RhythmLane
     {
-        Left = 0,  // A key (180 deg)
-        Up = 1,    // W key (90 deg)
-        Down = 2,  // S key (270 deg)
-        Right = 3  // D key (0 deg)
+        Left = 0,    // Q key (180 deg)
+        UpLeft = 1,  // W key (135 deg)
+        UpRight = 2, // E key (45 deg)
+        Right = 3    // R key (0 deg)
     }
 
     public enum HitRating

@@ -82,7 +82,7 @@ namespace ConductorSymphony.Combat
             Vector3 spawnPos = player != null ? player.transform.position : Vector3.zero;
 
             // Play instrument key-sound audio feedback
-            int slotIdx = (int)lane;
+            int slotIdx = RhythmManager.GetSlotForLane(lane);
             if (Instrument.InstrumentManager.Instance != null && slotIdx < Instrument.InstrumentManager.Instance.AcquiredInstruments.Count)
             {
                 var inst = Instrument.InstrumentManager.Instance.AcquiredInstruments[slotIdx];

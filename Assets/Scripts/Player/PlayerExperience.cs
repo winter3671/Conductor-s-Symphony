@@ -26,6 +26,11 @@ namespace ConductorSymphony.Player
         private void Start()
         {
             OnExpChangedEvent?.Invoke(CurrentLevel, CurrentExp, MaxExp);
+
+            if (LevelUpUI.Instance != null && Instrument.InstrumentManager.Instance != null && Instrument.InstrumentManager.Instance.AcquiredInstruments.Count == 0)
+            {
+                LevelUpUI.Instance.ShowLevelUpSelection(isGameStart: true);
+            }
         }
 
         public void AddExp(int amount)

@@ -9,8 +9,6 @@ namespace ConductorSymphony.Instrument
     {
         public static InstrumentManager Instance { get; private set; }
 
-        [SerializeField] private int maxSlots = 4;
-
         private List<InstrumentInfo> acquiredInstruments = new List<InstrumentInfo>();
         private List<InstrumentOrbit> activeOrbits = new List<InstrumentOrbit>();
         private Transform playerTransform;
@@ -41,6 +39,14 @@ namespace ConductorSymphony.Instrument
             {
                 playerTransform = player.transform;
             }
+        }
+
+        public int GetUnlockedSlotsCount()
+        {
+            int pLevel = PlayerExperience.Instance != null ? PlayerExperience.Instance.CurrentLevel : 1;
+            if (pLevel < 5) return 2;      // Lv 1 ~ 4: 2 slots (Q & R)
+            else if (pLevel < 8) return 3; // Lv 5 ~ 7: 3 slots (Q, W, R)
+            else return 4;                // Lv 8+: 4 slots (Q, W, E, R)
         }
 
         private void CreateOrbitSprite()
@@ -91,8 +97,9 @@ namespace ConductorSymphony.Instrument
             }
             else
             {
-                // Acquire new instrument if slots < maxSlots
-                if (acquiredInstruments.Count >= maxSlots) return false;
+                // Acquire new instrument if slots < maxUnlockedSlots
+                int maxUnlocked = GetUnlockedSlotsCount();
+                if (acquiredInstruments.Count >= maxUnlocked) return false;
 
                 InstrumentInfo newInfo = new InstrumentInfo(type, 1);
                 acquiredInstruments.Add(newInfo);
