@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using ConductorSymphony.Player;
+using ConductorSymphony.Instrument;
 
 namespace ConductorSymphony.Rhythm
 {
@@ -13,6 +15,8 @@ namespace ConductorSymphony.Rhythm
         [SerializeField] private Text comboText;
         [SerializeField] private Text ratingText;
         [SerializeField] private Text hpText;
+        [SerializeField] private Text expText;
+        [SerializeField] private Text instrumentSlotText;
 
         private float ratingTimer = 0f;
 
@@ -29,11 +33,15 @@ namespace ConductorSymphony.Rhythm
         private void OnEnable()
         {
             PlayerController.OnHealthChangedEvent += UpdateHealthUI;
+            PlayerExperience.OnExpChangedEvent += UpdateExpUI;
+            InstrumentManager.OnInstrumentsChangedEvent += UpdateInstrumentUI;
         }
 
         private void OnDisable()
         {
             PlayerController.OnHealthChangedEvent -= UpdateHealthUI;
+            PlayerExperience.OnExpChangedEvent -= UpdateExpUI;
+            InstrumentManager.OnInstrumentsChangedEvent -= UpdateInstrumentUI;
         }
 
         private void Update()
@@ -54,6 +62,34 @@ namespace ConductorSymphony.Rhythm
             {
                 hpText.text = $"HP: {currentHp} / {maxHp}";
             }
+        }
+
+        public void UpdateExpUI(int level, int currentExp, int maxExp)
+        {
+            if (expText != null)
+            {
+                expText.text = $"LV.{level}  EXP: {currentExp} / {maxExp}";
+            }
+        }
+
+        public void UpdateInstrumentUI(List<InstrumentInfo> instruments)
+        {
+            if (instrumentSlotText == null) return;
+
+            string text = "INSTRUMENTS: ";
+            for (int i = 0; i < 4; i++)
+            {
+                if (i < instruments.Count)
+                {
+                    string colorHex = ColorUtility.ToHtmlStringRGB(instruments[i].themeColor);
+                    text += $"[<color=#{colorHex}>{instruments[i].instrumentName} Lv.{instruments[i].level}</color>] ";
+                }
+                else
+                {
+                    text += "[ EMPTY ] ";
+                }
+            }
+            instrumentSlotText.text = text;
         }
 
         public void UpdateScoreAndCombo(int score, int combo)

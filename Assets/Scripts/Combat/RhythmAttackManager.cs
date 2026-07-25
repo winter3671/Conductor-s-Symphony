@@ -80,14 +80,43 @@ namespace ConductorSymphony.Combat
 
             Vector3 spawnPos = player != null ? player.transform.position : Vector3.zero;
 
-            // Find nearest enemy
-            EnemyMonster nearestEnemy = FindNearestEnemy(spawnPos);
-            int damage = (rating == HitRating.Perfect) ? 2 : 1;
+            // Play instrument key-sound audio feedback
+            int slotIdx = (int)lane;
+            if (Instrument.InstrumentManager.Instance != null && slotIdx < Instrument.InstrumentManager.Instance.AcquiredInstruments.Count)
+            {
+                var inst = Instrument.InstrumentManager.Instance.AcquiredInstruments[slotIdx];
+                if (Audio.AudioLayerManager.Instance != null)
+                {
+                    Audio.AudioLayerManager.Instance.PlayInstrumentKeySound(inst.type, rating == HitRating.Perfect);
+                }
+            }
+
+            int extraDamage = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraDamage() : 0;
+            int extraProj = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraProjectiles() : 0;
+
+            int damage = ((rating == HitRating.Perfect) ? 2 : 1) + extraDamage;
+            int projCount = 1 + extraProj;
             Color projColor = (rating == HitRating.Perfect) ? Color.yellow : Color.cyan;
 
-            GameObject projObj = new GameObject($"Proj_{Time.frameCount}");
-            AttackProjectile proj = projObj.AddComponent<AttackProjectile>();
-            proj.Initialize(nearestEnemy, spawnPos, projectileSprite, projColor, damage);
+            EnemyMonster[] enemies = FindObjectsByType<EnemyMonster>();
+            if (enemies == null || enemies.Length == 0)
+            {
+                // Fire default single projectile forward if no enemies
+                GameObject projObj = new GameObject($"Proj_{Time.frameCount}");
+                AttackProjectile proj = projObj.AddComponent<AttackProjectile>();
+                proj.Initialize(null, spawnPos, projectileSprite, projColor, damage);
+                return;
+            }
+
+            // Sort enemies by distance
+            System.Array.Sort(enemies, (a, b) => Vector3.Distance(spawnPos, a.transform.position).CompareTo(Vector3.Distance(spawnPos, b.transform.position)));
+
+            for (int i = 0; i < Mathf.Min(projCount, enemies.Length); i++)
+            {
+                GameObject projObj = new GameObject($"Proj_{i}_{Time.frameCount}");
+                AttackProjectile proj = projObj.AddComponent<AttackProjectile>();
+                proj.Initialize(enemies[i], spawnPos, projectileSprite, projColor, damage);
+            }
         }
 
         private EnemyMonster FindNearestEnemy(Vector3 originPos)

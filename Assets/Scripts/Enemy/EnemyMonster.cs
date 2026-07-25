@@ -73,6 +73,14 @@ namespace ConductorSymphony.Enemy
 
         private void Die()
         {
+            // 75% chance to drop EXP Gem
+            if (Random.value <= 0.75f)
+            {
+                GameObject gemObj = new GameObject($"ExpGem_{Time.frameCount}");
+                Player.ExpGem gem = gemObj.AddComponent<Player.ExpGem>();
+                gem.Initialize(transform.position, 15);
+            }
+
             Destroy(gameObject);
         }
     }
