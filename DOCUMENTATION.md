@@ -1,6 +1,6 @@
 # 🎼 Conductor's Symphony - 상세 개발 기록, 트러블슈팅 및 기획/기술 의도 문서 (DOCUMENTATION.md)
 
-본 문서는 **Conductor's Symphony** 프로젝트의 전체 개발 과정, 발생했던 주요 오류 및 트러블슈팅 내역, 4마디 음악 곡 구조 설계, 엘리트 보스전 및 특수 전리품 보상 시스템, QWER 조작계 및 리듬 밸런싱, 그리고 코드 아키텍처를 상세히 기록한 종합 개발 보고서입니다.
+본 문서는 **Conductor's Symphony** 프로젝트의 전체 개발 과정, 발생했던 주요 오류 및 트러블슈팅 내역, 4마디 음악 곡 구조 설계, 엘리트 보스전 및 특수 전리품 보상 시스템, QWER 조작계 및 리듬 밸런싱, 지휘자 캐릭터 픽셀 아트 애니메이션, 그리고 코드 아키텍처를 상세히 기록한 종합 개발 보고서입니다.
 
 IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제든지 개발 이력, 개선 사항, 코드 아키텍처를 파악할 수 있습니다.
 
@@ -43,6 +43,10 @@ IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제�
 * **구현 목표:** WASD → QWER 부채꼴 4방향 전환 + 단계적 슬롯 해금(Lv 1~4: 2개, Lv 5~7: 3개, Lv 8+: 4개) + 10종 악기 100% 고유 비트 명세 + 1레벨 4타 최소 보장 / 5레벨 8타 MAX 다이내믹 4마디 변주 패턴 구축
 * **의도:** 게이머에게 가장 편안한 QWER 가로 키 조작감을 제공하고, 플레이어 성장에 맞춰 레인이 단계적으로 열려 조작 적응을 도우며, 마디별 엇박 시프트 및 턴어라운드 필인으로 단조로운 반복을 파괴.
 
+### 🔹 Step 4-C: 지휘자 캐릭터 픽셀 아트 애니메이션 및 QWER 지휘 포즈 연동
+* **구현 목표:** 4방향 대기 도트(Idle), 4방향 이동 걸음 도트(Move 37프레임), QWER 리듬 성공 지휘 포즈(Hit Conduct 4종) 연동 및 월드 높이 1.8m 균일화(Height Normalization) 수식 적용
+* **의도:** 유저가 제작한 고품질 픽셀 아트 그래픽을 연동하여 리듬 판정 성공 시 지휘자가 해당 방향으로 지휘봉을 뻗는 생생한 연주 타격감을 완성.
+
 ---
 
 ## 🎼 3. 32비트 4마디 곡 구조(Song Form) & 10종 악기 고유 리듬 명세
@@ -80,12 +84,17 @@ IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제�
 6. **레벨업 카드 선택지 2개 이하 시 빈 공간 갭 현상:** `LevelUpUI.cs`에서 활성화된 카드 갯수(1~3개)에 맞춰 X좌표를 동적으로 계산하여 중앙 정렬.
 7. **Perfect vs Great 타격 시 피치 이탈:** `sfxSource.pitch = 1.0f`로 완전 고정하여 일관되고 아름다운 키음 정음 연주.
 8. **일시정지/카드선택 시 WASD/QWER 연주 작동 버그:** `RhythmManager.cs` `Update()` 시작부에 `if (Time.timeScale <= 0f) return;` 조건을 추가하여 일시정지 중 연주 완전 차단.
+9. **스프라이트 이미지별 해상도 차이로 인한 캐릭터 튀는 현상:** `PlayerController.cs`에 동적 높이 균일화 공식(`scale = targetWorldHeight / spriteHeight`)을 적용하여 프레임 교체 시 크기가 일정하게 유지되도록 구현.
 
 ---
 
 ## 📂 5. 전체 C# 소스코드 구조 & 파일별 역할 (File Architecture)
 
 ```text
+Assets/
+├── Resources/
+│   └── Sprites/
+│       └── Player/                 # 대기(Idle), 이동(Move), 지휘(Hit) 픽셀 아트 PNG 에셋
 Assets/Scripts/
 ├── Audio/
 │   └── AudioLayerManager.cs        # 10종 악기 고유 키음(Sine/Saw/Square/Triangle/Noise) 합성 및 메트로놈 BGM
@@ -109,7 +118,7 @@ Assets/Scripts/
 │   └── EliteRewardChest.cs         # 엘리트 보스 처치 시 드롭되는 황금 보물상자 (엄격한 근접 픽업)
 ├── Player/
 │   ├── ExpGem.cs                    # 몬스터 사망 시 드롭되는 에메랄드 경험치 보석 (자석 흡수)
-│   ├── PlayerController.cs          # 오른손 방향키 이동, HP 및 무적 프레임 관리
+│   ├── PlayerController.cs          # 방향키 이동 4방향 애니메이션, QWER 지휘 포즈, 높이 균일화 & HP 관리
 │   └── PlayerExperience.cs         # 경험치 획득, 레벨업 감지, 지수 요구량 곡선 및 Event 전달
 ├── Rhythm/
 │   ├── RhythmManager.cs             # 90 BPM 32비트(4마디) 시퀀서 루프 엔진 & QWER 판정
