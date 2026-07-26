@@ -1,6 +1,6 @@
 # 🎼 Conductor's Symphony - 상세 개발 기록, 트러블슈팅 및 기획/기술 의도 문서 (DOCUMENTATION.md)
 
-본 문서는 **Conductor's Symphony** 프로젝트의 전체 개발 과정, 발생했던 주요 오류 및 트러블슈팅 내역, 4마디 음악 곡 구조 설계, 엘리트 보스전 및 특수 전리품 보상 시스템, QWER 조작계 및 리듬 밸런싱, 지휘자 캐릭터 픽셀 아트 애니메이션, 그리고 코드 아키텍처를 상세히 기록한 종합 개발 보고서입니다.
+본 문서는 **Conductor's Symphony** 프로젝트의 전체 개발 과정, 발생했던 주요 오류 및 트러블슈팅 내역, 4마디 음악 곡 구조 설계, 엘리트 보스전 및 특수 전리품 보상 시스템, QWER 조작계 및 리듬 밸런싱, 지휘자 캐릭터 및 10종 악기 픽셀 아트 연동, 초미세 수축 비트 링 시각화, 그리고 코드 아키텍처를 상세히 기록한 종합 개발 보고서입니다.
 
 IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제든지 개발 이력, 개선 사항, 코드 아키텍처를 파악할 수 있습니다.
 
@@ -43,9 +43,13 @@ IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제�
 * **구현 목표:** WASD → QWER 부채꼴 4방향 전환 + 단계적 슬롯 해금(Lv 1~4: 2개, Lv 5~7: 3개, Lv 8+: 4개) + 10종 악기 100% 고유 비트 명세 + 1레벨 4타 최소 보장 / 5레벨 8타 MAX 다이내믹 4마디 변주 패턴 구축
 * **의도:** 게이머에게 가장 편안한 QWER 가로 키 조작감을 제공하고, 플레이어 성장에 맞춰 레인이 단계적으로 열려 조작 적응을 도우며, 마디별 엇박 시프트 및 턴어라운드 필인으로 단조로운 반복을 파괴.
 
-### 🔹 Step 4-C: 지휘자 캐릭터 픽셀 아트 애니메이션 및 QWER 지휘 포즈 연동
-* **구현 목표:** 4방향 대기 도트(Idle), 4방향 이동 걸음 도트(Move 37프레임), QWER 리듬 성공 지휘 포즈(Hit Conduct 4종) 연동 및 월드 높이 1.8m 균일화(Height Normalization) 수식 적용
-* **의도:** 유저가 제작한 고품질 픽셀 아트 그래픽을 연동하여 리듬 판정 성공 시 지휘자가 해당 방향으로 지휘봉을 뻗는 생생한 연주 타격감을 완성.
+### 🔹 Step 4-C: 지휘자 캐릭터 및 10종 악기 픽셀 아트 그래픽 전면 연동
+* **구현 목표:** 4방향 대기/이동/지휘 포즈 도트 및 10종 악기(Drums, Violin, Flute 등) 픽셀 아트 카드 아이콘 & 지휘자 호위 펫 연동
+* **의도:** 픽셀 아트 에셋을 게임 전반에 연동하여 1.0m 아바타 스케일 및 0.45m 악기 펫 호위 배치로 퀄리티 높은 비주얼 구축.
+
+### 🔹 Step 4-D: 동시타 식별용 0.005f 초미세 수축 비트 링 (Shrinking Rhythm Ring) 시스템
+* **구현 목표:** 비트 노드가 발생하는 스텝마다 플레이어를 중심으로 0.005f 초미세 흰색 원형 링(`ShrinkingRhythmRing.cs`)이 수축되는 연출 구현
+* **의도:** 여러 방향에서 비트가 오더라도 동시타 박자에 해당하는 노드들이 동일한 흰색 테두리 상에 올려진 채 수축하여 한눈에 동시타 타이밍을 직관적으로 감지하도록 구현.
 
 ---
 
@@ -79,12 +83,10 @@ IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제�
 1. **WASD 인지 부조화 & 손가락 꼬임:** 왼손 `Q, W, E, R` 가로 4키 + 오른손 `방향키`로 전면 개편하고 씬 UI를 지휘자 상단 부채꼴(V자) 방향으로 변경하여 직관성 확보.
 2. **2번째 악기 `R`키 오디오 미재생 버그:** `RhythmAttackManager`에서 `RhythmLane.Right` (3)을 직접 캐스팅하던 코드를 `GetSlotForLane(lane)`으로 수정하여 Slot 1 오디오 키음 정상 재생.
 3. **3번째 악기 해금 시 기존 악기 키 이동 현상:** 슬롯과 키를 **`1슬롯=Q, 2슬롯=R, 3슬롯=W, 4슬롯=E`** 순서로 영구 고정 결착하여 기존 악기 조작키가 절대 변경되지 않도록 조치.
-4. **몬스터 겹침(Stacking) 현상:** `EnemyMonster.cs`에 상호 척력(`ApplySeparation()`) 로직을 도입하여 몬스터들이 하나의 점으로 합성되지 않고 예쁜 군집을 유지하도록 구현.
-5. **보스 처치 후 즉시 보스 스폰 버그:** `EnemySpawner.cs`에서 보스전 중 타이머를 동결하고 보스를 처치한 직후부터 2분(120초) 파밍 타이머가 리셋되도록 개편.
-6. **레벨업 카드 선택지 2개 이하 시 빈 공간 갭 현상:** `LevelUpUI.cs`에서 활성화된 카드 갯수(1~3개)에 맞춰 X좌표를 동적으로 계산하여 중앙 정렬.
-7. **Perfect vs Great 타격 시 피치 이탈:** `sfxSource.pitch = 1.0f`로 완전 고정하여 일관되고 아름다운 키음 정음 연주.
-8. **일시정지/카드선택 시 WASD/QWER 연주 작동 버그:** `RhythmManager.cs` `Update()` 시작부에 `if (Time.timeScale <= 0f) return;` 조건을 추가하여 일시정지 중 연주 완전 차단.
-9. **스프라이트 이미지별 해상도 차이로 인한 캐릭터 튀는 현상:** `PlayerController.cs`에 동적 높이 균일화 공식(`scale = targetWorldHeight / spriteHeight`)을 적용하여 프레임 교체 시 크기가 일정하게 유지되도록 구현.
+4. **엘리트 보스 탄막 피격 데미지 안 들어오는 버그:** `BossProjectile.cs` 생성 시 `CircleCollider2D (radius = 0.45f, isTrigger = true)` 컴포넌트가 누락되어 있던 것을 발견하여 복구 완료.
+5. **아바타 스케일 조정 후 탄막 판정 미스 현상:** `PlayerController.cs` 높이를 `1.0m`로 감축하고 피격 콜라이더 반경(`col.radius`)을 `0.65f`로 확장하여 부드럽고 정확한 피격 판정 구현.
+6. **호위 악기 가로 비정상 거대화 버그:** `InstrumentOrbit.cs` 스케일을 가로/세로 중 최대 변(`maxDim`) 기준 `0.45m` 월드 크기로 정밀 감축하여 앙증맞은 펫 모션 완성.
+7. **지휘자가 악기에 가려지는 레이어 문제:** 지휘자 아바타 `sortingOrder = 10`, 호위 악기 `sortingOrder = 5`로 설정하여 지휘자를 최상단 레이어로 노출.
 
 ---
 
@@ -94,6 +96,7 @@ IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제�
 Assets/
 ├── Resources/
 │   └── Sprites/
+│       ├── Instruments/            # 10종 악기 픽셀 아트 PNG 에셋 (Drums, Guitar, Violin 등)
 │       └── Player/                 # 대기(Idle), 이동(Move), 지휘(Hit) 픽셀 아트 PNG 에셋
 Assets/Scripts/
 ├── Audio/
@@ -105,27 +108,28 @@ Assets/Scripts/
 │   └── RhythmAttackManager.cs      # QWER 리듬 성공 시 오토 타겟팅 Multi-Shot 발사 & 키음 재생
 ├── Enemy/
 │   ├── BossMonster.cs              # 거대 엘리트 보스 AI, 120 HP base, 3가지 360도 탄막 패턴 및 특수 상자 드롭
-│   ├── BossProjectile.cs           # 보스 전용 360도/조준/스파이럴 탄막 발사체
+│   ├── BossProjectile.cs           # 보스 전용 360도/조준/스파이럴 탄막 발사체 (CircleCollider2D 0.45f 탑재)
 │   ├── EnemyMonster.cs             # 음표 몬스터 추적 AI, HP, 상호 척력(Separation), 100% ExpGem 드롭
 │   └── EnemySpawner.cs             # 보스 처치 후 2분 리셋 보스 스폰 및 잡몹 스폰 억제/재개 루프
 ├── Instrument/
 │   ├── InstrumentData.cs            # 악기 데이터 클래스 & 레벨업 스탯(데미지/멀티샷/점수)
 │   ├── InstrumentItem.cs            # 몬스터 드롭 악기 수집 아이템 개체
 │   ├── InstrumentManager.cs         # 10종 악기 중 4슬롯 덱빌딩 & 단계적 슬롯 해금(Lv 5, 8)
-│   ├── InstrumentOrbit.cs           # 지휘자 호위 펫 둥둥 부유 & Lerp 추적 모션
+│   ├── InstrumentOrbit.cs           # 지휘자 호위 펫 0.45m 축소 둥둥 부유 & Lerp 추적 모션
 │   └── InstrumentPatternDatabase.cs # 10종 악기 Lv.1~5 (100% 고유 비트 & 다이내믹 4마디 변주 DB)
 ├── Item/
-│   └── EliteRewardChest.cs         # 엘리트 보스 처치 시 드롭되는 황금 보물상자 (엄격한 근접 픽업)
+│   └── EliteRewardChest.cs         # 엘리트 보스 처치 시 드롭되는 황금 보물상자 (습득 반경 0.75f)
 ├── Player/
 │   ├── ExpGem.cs                    # 몬스터 사망 시 드롭되는 에메랄드 경험치 보석 (자석 흡수)
-│   ├── PlayerController.cs          # 방향키 이동 4방향 애니메이션, QWER 지휘 포즈, 높이 균일화 & HP 관리
+│   ├── PlayerController.cs          # 방향키 이동 4방향 애니메이션, QWER 지휘 포즈, 1.0m 스케일 & HP 관리
 │   └── PlayerExperience.cs         # 경험치 획득, 레벨업 감지, 지수 요구량 곡선 및 Event 전달
 ├── Rhythm/
 │   ├── RhythmManager.cs             # 90 BPM 32비트(4마디) 시퀀서 루프 엔진 & QWER 판정
 │   ├── RhythmNote.cs                # 실시간 상대 좌표 추적 노트 개체 (Q, W, E, R Arc 4레인)
-│   └── RhythmUI.cs                  # Score, Combo, HP, EXP, Boss HP, Instrument QWER Slot UI
+│   ├── RhythmUI.cs                  # Score, Combo, HP, EXP, Boss HP, Instrument QWER Slot UI
+│   └── ShrinkingRhythmRing.cs       # 동시타 식별용 0.005f 초미세 수축 비트 링 개체
 └── UI/
-    └── LevelUpUI.cs                 # 스타팅/레벨업/엘리트상자 3카드 팝업, 동적 중앙 정렬 및 중복 그룹 필터링
+    └── LevelUpUI.cs                 # 스타팅/레벨업/엘리트상자 3카드 팝업, 픽셀 아트 아이콘 & 중복 그룹 필터링
 ```
 
 ---
