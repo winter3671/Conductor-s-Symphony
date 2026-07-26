@@ -3,13 +3,14 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using ConductorSymphony.Instrument;
+using ConductorSymphony.Player;
+using ConductorSymphony.Item;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.UI
 {
-    public class LevelUpUI : MonoBehaviour
+    public class LevelUpUI : MonoSingleton<LevelUpUI>
     {
-        public static LevelUpUI Instance { get; private set; }
-
         [Header("UI Panel & Buttons")]
         [SerializeField] private GameObject cardPanel;
         [SerializeField] private Button[] cardButtons;
@@ -19,24 +20,34 @@ namespace ConductorSymphony.UI
 
         private List<InstrumentInfo> currentChoices = new List<InstrumentInfo>();
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-            Instance = this;
+            base.Awake();
+            if (Instance != this) return;
 
             EnsureUIComponents();
         }
 
-        private void Start()
+        private void OnEnable()
         {
-            if (InstrumentManager.Instance != null && InstrumentManager.Instance.AcquiredInstruments.Count == 0)
-            {
-                ShowLevelUpSelection(isGameStart: true);
-            }
+            PlayerExperience.OnLevelUpEvent += HandleLevelUp;
+            EliteRewardChest.OnEliteChestCollectedEvent += HandleEliteChestCollected;
+        }
+
+        private void OnDisable()
+        {
+            PlayerExperience.OnLevelUpEvent -= HandleLevelUp;
+            EliteRewardChest.OnEliteChestCollectedEvent -= HandleEliteChestCollected;
+        }
+
+        private void HandleLevelUp(bool isGameStart)
+        {
+            ShowLevelUpSelection(isGameStart);
+        }
+
+        private void HandleEliteChestCollected()
+        {
+            ShowEliteRewardSelection();
         }
 
         private void EnsureUIComponents()

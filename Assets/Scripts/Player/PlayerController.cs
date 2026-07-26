@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using ConductorSymphony.Enemy;
 using ConductorSymphony.Rhythm;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Player
 {
@@ -16,10 +17,8 @@ namespace ConductorSymphony.Player
     }
 
     [RequireComponent(typeof(Rigidbody2D), typeof(CircleCollider2D))]
-    public class PlayerController : MonoBehaviour
+    public class PlayerController : MonoSingleton<PlayerController>
     {
-        public static PlayerController Instance { get; private set; }
-
         [Header("Movement Settings")]
         [SerializeField] private float moveSpeed = 5.0f;
         [SerializeField] private float targetWorldHeight = 1.0f; // Scaled to 1.0m height
@@ -65,14 +64,10 @@ namespace ConductorSymphony.Player
 
         public static event System.Action<int, int> OnHealthChangedEvent;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-            Instance = this;
+            base.Awake();
+            if (Instance != this) return;
 
             rb = GetComponent<Rigidbody2D>();
             rb.gravityScale = 0f;

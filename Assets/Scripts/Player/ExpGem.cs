@@ -1,4 +1,5 @@
 using UnityEngine;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Player
 {
@@ -13,7 +14,6 @@ namespace ConductorSymphony.Player
         private SpriteRenderer spriteRenderer;
         private bool isMagnetized = false;
 
-        private static Texture2D gemTexture;
         private static Sprite gemSprite;
 
         public void Initialize(Vector3 spawnPos, int amount = 15)
@@ -34,28 +34,12 @@ namespace ConductorSymphony.Player
 
         private static void CreateGemSprite()
         {
-            int size = 16;
-            gemTexture = new Texture2D(size, size);
-            Color[] px = new Color[size * size];
-            Vector2 center = new Vector2(size / 2f, size / 2f);
-
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    float d = Vector2.Distance(new Vector2(x, y), center);
-                    px[y * size + x] = (d <= 6f) ? Color.white : Color.clear;
-                }
-            }
-            gemTexture.SetPixels(px);
-            gemTexture.Apply();
-            gemSprite = Sprite.Create(gemTexture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            gemSprite = ProceduralSpriteFactory.CreateFilledCircle(16, 6f, Color.white);
         }
 
         private void Start()
         {
-            PlayerController player = FindAnyObjectByType<PlayerController>();
-            if (player != null) playerTransform = player.transform;
+            if (PlayerController.Instance != null) playerTransform = PlayerController.Instance.transform;
         }
 
         private void Update()

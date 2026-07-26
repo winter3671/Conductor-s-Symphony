@@ -3,14 +3,14 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using ConductorSymphony.Instrument;
 using ConductorSymphony.Player;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Rhythm
 {
-    public class RhythmManager : MonoBehaviour
+    public class RhythmManager : MonoSingleton<RhythmManager>
     {
-        public static RhythmManager Instance { get; private set; }
-
         public event System.Action<HitRating, RhythmLane> OnHitSuccessEvent;
+        public static event System.Action<int, int, HitRating> OnScoreUpdatedEvent; // score, combo, rating
 
         [Header("Rhythm Sequencer Settings")]
         [SerializeField] private float bpm = 90f;
@@ -32,56 +32,26 @@ namespace ConductorSymphony.Rhythm
         private int currentScore = 0;
         private int currentCombo = 0;
 
-        private Texture2D defaultNoteTexture;
         private Sprite defaultNoteSprite;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-            Instance = this;
+            base.Awake();
+            if (Instance != this) return;
 
             // 90 BPM: 32-beat cycle over ~10.6s => 0.333s per step
             stepDuration = (60f / bpm) / 2f;
             nextStepTime = Time.time + stepDuration;
 
-            CreateDefaultSprite();
+            defaultNoteSprite = ProceduralSpriteFactory.CreateFilledCircle(32, 14f, Color.cyan);
         }
 
         private void Start()
         {
-            if (targetTransform == null)
+            if (targetTransform == null && PlayerController.Instance != null)
             {
-                PlayerController player = FindAnyObjectByType<PlayerController>();
-                if (player != null)
-                {
-                    targetTransform = player.transform;
-                }
+                targetTransform = PlayerController.Instance.transform;
             }
-        }
-
-        private void CreateDefaultSprite()
-        {
-            int size = 32;
-            defaultNoteTexture = new Texture2D(size, size);
-            Color[] pixels = new Color[size * size];
-            Vector2 center = new Vector2(size / 2f, size / 2f);
-            float radius = size / 2f - 2f;
-
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    float dist = Vector2.Distance(new Vector2(x, y), center);
-                    pixels[y * size + x] = (dist <= radius) ? Color.cyan : Color.clear;
-                }
-            }
-            defaultNoteTexture.SetPixels(pixels);
-            defaultNoteTexture.Apply();
-            defaultNoteSprite = Sprite.Create(defaultNoteTexture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
         }
 
         private void Update()
@@ -260,11 +230,7 @@ namespace ConductorSymphony.Rhythm
 
             TriggerVisualHitFeedback(rating);
 
-            if (RhythmUI.Instance != null)
-            {
-                RhythmUI.Instance.ShowHitRating(rating);
-                RhythmUI.Instance.UpdateScoreAndCombo(currentScore, currentCombo);
-            }
+            OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, rating);
         }
 
         public void OnNoteMissed(RhythmNote note)
@@ -276,11 +242,7 @@ namespace ConductorSymphony.Rhythm
 
                 TriggerVisualHitFeedback(HitRating.Miss);
 
-                if (RhythmUI.Instance != null)
-                {
-                    RhythmUI.Instance.ShowHitRating(HitRating.Miss);
-                    RhythmUI.Instance.UpdateScoreAndCombo(currentScore, currentCombo);
-                }
+                OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, HitRating.Miss);
             }
         }
 

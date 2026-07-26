@@ -3,13 +3,13 @@ using UnityEngine;
 using UnityEngine.UI;
 using ConductorSymphony.Player;
 using ConductorSymphony.Instrument;
+using ConductorSymphony.Enemy;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Rhythm
 {
-    public class RhythmUI : MonoBehaviour
+    public class RhythmUI : MonoSingleton<RhythmUI>
     {
-        public static RhythmUI Instance { get; private set; }
-
         [Header("UI References")]
         [SerializeField] private Text scoreText;
         [SerializeField] private Text comboText;
@@ -22,14 +22,10 @@ namespace ConductorSymphony.Rhythm
 
         private float ratingTimer = 0f;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-            Instance = this;
+            base.Awake();
+            if (Instance != this) return;
 
             EnsureBossUIElements();
         }
@@ -83,6 +79,10 @@ namespace ConductorSymphony.Rhythm
             PlayerController.OnHealthChangedEvent += UpdateHealthUI;
             PlayerExperience.OnExpChangedEvent += UpdateExpUI;
             InstrumentManager.OnInstrumentsChangedEvent += UpdateInstrumentUI;
+            RhythmManager.OnScoreUpdatedEvent += HandleScoreUpdated;
+            BossMonster.OnBossSpawnedEvent += HandleBossSpawned;
+            BossMonster.OnBossHpChangedEvent += UpdateBossHp;
+            BossMonster.OnBossDefeatedEvent += HandleBossDefeated;
         }
 
         private void OnDisable()
@@ -90,6 +90,26 @@ namespace ConductorSymphony.Rhythm
             PlayerController.OnHealthChangedEvent -= UpdateHealthUI;
             PlayerExperience.OnExpChangedEvent -= UpdateExpUI;
             InstrumentManager.OnInstrumentsChangedEvent -= UpdateInstrumentUI;
+            RhythmManager.OnScoreUpdatedEvent -= HandleScoreUpdated;
+            BossMonster.OnBossSpawnedEvent -= HandleBossSpawned;
+            BossMonster.OnBossHpChangedEvent -= UpdateBossHp;
+            BossMonster.OnBossDefeatedEvent -= HandleBossDefeated;
+        }
+
+        private void HandleScoreUpdated(int score, int combo, HitRating rating)
+        {
+            UpdateScoreAndCombo(score, combo);
+            ShowHitRating(rating);
+        }
+
+        private void HandleBossSpawned(int maxHp)
+        {
+            ShowBossHpBar(true, maxHp);
+        }
+
+        private void HandleBossDefeated()
+        {
+            ShowBossHpBar(false, 0);
         }
 
         private void Update()

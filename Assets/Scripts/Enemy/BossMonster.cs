@@ -1,13 +1,15 @@
 using System.Collections;
 using UnityEngine;
 using ConductorSymphony.Player;
-using ConductorSymphony.Rhythm;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Enemy
 {
-    public class BossMonster : MonoBehaviour
+    public class BossMonster : MonoSingleton<BossMonster>
     {
-        public static BossMonster Instance { get; private set; }
+        public static event System.Action<int> OnBossSpawnedEvent;       // maxHp
+        public static event System.Action<int, int> OnBossHpChangedEvent; // currentHp, maxHp
+        public static event System.Action OnBossDefeatedEvent;
 
         [Header("Boss Stats")]
         [SerializeField] private int maxHp = 120;
@@ -27,14 +29,10 @@ namespace ConductorSymphony.Enemy
         public int CurrentHp => currentHp;
         public int MaxHp => maxHp;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-            Instance = this;
+            base.Awake();
+            if (Instance != this) return;
 
             currentHp = maxHp;
             SetupComponents();
@@ -44,16 +42,13 @@ namespace ConductorSymphony.Enemy
         {
             maxHp = hp;
             currentHp = maxHp;
-            if (RhythmUI.Instance != null)
-            {
-                RhythmUI.Instance.ShowBossHpBar(true, maxHp);
-            }
+            OnBossSpawnedEvent?.Invoke(maxHp);
         }
 
         private void SetupComponents()
         {
             spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
-            spriteRenderer.sprite = CreateBossSprite();
+            spriteRenderer.sprite = ProceduralSpriteFactory.CreateRingWithCore(48, 12f, 20f, new Color(1.0f, 0.85f, 0.0f), new Color(0.9f, 0.1f, 0.1f));
             spriteRenderer.color = new Color(1.0f, 0.2f, 0.2f);
             spriteRenderer.sortingOrder = 7;
 
@@ -64,49 +59,15 @@ namespace ConductorSymphony.Enemy
             transform.localScale = new Vector3(2.5f, 2.5f, 1f);
         }
 
-        private static Sprite CreateBossSprite()
-        {
-            int size = 48;
-            Texture2D tex = new Texture2D(size, size);
-            Color[] px = new Color[size * size];
-            Vector2 center = new Vector2(size / 2f, size / 2f);
-
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    float d = Vector2.Distance(new Vector2(x, y), center);
-                    if (d <= 20f && d >= 12f)
-                    {
-                        px[y * size + x] = new Color(1.0f, 0.85f, 0.0f);
-                    }
-                    else if (d < 12f)
-                    {
-                        px[y * size + x] = new Color(0.9f, 0.1f, 0.1f);
-                    }
-                    else
-                    {
-                        px[y * size + x] = Color.clear;
-                    }
-                }
-            }
-            tex.SetPixels(px);
-            tex.Apply();
-            return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
-        }
-
         private void Start()
         {
-            player = FindAnyObjectByType<PlayerController>();
-            if (RhythmUI.Instance != null)
-            {
-                RhythmUI.Instance.ShowBossHpBar(true, maxHp);
-            }
+            player = PlayerController.Instance;
+            OnBossSpawnedEvent?.Invoke(maxHp);
         }
 
         private void Update()
         {
-            if (player == null) player = FindAnyObjectByType<PlayerController>();
+            if (player == null) player = PlayerController.Instance;
             if (player != null)
             {
                 Vector3 dir = (player.transform.position - transform.position).normalized;
@@ -183,10 +144,7 @@ namespace ConductorSymphony.Enemy
             currentHp -= damage;
             StartCoroutine(FlashDamageRoutine());
 
-            if (RhythmUI.Instance != null)
-            {
-                RhythmUI.Instance.UpdateBossHp(currentHp, maxHp);
-            }
+            OnBossHpChangedEvent?.Invoke(currentHp, maxHp);
 
             if (currentHp <= 0)
             {
@@ -203,10 +161,7 @@ namespace ConductorSymphony.Enemy
 
         private void Die()
         {
-            if (RhythmUI.Instance != null)
-            {
-                RhythmUI.Instance.ShowBossHpBar(false, maxHp);
-            }
+            OnBossDefeatedEvent?.Invoke();
 
             GameObject chestObj = new GameObject("EliteRewardChest");
             chestObj.transform.position = transform.position;

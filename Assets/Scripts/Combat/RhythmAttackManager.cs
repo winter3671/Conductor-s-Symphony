@@ -3,35 +3,29 @@ using UnityEngine;
 using ConductorSymphony.Enemy;
 using ConductorSymphony.Player;
 using ConductorSymphony.Rhythm;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Combat
 {
-    public class RhythmAttackManager : MonoBehaviour
+    public class RhythmAttackManager : MonoSingleton<RhythmAttackManager>
     {
-        public static RhythmAttackManager Instance { get; private set; }
-
         private PlayerController player;
         private EnemySpawner spawner;
 
-        private Texture2D projectileTexture;
         private Sprite projectileSprite;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-            Instance = this;
+            base.Awake();
+            if (Instance != this) return;
 
-            CreateProjectileSprite();
+            projectileSprite = ProceduralSpriteFactory.CreateFilledCircle(20, 8f, Color.yellow);
         }
 
         private void Start()
         {
-            player = FindAnyObjectByType<PlayerController>();
-            spawner = FindAnyObjectByType<EnemySpawner>();
+            player = PlayerController.Instance;
+            spawner = EnemySpawner.Instance;
 
             if (RhythmManager.Instance != null)
             {
@@ -47,37 +41,10 @@ namespace ConductorSymphony.Combat
             }
         }
 
-        private void CreateProjectileSprite()
-        {
-            int size = 20;
-            projectileTexture = new Texture2D(size, size);
-            Color[] pixels = new Color[size * size];
-            Vector2 center = new Vector2(size / 2f, size / 2f);
-
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    float dist = Vector2.Distance(new Vector2(x, y), center);
-                    if (dist <= 8f)
-                    {
-                        pixels[y * size + x] = Color.yellow;
-                    }
-                    else
-                    {
-                        pixels[y * size + x] = Color.clear;
-                    }
-                }
-            }
-            projectileTexture.SetPixels(pixels);
-            projectileTexture.Apply();
-            projectileSprite = Sprite.Create(projectileTexture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
-        }
-
         public void HandleRhythmHit(HitRating rating, RhythmLane lane)
         {
-            if (player == null) player = FindAnyObjectByType<PlayerController>();
-            if (spawner == null) spawner = FindAnyObjectByType<EnemySpawner>();
+            if (player == null) player = PlayerController.Instance;
+            if (spawner == null) spawner = EnemySpawner.Instance;
 
             Vector3 spawnPos = player != null ? player.transform.position : Vector3.zero;
 

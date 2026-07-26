@@ -1,13 +1,12 @@
 using System.Collections.Generic;
 using UnityEngine;
 using ConductorSymphony.Player;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Enemy
 {
-    public class EnemySpawner : MonoBehaviour
+    public class EnemySpawner : MonoSingleton<EnemySpawner>
     {
-        public static EnemySpawner Instance { get; private set; }
-
         [Header("Spawn Settings")]
         [SerializeField] private float spawnRadius = 8.0f;
         [SerializeField] private float bossInterval = 120.0f; // 2 minutes of farming after boss defeat
@@ -18,30 +17,24 @@ namespace ConductorSymphony.Enemy
         private Transform playerTransform;
         private List<EnemyMonster> activeEnemies = new List<EnemyMonster>();
 
-        private Texture2D enemyTexture;
         private Sprite enemySprite;
 
         public IReadOnlyList<EnemyMonster> ActiveEnemies => activeEnemies;
         public int StageLevel => stageLevel;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-            Instance = this;
+            base.Awake();
+            if (Instance != this) return;
 
-            CreateEnemySprite();
+            enemySprite = ProceduralSpriteFactory.CreateDiamond(32, 12f, Color.magenta);
         }
 
         private void Start()
         {
-            PlayerController player = FindAnyObjectByType<PlayerController>();
-            if (player != null)
+            if (PlayerController.Instance != null)
             {
-                playerTransform = player.transform;
+                playerTransform = PlayerController.Instance.transform;
             }
             nextSpawnTime = Time.time + GetSpawnIntervalForStage();
             bossTimer = 0f;
@@ -59,34 +52,6 @@ namespace ConductorSymphony.Enemy
             if (stageLevel == 1) return 25;
             else if (stageLevel == 2) return 45;
             else return 65;
-        }
-
-        private void CreateEnemySprite()
-        {
-            int size = 32;
-            enemyTexture = new Texture2D(size, size);
-            Color[] pixels = new Color[size * size];
-            Vector2 center = new Vector2(size / 2f, size / 2f);
-
-            // Diamond / Note shape
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    float dist = Mathf.Abs(x - center.x) + Mathf.Abs(y - center.y);
-                    if (dist <= 12f)
-                    {
-                        pixels[y * size + x] = Color.magenta;
-                    }
-                    else
-                    {
-                        pixels[y * size + x] = Color.clear;
-                    }
-                }
-            }
-            enemyTexture.SetPixels(pixels);
-            enemyTexture.Apply();
-            enemySprite = Sprite.Create(enemyTexture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
         }
 
         private void Update()

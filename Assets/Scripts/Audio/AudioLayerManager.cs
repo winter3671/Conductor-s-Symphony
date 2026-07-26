@@ -1,26 +1,21 @@
 using System.Collections.Generic;
 using UnityEngine;
 using ConductorSymphony.Instrument;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Audio
 {
-    public class AudioLayerManager : MonoBehaviour
+    public class AudioLayerManager : MonoSingleton<AudioLayerManager>
     {
-        public static AudioLayerManager Instance { get; private set; }
-
         private AudioSource baseBgmSource;
         private AudioSource sfxSource;
 
         private Dictionary<InstrumentType, AudioClip> instrumentKeySounds = new Dictionary<InstrumentType, AudioClip>();
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-            Instance = this;
+            base.Awake();
+            if (Instance != this) return;
 
             sfxSource = gameObject.AddComponent<AudioSource>();
             sfxSource.playOnAwake = false;

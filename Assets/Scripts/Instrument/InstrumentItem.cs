@@ -1,5 +1,6 @@
 using UnityEngine;
 using ConductorSymphony.Player;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Instrument
 {
@@ -13,7 +14,6 @@ namespace ConductorSymphony.Instrument
         private float bobSpeed = 3.0f;
         private float bobHeight = 0.2f;
 
-        private static Texture2D itemTexture;
         private static Sprite itemSprite;
 
         public void Initialize(InstrumentType type, Vector3 spawnPos)
@@ -37,33 +37,7 @@ namespace ConductorSymphony.Instrument
 
         private static void CreateItemSprite()
         {
-            int size = 24;
-            itemTexture = new Texture2D(size, size);
-            Color[] px = new Color[size * size];
-            Vector2 center = new Vector2(size / 2f, size / 2f);
-
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    float d = Vector2.Distance(new Vector2(x, y), center);
-                    if (d <= 9f && d >= 4f)
-                    {
-                        px[y * size + x] = Color.white;
-                    }
-                    else if (d < 4f)
-                    {
-                        px[y * size + x] = new Color(1f, 1f, 1f, 0.8f);
-                    }
-                    else
-                    {
-                        px[y * size + x] = Color.clear;
-                    }
-                }
-            }
-            itemTexture.SetPixels(px);
-            itemTexture.Apply();
-            itemSprite = Sprite.Create(itemTexture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            itemSprite = ProceduralSpriteFactory.CreateRingWithCore(24, 4f, 9f, Color.white, new Color(1f, 1f, 1f, 0.8f));
         }
 
         private void Update()

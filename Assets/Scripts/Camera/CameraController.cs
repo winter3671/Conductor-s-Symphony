@@ -11,13 +11,9 @@ namespace ConductorSymphony.CameraControl
 
         private void Start()
         {
-            if (target == null)
+            if (target == null && PlayerController.Instance != null)
             {
-                PlayerController player = FindAnyObjectByType<PlayerController>();
-                if (player != null)
-                {
-                    target = player.transform;
-                }
+                target = PlayerController.Instance.transform;
             }
         }
 

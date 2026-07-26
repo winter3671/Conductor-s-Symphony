@@ -1,35 +1,24 @@
 using UnityEngine;
-using ConductorSymphony.UI;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Player
 {
-    public class PlayerExperience : MonoBehaviour
+    public class PlayerExperience : MonoSingleton<PlayerExperience>
     {
-        public static PlayerExperience Instance { get; private set; }
-
         public int CurrentLevel { get; private set; } = 1;
         public int CurrentExp { get; private set; } = 0;
         public int MaxExp { get; private set; } = 40;
 
         public static event System.Action<int, int, int> OnExpChangedEvent; // level, currentExp, maxExp
-
-        private void Awake()
-        {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-            Instance = this;
-        }
+        public static event System.Action<bool> OnLevelUpEvent; // isGameStart
 
         private void Start()
         {
             OnExpChangedEvent?.Invoke(CurrentLevel, CurrentExp, MaxExp);
 
-            if (LevelUpUI.Instance != null && Instrument.InstrumentManager.Instance != null && Instrument.InstrumentManager.Instance.AcquiredInstruments.Count == 0)
+            if (Instrument.InstrumentManager.Instance != null && Instrument.InstrumentManager.Instance.AcquiredInstruments.Count == 0)
             {
-                LevelUpUI.Instance.ShowLevelUpSelection(isGameStart: true);
+                OnLevelUpEvent?.Invoke(true);
             }
         }
 
@@ -55,10 +44,7 @@ namespace ConductorSymphony.Player
 
             OnExpChangedEvent?.Invoke(CurrentLevel, CurrentExp, MaxExp);
 
-            if (LevelUpUI.Instance != null)
-            {
-                LevelUpUI.Instance.ShowLevelUpSelection(isGameStart: false);
-            }
+            OnLevelUpEvent?.Invoke(false);
         }
     }
 }
