@@ -7,6 +7,7 @@
 * **장르:** 리듬 + 뱀파이어 서바이버 (로그라이트)
 * **핵심 컨셉:** 지휘자가 된 캐릭터가 최대 4개의 악기를 조율하며, 몰려오는 음표 몬스터들을 연주(공격)로 물리치는 탑뷰 생존 게임.
 * 📖 **[상세 개발 기록 및 기술/기획 의도 문서 (DOCUMENTATION.md)](file:///c:/Users/admin/Desktop/My%20project/DOCUMENTATION.md)**
+* 🧩 **[팀원용 프리팹(Prefab) 사용 설명서 (PREFAB_GUIDE.md)](file:///c:/Users/admin/Desktop/My%20project/PREFAB_GUIDE.md)**
 * 🔧 **[매니저 아키텍처 리팩토링 기록 문서 (REFACTORING.md)](file:///c:/Users/admin/Desktop/My%20project/REFACTORING.md)**
 
 ---
