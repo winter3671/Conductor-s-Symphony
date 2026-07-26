@@ -37,6 +37,8 @@ namespace ConductorSymphony.Combat
             spriteRenderer.color = color;
             spriteRenderer.sortingOrder = 15;
 
+            transform.localScale = new Vector3(0.5f, 0.5f, 1.0f);
+
             if (targetTransform != null)
             {
                 targetPos = targetTransform.position;
@@ -58,6 +60,13 @@ namespace ConductorSymphony.Combat
 
             Vector3 direction = (targetPos - transform.position).normalized;
             transform.position += direction * speed * Time.deltaTime;
+
+            // Rotate projectile to face flight direction
+            if (direction != Vector3.zero)
+            {
+                float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                transform.rotation = Quaternion.Euler(0, 0, angle - 90f);
+            }
 
             float dist = Vector3.Distance(transform.position, targetPos);
             if (dist <= 0.4f)

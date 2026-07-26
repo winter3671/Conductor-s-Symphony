@@ -81,7 +81,6 @@ namespace ConductorSymphony.Combat
 
             Vector3 spawnPos = player != null ? player.transform.position : Vector3.zero;
 
-            // Play instrument key-sound audio feedback
             int slotIdx = RhythmManager.GetSlotForLane(lane);
             if (Instrument.InstrumentManager.Instance != null && slotIdx < Instrument.InstrumentManager.Instance.AcquiredInstruments.Count)
             {
@@ -92,12 +91,14 @@ namespace ConductorSymphony.Combat
                 }
             }
 
+            Sprite projSprite = projectileSprite;
+            Color projColor = (rating == HitRating.Perfect) ? Color.yellow : Color.cyan;
+
             int extraDamage = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraDamage() : 0;
             int extraProj = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraProjectiles() : 0;
 
             int damage = ((rating == HitRating.Perfect) ? 2 : 1) + extraDamage;
             int projCount = 1 + extraProj;
-            Color projColor = (rating == HitRating.Perfect) ? Color.yellow : Color.cyan;
 
             // Collect all potential target components (regular trash mobs + boss)
             List<Component> potentialTargets = new List<Component>();
@@ -117,7 +118,7 @@ namespace ConductorSymphony.Combat
                 // Fire default single projectile forward if no targets
                 GameObject projObj = new GameObject($"Proj_{Time.frameCount}");
                 AttackProjectile proj = projObj.AddComponent<AttackProjectile>();
-                proj.Initialize(null, spawnPos, projectileSprite, projColor, damage);
+                proj.Initialize(null, spawnPos, projSprite, projColor, damage);
                 return;
             }
 
@@ -128,7 +129,7 @@ namespace ConductorSymphony.Combat
             {
                 GameObject projObj = new GameObject($"Proj_{i}_{Time.frameCount}");
                 AttackProjectile proj = projObj.AddComponent<AttackProjectile>();
-                proj.Initialize(potentialTargets[i], spawnPos, projectileSprite, projColor, damage);
+                proj.Initialize(potentialTargets[i], spawnPos, projSprite, projColor, damage);
             }
         }
 

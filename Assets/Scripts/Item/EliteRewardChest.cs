@@ -25,7 +25,7 @@ namespace ConductorSymphony.Item
             spriteRenderer.sortingOrder = 9;
 
             CircleCollider2D collider = gameObject.AddComponent<CircleCollider2D>();
-            collider.radius = 0.3f; // Strict pickup radius (must physically touch)
+            collider.radius = 0.75f; // Expanded pickup radius for player
             collider.isTrigger = true;
         }
 

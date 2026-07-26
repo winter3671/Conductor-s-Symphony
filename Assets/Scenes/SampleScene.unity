@@ -2933,11 +2933,11 @@ MonoBehaviour:
   - {fileID: 1833622147}
   - {fileID: 834322787}
   - {fileID: 1096736916}
+  cardIconImages: []
   cardDescTexts:
   - {fileID: 709556455}
   - {fileID: 1266780368}
   - {fileID: 1174950056}
-  panelTitleText: {fileID: 0}
 --- !u!114 &1835942175
 MonoBehaviour:
   m_ObjectHideFlags: 0

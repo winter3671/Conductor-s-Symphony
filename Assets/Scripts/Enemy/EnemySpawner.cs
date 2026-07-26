@@ -49,16 +49,16 @@ namespace ConductorSymphony.Enemy
 
         private float GetSpawnIntervalForStage()
         {
-            if (stageLevel <= 2) return 1.3f;
-            else if (stageLevel <= 4) return 0.9f;
-            else return 0.5f;
+            if (stageLevel == 1) return 0.9f;
+            else if (stageLevel == 2) return 0.55f;
+            else return 0.35f;
         }
 
         private int GetMaxEnemiesForStage()
         {
-            if (stageLevel <= 2) return 18;
-            else if (stageLevel <= 4) return 28;
-            else return 42;
+            if (stageLevel == 1) return 25;
+            else if (stageLevel == 2) return 45;
+            else return 65;
         }
 
         private void CreateEnemySprite()
@@ -154,8 +154,8 @@ namespace ConductorSymphony.Enemy
             collider.radius = 0.4f;
             collider.isTrigger = true;
 
-            // Tight Tense Scaling HP per Stage: Stage 1 = 4 HP (2 Perfect hits), Stage 2 = 12 HP, Stage 3 = 24 HP, Stage 4 = 36 HP
-            int currentMonsterHp = 4 + (stageLevel - 1) * 8;
+            // High Tense Scaling HP per Stage: Stage 1 = 4 HP (2 Perfect hits), Stage 2 = 14 HP (7 Perfect hits), Stage 3 = 30 HP (15 Perfect hits)
+            int currentMonsterHp = 4 + (stageLevel - 1) * 10;
 
             EnemyMonster enemy = enemyObj.AddComponent<EnemyMonster>();
             enemy.Initialize(playerTransform, enemySprite, new Color(1.0f, 0.3f, 0.8f), currentMonsterHp);

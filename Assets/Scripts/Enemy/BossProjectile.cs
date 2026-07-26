@@ -23,6 +23,10 @@ namespace ConductorSymphony.Enemy
             spriteRenderer.color = color;
             spriteRenderer.sortingOrder = 9;
 
+            CircleCollider2D col = gameObject.AddComponent<CircleCollider2D>();
+            col.radius = 0.45f; // Active trigger collider for bullet damage
+            col.isTrigger = true;
+
             Destroy(gameObject, lifetime);
         }
 
@@ -63,6 +67,16 @@ namespace ConductorSymphony.Enemy
         }
 
         private void OnTriggerEnter2D(Collider2D other)
+        {
+            CheckHitPlayer(other);
+        }
+
+        private void OnTriggerStay2D(Collider2D other)
+        {
+            CheckHitPlayer(other);
+        }
+
+        private void CheckHitPlayer(Collider2D other)
         {
             PlayerController player = other.GetComponent<PlayerController>();
             if (player != null)

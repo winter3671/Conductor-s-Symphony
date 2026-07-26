@@ -22,7 +22,7 @@ namespace ConductorSymphony.Player
 
         [Header("Movement Settings")]
         [SerializeField] private float moveSpeed = 5.0f;
-        [SerializeField] private float targetWorldHeight = 1.8f; // Uniform height normalization
+        [SerializeField] private float targetWorldHeight = 1.0f; // Scaled to 1.0m height
 
         [Header("Player Health Settings")]
         [SerializeField] private int maxHealth = 100;
@@ -79,7 +79,7 @@ namespace ConductorSymphony.Player
             rb.freezeRotation = true;
 
             col = GetComponent<CircleCollider2D>();
-            col.radius = 0.4f;
+            col.radius = 0.65f; // Expanded hurtbox radius for reliable bullet hit detection
             col.isTrigger = true;
 
             spriteRenderer = GetComponent<SpriteRenderer>();
@@ -87,7 +87,7 @@ namespace ConductorSymphony.Player
             {
                 spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
             }
-            spriteRenderer.sortingOrder = 6;
+            spriteRenderer.sortingOrder = 10;
 
             currentHealth = maxHealth;
 
