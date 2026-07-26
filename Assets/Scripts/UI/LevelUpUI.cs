@@ -14,8 +14,8 @@ namespace ConductorSymphony.UI
         [SerializeField] private GameObject cardPanel;
         [SerializeField] private Button[] cardButtons;
         [SerializeField] private Text[] cardTitleTexts;
+        [SerializeField] private Image[] cardIconImages;
         [SerializeField] private Text[] cardDescTexts;
-        [SerializeField] private Text panelTitleText;
 
         private List<InstrumentInfo> currentChoices = new List<InstrumentInfo>();
 
@@ -58,6 +58,7 @@ namespace ConductorSymphony.UI
             {
                 cardButtons = new Button[3];
                 cardTitleTexts = new Text[3];
+                cardIconImages = new Image[3];
                 cardDescTexts = new Text[3];
 
                 float cardWidth = 220f;
@@ -68,13 +69,13 @@ namespace ConductorSymphony.UI
                     btnObj.transform.SetParent(cardPanel.transform, false);
 
                     Image img = btnObj.AddComponent<Image>();
-                    img.color = new Color(0.15f, 0.15f, 0.25f, 0.95f);
+                    img.color = new Color(0.12f, 0.12f, 0.22f, 0.95f);
 
                     Button btn = btnObj.AddComponent<Button>();
                     cardButtons[i] = btn;
 
                     RectTransform rt = btnObj.GetComponent<RectTransform>();
-                    rt.sizeDelta = new Vector2(cardWidth, 260f);
+                    rt.sizeDelta = new Vector2(cardWidth, 270f);
                     rt.anchoredPosition = new Vector2(-250f + (i * 250f), 0f);
 
                     // Title Text
@@ -82,30 +83,44 @@ namespace ConductorSymphony.UI
                     tObj.transform.SetParent(btnObj.transform, false);
                     Text title = tObj.AddComponent<Text>();
                     title.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                    title.fontSize = 20;
+                    title.fontSize = 18;
                     title.color = Color.white;
                     title.alignment = TextAnchor.MiddleCenter;
 
                     RectTransform trt = tObj.GetComponent<RectTransform>();
-                    trt.anchorMin = new Vector2(0, 0.6f);
-                    trt.anchorMax = new Vector2(1, 1);
+                    trt.anchorMin = new Vector2(0, 0.72f);
+                    trt.anchorMax = new Vector2(1, 1f);
                     trt.offsetMin = Vector2.zero;
                     trt.offsetMax = Vector2.zero;
 
                     cardTitleTexts[i] = title;
+
+                    // Icon Image (Pixel Art Sprite)
+                    GameObject iconObj = new GameObject("IconImage");
+                    iconObj.transform.SetParent(btnObj.transform, false);
+                    Image iconImg = iconObj.AddComponent<Image>();
+                    iconImg.preserveAspect = true;
+
+                    RectTransform irt = iconObj.GetComponent<RectTransform>();
+                    irt.anchorMin = new Vector2(0.15f, 0.35f);
+                    irt.anchorMax = new Vector2(0.85f, 0.72f);
+                    irt.offsetMin = Vector2.zero;
+                    irt.offsetMax = Vector2.zero;
+
+                    cardIconImages[i] = iconImg;
 
                     // Desc Text
                     GameObject dObj = new GameObject("DescText");
                     dObj.transform.SetParent(btnObj.transform, false);
                     Text desc = dObj.AddComponent<Text>();
                     desc.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                    desc.fontSize = 14;
-                    desc.color = new Color(0.8f, 0.8f, 0.8f);
+                    desc.fontSize = 13;
+                    desc.color = new Color(0.85f, 0.85f, 0.85f);
                     desc.alignment = TextAnchor.MiddleCenter;
 
                     RectTransform drt = dObj.GetComponent<RectTransform>();
                     drt.anchorMin = new Vector2(0, 0);
-                    drt.anchorMax = new Vector2(1, 0.6f);
+                    drt.anchorMax = new Vector2(1, 0.35f);
                     drt.offsetMin = Vector2.zero;
                     drt.offsetMax = Vector2.zero;
 
@@ -234,6 +249,13 @@ namespace ConductorSymphony.UI
                         string colorHex = ColorUtility.ToHtmlStringRGB(def.themeColor);
                         string badge = (choice.level == 1) ? "<color=#00FF7F>[NEW]</color>" : $"<color=#FFD700>[Lv.{choice.level}]</color>";
                         cardTitleTexts[i].text = $"<color=#FFFF00>[Key {i + 1}]</color>\n<color=#{colorHex}>{def.name}</color> {badge}";
+                    }
+
+                    if (cardIconImages != null && i < cardIconImages.Length && cardIconImages[i] != null)
+                    {
+                        Sprite iconSprite = Resources.Load<Sprite>($"Sprites/Instruments/{choice.type}");
+                        cardIconImages[i].sprite = iconSprite;
+                        cardIconImages[i].color = (iconSprite != null) ? Color.white : Color.clear;
                     }
 
                     if (cardDescTexts != null && i < cardDescTexts.Length)

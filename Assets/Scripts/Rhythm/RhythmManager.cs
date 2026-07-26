@@ -114,6 +114,7 @@ namespace ConductorSymphony.Rhythm
 
             var equipped = InstrumentManager.Instance.AcquiredInstruments;
             int maxUnlocked = InstrumentManager.Instance.GetUnlockedSlotsCount();
+            bool stepHasNotes = false;
 
             for (int slot = 0; slot < equipped.Count && slot < maxUnlocked; slot++)
             {
@@ -122,15 +123,25 @@ namespace ConductorSymphony.Rhythm
 
                 if (pattern != null && step < pattern.Length && pattern[step] == 1)
                 {
-                    // Map slot to lane: 
-                    // Slot 0 -> Q (Left)
-                    // Slot 1 -> R (Right) if only 2 slots, else W (UpLeft)
-                    // Slot 2 -> R (Right) if 3 slots, else E (UpRight)
-                    // Slot 3 -> R (Right)
                     RhythmLane lane = GetLaneForSlot(slot);
                     SpawnNoteForLane(lane, inst.themeColor);
+                    stepHasNotes = true;
                 }
             }
+
+            if (stepHasNotes)
+            {
+                SpawnShrinkingRingForStep(0.85f);
+            }
+        }
+
+        private void SpawnShrinkingRingForStep(float alphaAmount)
+        {
+            if (targetTransform == null) return;
+
+            GameObject ringObj = new GameObject($"RhythmRing_{Time.frameCount}");
+            ShrinkingRhythmRing ring = ringObj.AddComponent<ShrinkingRhythmRing>();
+            ring.Initialize(targetTransform, spawnDistance, Time.time, noteTravelDuration, Color.white, alphaAmount);
         }
 
         public static RhythmLane GetLaneForSlot(int slot)
