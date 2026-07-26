@@ -30,11 +30,11 @@ namespace ConductorSymphony.Instrument
                 spriteRenderer.sprite = customSprite;
                 spriteRenderer.color = Color.white; // Preserve original pixel art colors
 
-                // Max Dimension Normalization: Scale sprite so its largest dimension is smaller than conductor's head (0.45 units)
+                // Max Dimension Normalization: Scale companion sprite size to 0.68 units (1.5x larger)
                 float maxDim = Mathf.Max(customSprite.bounds.size.x, customSprite.bounds.size.y);
                 if (maxDim > 0.001f)
                 {
-                    float targetMaxDimension = 0.45f; // Smaller than conductor's head
+                    float targetMaxDimension = 0.68f; // 1.5x scale increase for beautiful pixel visibility
                     float scale = targetMaxDimension / maxDim;
                     transform.localScale = new Vector3(scale, scale, 1.0f);
                 }
@@ -56,14 +56,14 @@ namespace ConductorSymphony.Instrument
         public void SetSlotIndex(int slot)
         {
             slotIndex = slot;
-            // Arrange companion positions around player like pets (Top-Left, Top-Right, Bottom-Left, Bottom-Right)
+            // Align companion pet orbit locations 1:1 with QWER key directions
             switch (slotIndex)
             {
-                case 0: baseOffset = new Vector3(-0.98f,  0.83f, 0f); break; // Top-Left Pet (Q)
-                case 1: baseOffset = new Vector3( 0.98f,  0.83f, 0f); break; // Top-Right Pet (R)
-                case 2: baseOffset = new Vector3(-1.13f, -0.38f, 0f); break; // Bottom-Left Pet (W)
-                case 3: baseOffset = new Vector3( 1.13f, -0.38f, 0f); break; // Bottom-Right Pet (E)
-                default: baseOffset = new Vector3(0f, 0.9f, 0f); break;
+                case 0: baseOffset = new Vector3(-1.25f,  0.00f, 0f); break; // 1st Instrument: Q key (Left)
+                case 1: baseOffset = new Vector3( 1.25f,  0.00f, 0f); break; // 2nd Instrument: R key (Right)
+                case 2: baseOffset = new Vector3(-0.90f,  0.90f, 0f); break; // 3rd Instrument: W key (Up-Left)
+                case 3: baseOffset = new Vector3( 0.90f,  0.90f, 0f); break; // 4th Instrument: E key (Up-Right)
+                default: baseOffset = new Vector3(-1.25f, 0.00f, 0f); break;
             }
         }
 

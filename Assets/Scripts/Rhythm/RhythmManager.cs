@@ -258,6 +258,8 @@ namespace ConductorSymphony.Rhythm
                 OnHitSuccessEvent?.Invoke(rating, note.Lane);
             }
 
+            TriggerVisualHitFeedback(rating);
+
             if (RhythmUI.Instance != null)
             {
                 RhythmUI.Instance.ShowHitRating(rating);
@@ -271,12 +273,25 @@ namespace ConductorSymphony.Rhythm
             {
                 activeNotes.Remove(note);
                 currentCombo = 0;
+
+                TriggerVisualHitFeedback(HitRating.Miss);
+
                 if (RhythmUI.Instance != null)
                 {
                     RhythmUI.Instance.ShowHitRating(HitRating.Miss);
                     RhythmUI.Instance.UpdateScoreAndCombo(currentScore, currentCombo);
                 }
             }
+        }
+
+        private void TriggerVisualHitFeedback(HitRating rating)
+        {
+            Vector3 playerPos = (targetTransform != null) ? targetTransform.position : Vector3.zero;
+
+            // Spawn 3D World Floating Hit Text Popup above conductor
+            GameObject textObj = new GameObject($"HitText_{Time.frameCount}");
+            HitFloatingText floatingText = textObj.AddComponent<HitFloatingText>();
+            floatingText.Initialize(playerPos, rating);
         }
     }
 }

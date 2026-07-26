@@ -156,22 +156,8 @@ namespace ConductorSymphony.Rhythm
 
         public void ShowHitRating(HitRating rating)
         {
-            if (ratingText == null) return;
-
-            switch (rating)
-            {
-                case HitRating.Perfect:
-                    ratingText.text = "<color=#FFD700>PERFECT!</color>";
-                    break;
-                case HitRating.Great:
-                    ratingText.text = "<color=#00FF7F>GREAT!</color>";
-                    break;
-                case HitRating.Miss:
-                    ratingText.text = "<color=#FF4500>MISS</color>";
-                    break;
-            }
-
-            ratingTimer = 0.8f;
+            // Replaced by dynamic 3D world floating text popups (HitFloatingText) above player's head
+            if (ratingText != null) ratingText.text = "";
         }
 
         public void ShowBossHpBar(bool show, int maxHp)
