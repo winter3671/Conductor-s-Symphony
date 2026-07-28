@@ -13,9 +13,9 @@ namespace ConductorSymphony.Rhythm
         public static event System.Action<int, int, HitRating> OnScoreUpdatedEvent; // score, combo, rating
 
         [Header("Rhythm Sequencer Settings")]
-        [SerializeField] private float bpm = 90f;
+        [SerializeField] private float bpm = 97f;
         [SerializeField] private float spawnDistance = 4.0f;
-        [SerializeField] private float noteTravelDuration = 1.4f;
+        [SerializeField] private float noteTravelDuration = 2.474f; // Exactly 4 beats (1 bar) at 97 BPM for smooth readable travel speed
 
         [Header("Timing Windows (Seconds)")]
         [SerializeField] private float perfectWindow = 0.10f;
@@ -26,8 +26,7 @@ namespace ConductorSymphony.Rhythm
 
         private List<RhythmNote> activeNotes = new List<RhythmNote>();
         private float stepDuration; // Seconds per step in 32-step grid
-        private float nextStepTime;
-        private int currentStep = 0; // 0 to 31
+        private int lastProcessedStep = -1; // Last step index fired, derived fresh from AudioLayerManager.SongTime each frame
 
         private int currentScore = 0;
         private int currentCombo = 0;
@@ -39,9 +38,8 @@ namespace ConductorSymphony.Rhythm
             base.Awake();
             if (Instance != this) return;
 
-            // 90 BPM: 32-beat cycle over ~10.6s => 0.333s per step
+            // 97 BPM: 32-step cycle over 2 bars (16 beats) => 0.309278s per 16th-note step
             stepDuration = (60f / bpm) / 2f;
-            nextStepTime = Time.time + stepDuration;
 
             defaultNoteSprite = ProceduralSpriteFactory.CreateFilledCircle(32, 14f, Color.cyan);
         }
@@ -52,19 +50,29 @@ namespace ConductorSymphony.Rhythm
             {
                 targetTransform = PlayerController.Instance.transform;
             }
+
+            lastProcessedStep = -1;
         }
 
         private void Update()
         {
             // Block rhythm note updates and QWER inputs when paused
             if (Time.timeScale <= 0f) return;
+            if (Audio.AudioLayerManager.Instance == null) return;
 
-            // 32-Step Sequencer Loop
-            if (Time.time >= nextStepTime)
+            // 32-Step Sequencer Loop — step index is derived fresh every frame from the actual
+            // audio playback position (SongTime), not accumulated independently. This means
+            // there is no separate gameplay clock that can fall out of sync with the audio
+            // after a pause/resume cycle (see pause_beat_drift_analysis.md).
+            float songTime = Audio.AudioLayerManager.Instance.SongTime;
+            if (songTime >= 0f)
             {
-                ProcessSequencerStep(currentStep);
-                currentStep = (currentStep + 1) % 32;
-                nextStepTime += stepDuration;
+                int stepIndex = Mathf.FloorToInt(songTime / stepDuration) % 32;
+                if (stepIndex != lastProcessedStep)
+                {
+                    lastProcessedStep = stepIndex;
+                    ProcessSequencerStep(stepIndex);
+                }
             }
 
             // Left-hand inputs (QWER Arc Keys) via New Input System
@@ -109,9 +117,11 @@ namespace ConductorSymphony.Rhythm
         {
             if (targetTransform == null) return;
 
+            float songTimeNow = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongTime : 0f;
+
             GameObject ringObj = new GameObject($"RhythmRing_{Time.frameCount}");
             ShrinkingRhythmRing ring = ringObj.AddComponent<ShrinkingRhythmRing>();
-            ring.Initialize(targetTransform, spawnDistance, Time.time, noteTravelDuration, Color.white, alphaAmount);
+            ring.Initialize(targetTransform, spawnDistance, songTimeNow, noteTravelDuration, Color.white, alphaAmount);
         }
 
         public static RhythmLane GetLaneForSlot(int slot)
@@ -141,7 +151,8 @@ namespace ConductorSymphony.Rhythm
         private void SpawnNoteForLane(RhythmLane lane, Color color)
         {
             Vector3 spawnDir = GetLaneDirection(lane);
-            float targetTime = Time.time + noteTravelDuration;
+            float songTimeNow = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongTime : 0f;
+            float targetTime = songTimeNow + noteTravelDuration;
 
             GameObject noteObj = new GameObject($"Note_{lane}_{Time.frameCount}");
             SpriteRenderer sr = noteObj.AddComponent<SpriteRenderer>();
@@ -171,7 +182,7 @@ namespace ConductorSymphony.Rhythm
         {
             RhythmNote targetNote = null;
             float closestDiff = float.MaxValue;
-            float currentTime = Time.time;
+            float currentTime = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongTime : 0f;
 
             for (int i = activeNotes.Count - 1; i >= 0; i--)
             {
@@ -184,7 +195,7 @@ namespace ConductorSymphony.Rhythm
                 if (activeNotes[i].Lane == lane)
                 {
                     float diff = Mathf.Abs(currentTime - activeNotes[i].TargetTime);
-                    if (diff < closestDiff)
+                    if (diff < closestDiff && diff <= greatWindow)
                     {
                         closestDiff = diff;
                         targetNote = activeNotes[i];
@@ -192,14 +203,10 @@ namespace ConductorSymphony.Rhythm
                 }
             }
 
-            if (targetNote != null && closestDiff <= greatWindow)
+            if (targetNote != null)
             {
                 HitRating rating = (closestDiff <= perfectWindow) ? HitRating.Perfect : HitRating.Great;
                 ProcessHit(targetNote, rating);
-            }
-            else if (targetNote != null && closestDiff <= greatWindow * 1.5f)
-            {
-                ProcessHit(targetNote, HitRating.Miss);
             }
         }
 
@@ -210,50 +217,50 @@ namespace ConductorSymphony.Rhythm
 
             if (rating == HitRating.Perfect)
             {
+                currentScore += 100;
                 currentCombo++;
-                currentScore += 100 + (currentCombo * 10);
             }
             else if (rating == HitRating.Great)
             {
+                currentScore += 50;
                 currentCombo++;
-                currentScore += 50 + (currentCombo * 5);
             }
-            else
-            {
-                currentCombo = 0;
-            }
-
-            if (rating == HitRating.Perfect || rating == HitRating.Great)
-            {
-                OnHitSuccessEvent?.Invoke(rating, note.Lane);
-            }
-
-            TriggerVisualHitFeedback(rating);
 
             OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, rating);
+
+            if (targetTransform != null)
+            {
+                GameObject popupObj = new GameObject("HitPopup");
+                HitFloatingText popup = popupObj.AddComponent<HitFloatingText>();
+                popup.Initialize(targetTransform.position, rating);
+            }
+
+            OnHitSuccessEvent?.Invoke(rating, note.Lane);
+
+            int slot = GetSlotForLane(note.Lane);
+            if (InstrumentManager.Instance != null && slot < InstrumentManager.Instance.AcquiredInstruments.Count)
+            {
+                InstrumentType type = InstrumentManager.Instance.AcquiredInstruments[slot].type;
+
+                if (Audio.AudioLayerManager.Instance != null)
+                {
+                    Audio.AudioLayerManager.Instance.PlayInstrumentKeySound(type, rating == HitRating.Perfect);
+                }
+            }
         }
 
         public void OnNoteMissed(RhythmNote note)
         {
-            if (activeNotes.Contains(note))
+            activeNotes.Remove(note);
+            currentCombo = 0;
+            OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, HitRating.Miss);
+
+            if (targetTransform != null)
             {
-                activeNotes.Remove(note);
-                currentCombo = 0;
-
-                TriggerVisualHitFeedback(HitRating.Miss);
-
-                OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, HitRating.Miss);
+                GameObject popupObj = new GameObject("HitPopup");
+                HitFloatingText popup = popupObj.AddComponent<HitFloatingText>();
+                popup.Initialize(targetTransform.position, HitRating.Miss);
             }
-        }
-
-        private void TriggerVisualHitFeedback(HitRating rating)
-        {
-            Vector3 playerPos = (targetTransform != null) ? targetTransform.position : Vector3.zero;
-
-            // Spawn 3D World Floating Hit Text Popup above conductor
-            GameObject textObj = new GameObject($"HitText_{Time.frameCount}");
-            HitFloatingText floatingText = textObj.AddComponent<HitFloatingText>();
-            floatingText.Initialize(playerPos, rating);
         }
     }
 }

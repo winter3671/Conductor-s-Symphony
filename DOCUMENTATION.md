@@ -1,8 +1,8 @@
 # 🎼 Conductor's Symphony - 상세 개발 기록, 트러블슈팅 및 기획/기술 의도 문서 (DOCUMENTATION.md)
 
-본 문서는 **Conductor's Symphony** 프로젝트의 전체 개발 과정, 발생했던 주요 오류 및 트러블슈팅 내역, 4마디 음악 곡 구조 설계, 엘리트 보스전 및 특수 전리품 보상 시스템, QWER 조작계 및 리듬 밸런싱, 3D 월드 플로팅 타격 텍스트 팝업, 10종 악기 픽셀 아트 연동, 초미세 수축 비트 링 시각화, 그리고 코드 아키텍처를 상세히 기록한 종합 개발 보고서입니다.
+본 문서는 **Conductor's Symphony** 프로젝트의 전체 개발 과정, 발생했던 주요 오류 및 트러블슈팅 내역, 97 BPM 4마디 음악 곡 구조 설계, 오디오 음원 구조(`Assets/Resources/Audio/`), 엘리트 보스전 및 특수 전리품 보상 시스템, QWER 조작계 및 리듬 밸런싱, 3D 월드 플로팅 타격 텍스트 팝업, 10종 악기 픽셀 아트 및 사운드 연동, 초미세 수축 비트 링 시각화, 그리고 코드 아키텍처를 상세히 기록한 종합 개발 보고서입니다.
 
-IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제든지 개발 이력, 개선 사항, 코드 아키텍처를 파악할 수 있습니다.
+IDE(VS Code, Visual Studio, Rider 등) 및 AI 에이전트(Antigravity / Claude Code / Cursor)에서 이 문서를 열람하여 언제든지 개발 이력, 개선 사항, 코드 아키텍처를 파악할 수 있습니다.
 
 ---
 
@@ -11,10 +11,11 @@ IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제�
 * **프로젝트명:** Conductor's Symphony
 * **장르:** 리듬 + 로그라이크 탑뷰 생존 게임 (Rhythm Roguelite)
 * **핵심 컨셉:** 지휘자가 된 캐릭터가 10종의 악기 중 4개를 조합하여 몰려오는 음표 몬스터들을 리듬 연주로 물리치고 곡을 완성하는 게임.
+* **현재 작업 브랜치:** `feat/gameplay_core` (Role 3: 메인 게임플레이 프로그래머)
 * **양손 분할 조작계:**
   * **오른손 (`방향키 ↑, ↓, ←, →`):** 2D 탑뷰 캐릭터 이동 및 탄막 회피 전담
   * **왼손 (`Q, W, E, R`):** 지휘자 상단 부채꼴(V자) 4방향 리듬 노트 판정 연주 전담
-    * `Q` 키: Left (180° - 1번 슬롯: `{-100, 0}` 정밀 안착)
+    * `Q` 키: Left (180° - 1번 슬롯: `{-100, 0}` 정밀 안착, 시작 시 드럼 기본 장착)
     * `R` 키: Right (0° - 2번 슬롯: `{100, 0}` 정밀 안착)
     * `W` 키: Up-Left (135° - 3번 슬롯: `{-80, 80}` 정밀 안착, Lv.5 해금)
     * `E` 키: Up-Right (45° - 4번 슬롯: `{80, 80}` 정밀 안착, Lv.8 해금)
@@ -24,69 +25,65 @@ IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제�
 ## 🛠️ 2. 단계별 개발 히스토리 & 기획 의도 (Development Steps)
 
 ### 🔹 Step 1: 코어 플레이어 조작 & 4방향 리듬 연주 MVP
-* **구현 목표:** 지휘자 2D 이동, 4방향 리듬 노트 판정선 및 BPM 노트 생성기 구현
-* **의도:** 뱀파이어 서바이버 특유의 이동과 리듬 게임의 판정 조작을 한 화면에서 결합하는 최소 기능 프로토타입(MVP) 검증.
+* **구현 목표:** 지휘자 2D 이동, 4방향 리듬 노트 판정선 및 BPM 노트 생성기 구현.
 
 ### 🔹 Step 2: 음표 몬스터 스폰 & 오토 타겟팅 유도 공격 시스템
-* **구현 목표:** 360도 화면 외곽 몬스터 스폰 AI, 리듬 성공 시 가장 가까운 적 오토 타겟팅 공격, 플레이어 HP 및 충돌 데미지 시스템
-* **의도:** 마우스 조준 부담을 완전히 없애고, 리듬 노트만 성공시키면 유도 음파 발사체가 몬스터를 자동 파괴하도록 하여 리듬 타격 쾌감에 몰입하도록 설계.
+* **구현 목표:** 360도 화면 외곽 몬스터 스폰 AI, 리듬 성공 시 가장 가까운 적 오토 타겟팅 공격, 플레이어 HP 및 충돌 데미지 시스템.
 
 ### 🔹 Step 3: 10종 악기 로그라이크 덱빌딩 & 32비트 음악 시퀀서 시스템
-* **구현 목표:** 시작 악기 선택 카드 + EXP 보석 습득 레벨업 + 10종 악기 중 4개 슬롯 선택 덱빌딩 + 32박자(4마디) 음악 시퀀서 루프 엔진 + 10종 악기 고유 키음(Key-Sound)
-* **의도:** 게임 시작 시 바로 1개 악기를 가지고 시작하여 전투 가능하게 하고, 레벨업 시 3장 카드로 악기를 추가/강화하는 로그라이크 재미 요소와 음악성을 결합.
+* **구현 목표:** 10종 악기 중 4개 슬롯 선택 덱빌딩 + 32박자(4마디) 음악 시퀀서 루프 엔진 + 10종 악기 고유 키음(Key-Sound).
 
 ### 🔹 Step 4-A: 엘리트 보스 주기적 순환 & 특수 전리품 상자 보상 시스템
-* **구현 목표:** 2분(120초) 주기 엘리트 보스 재등장 + 3가지 360도 탄막 공격 + 직접 근접 습득 황금 보물상자(`EliteRewardChest.cs`) + `ELITE CHEST REWARD` 3카드 선택 팝업
-* **의도:** 보스 처치 시 게임이 종료되지 않고 잡몹전과 보스전이 주기적으로 순환하여 무한 생존을 즐기게 하고, 먼거리에서 자동 흡수되는 경험치 보석과 달리 플레이어가 직접 발로 다가가 부딪쳐야 습득되는 엄격한 전리품 상자로 특수 성장의 쾌감을 제공.
+* **구현 목표:** 2분(120초) 주기 엘리트 보스 재등장 + 3가지 360도 탄막 공격 + 직접 근접 습득 황금 보물상자(`EliteRewardChest.cs`) + `ELITE CHEST REWARD` 3카드 선택 팝업.
 
 ### 🔹 Step 4-B: QWER 부채꼴 4레인 조작계, 단계적 슬롯 해금 & 8회 MAX 다이내믹 리듬 시스템
-* **구현 목표:** WASD → QWER 부채꼴 4방향 전환 + 단계적 슬롯 해금(Lv 1~4: 2개, Lv 5~7: 3개, Lv 8+: 4개) + 10종 악기 100% 고유 비트 명세 + 1레벨 4타 최소 보장 / 5레벨 8타 MAX 다이내믹 4마디 변주 패턴 구축
-* **의도:** 게이머에게 가장 편안한 QWER 가로 키 조작감을 제공하고, 플레이어 성장에 맞춰 레인이 단계적으로 열려 조작 적응을 도우며, 마디별 엇박 시프트 및 턴어라운드 필인으로 단조로운 반복을 파괴.
+* **구현 목표:** QWER 부채꼴 4방향 전환 + 단계적 슬롯 해금(Lv 1~4: 2개, Lv 5~7: 3개, Lv 8+: 4개) + 10종 악기 100% 고유 비트 명세.
 
 ### 🔹 Step 4-C: 지휘자 머리 위 3D 월드 플로팅 타격 텍스트 팝업 (`HitFloatingText.cs`) 연동
-* **구현 목표:** 기존 화면 중앙 HUD 정적 판정 텍스트를 제거하고, QWER 타격 성공 시 지휘자 머리 위에 생동감 있게 튀어오르는 3D 월드 플로팅 텍스트 팝업(`PERFECT!`, `GREAT!`, `MISS`) 시스템 구축
-* **의도:** 화면 시야를 가리는 정적 HUD 텍스트를 없애고 지휘자 아바타 위치 중심의 탄력적인 바운스 팝(Scale 0.3 ➡️ 1.25 ➡️ 1.0) 연출로 리듬 타격 쾌감을 극대화.
+* **구현 목표:** 지휘자 머리 위에 생동감 있게 튀어오르는 3D 월드 플로팅 텍스트 팝업(`PERFECT!`, `GREAT!`, `MISS`) 시스템 구축.
 
 ### 🔹 Step 4-D: 10종 악기 픽셀 아트 연동 & QWER 1:1 오케스트라 펫 배치
-* **구현 목표:** 10종 악기 픽셀 아트 PNG 에셋 연동 + 1.5배 스케일 감축(`0.68m`) + QWER 조작키 방향과 1:1 일치하는 호위 펫 배치(`Q`=좌, `R`=우, `W`=좌상, `E`=우상)
-* **의도:** 픽셀 아트 디테일과 가시성을 높이고, 손가락 조작키 방향과 호위 악기의 물리적 위치를 1:1로 일치시켜 직관성 완벽 도달.
+* **구현 목표:** 10종 악기 픽셀 아트 PNG 에셋 연동 + 1.5배 스케일 감축(`0.68m`) + QWER 조작키 방향과 1:1 일치하는 호위 펫 배치(`Q`=좌, `R`=우, `W`=좌상, `E`=우상).
+
+### 🔹 Step 5-A: 드럼(Drums) 기본 장착 시작 규칙 & 그룹 제한 해제 무작위 3카드 선택
+* **구현 목표:** 게임 시작 시 시작 선택 팝업 없이 **드럼(Drums)을 기본 악기로 Slot 0(`Q`키)에 자동 장착**하여 전투 즉시 시작 + 레벨업 시 그룹 제한 없이 10종 악기 무작위 3카드 팝업 등장.
+
+### 🔹 Step 5-B: 97 BPM 오디오 싱크 & 11종 WAV 음원 파일 아키텍처 구축
+* **구현 목표:** `97 BPM` 리듬 시퀀서 싱크 + `Assets/Resources/Audio/` 내 11종 고품질 WAV 음원 파일 세팅 + 악기 획득 시 1회 고유 WAV 재생(`acquisitionSource`, 1.0x 피치 고정) + 노트 판정 시 정갈한 단음 SFX 재생(`sfxSource`).
 
 ---
 
-## 🎼 3. 32비트 4마디 곡 구조(Song Form) & 10종 악기 고유 리듬 명세
+## 🎼 3. 오디오 음원 구조 및 사운드 시스템 (`Assets/Resources/Audio/`)
 
-### 🎵 4마디 곡 구조 (4-Bar Song Form)
-단순한 8비트 조각 패턴의 반복을 지양하고, **32박자(약 10.6초) 전체가 4마디의 생생한 곡 구조**를 형성하도록 설계했습니다:
-* **Bar 1 (Step 0 ~ 7):** 메인 주제 비트 제시 (Intro)
-* **Bar 2 (Step 8 ~ 15):** 엇박 변형 및 싱코페이션 (Variation)
-* **Bar 3 (Step 16 ~ 23):** 비트 빌드업 및 긴장감 조성 (Development)
-* **Bar 4 (Step 24 ~ 31):** **드럼 필인(Fill-in) & 턴어라운드 클라이맥스** → 다시 Bar 1 메인 비트로 자연스럽게 순환!
-
-### 🎷 10종 악기별 100% 고유 비트 위치 (Lv.1 / 4타 기준)
-* **드럼 (Drums):** `Step 1, 9, 17, 25` (1박 다운비트)
-* **첼로 (Cello):** `Step 2, 10, 18, 26` (저음 밀어치기)
-* **일렉기타 (Guitar):** `Step 3, 11, 19, 27` (2박 엇박 리프)
-* **바이올린 (Violin):** `Step 4, 12, 20, 28` (현악 16분음표 스트로크)
-* **플루트 (Flute):** `Step 5, 13, 21, 29` (3박 중간박 아르페지오)
-* **하프 (Harp):** `Step 6, 14, 22, 30` (글리스산도 런)
-* **트럼펫 (Trumpet):** `Step 7, 15, 23, 31` (4박 업비트 팡파레)
-* **색소폰 (Saxophone):** `Step 8, 16, 24, 32` (마디 끝 스윙)
-* **피아노 (Piano):** `Step 1, 9, 19, 27` (교차 코드 반주)
-* **실로폰 (Xylophone):** `Step 5, 13, 23, 31` (고음 교차 멜로디)
+| 구분 | 유니티 에셋 파일 경로 | 런타임 재생 역할 | 비고 |
+|---|---|---|---|
+| 🥁 **드럼** | `Assets/Resources/Audio/Sound_Drums.wav` | 악기 습득 시 1회 고유 음원 연주 | 시작 기본 장착 악기 |
+| 🎹 **피아노** | `Assets/Resources/Audio/Sound_Piano.wav` | 악기 습득 시 1회 고유 음원 연주 | 1번 악기 |
+| 🎻 **바이올린** | `Assets/Resources/Audio/Sound_Violin.wav` | 악기 습득 시 1회 고유 음원 연주 | 2번 악기 |
+| 🪈 **플루트** | `Assets/Resources/Audio/Sound_Flute.wav` | 악기 습득 시 1회 고유 음원 연주 | 3번 악기 |
+| 📯 **프렌치호른** | `Assets/Resources/Audio/Sound_FrenchHorn.wav` | 악기 습득 시 1회 고유 음원 연주 | 4번 악기 |
+| 🔔 **글록켄슈필** | `Assets/Resources/Audio/Sound_Glockenspiel.wav` | 악기 습득 시 1회 고유 음원 연주 | 5번 악기 |
+| 🎻 **첼로** | `Assets/Resources/Audio/Sound_Cello.wav` | 악기 습득 시 1회 고유 음원 연주 | 6번 악기 |
+| 🥁 **팀파니** | `Assets/Resources/Audio/Sound_Timpani.wav` | 악기 습득 시 1회 고유 음원 연주 | 7번 악기 |
+| 🪵 **마림바** | `Assets/Resources/Audio/Sound_Marimba.wav` | 악기 습득 시 1회 고유 음원 연주 | 8번 악기 |
+| 🔔 **벨** | `Assets/Resources/Audio/Sound_Bell.wav` | 악기 습득 시 1회 고유 음원 연주 | 9번 악기 |
+| 👿 **보스전 BGM** | `Assets/Resources/Audio/BGM_BossBattle.wav` | 엘리트 보스 출현 시 배경음악 연주 | 보스전 BGM |
 
 ---
 
 ## 🔍 4. 트러블슈팅 & 문제 해결 기록 (Troubleshooting Log)
 
-개발 과정에서 발생한 주요 문제와 해결 내역입니다:
-
-1. **WASD 인지 부조화 & 손가락 꼬임:** 왼손 `Q, W, E, R` 가로 4키 + 오른손 `방향키`로 전면 개편하고 씬 UI를 지휘자 상단 부채꼴(V자) 방향으로 변경하여 직관성 확보.
-2. **2번째 악기 `R`키 오디오 미재생 버그:** `RhythmAttackManager`에서 `RhythmLane.Right` (3)을 직접 캐스팅하던 코드를 `GetSlotForLane(lane)`으로 수정하여 Slot 1 오디오 키음 정상 재생.
-3. **3번째 악기 해금 시 기존 악기 키 이동 현상:** 슬롯과 키를 **`1슬롯=Q, 2슬롯=R, 3슬롯=W, 4슬롯=E`** 순서로 영구 고정 결착하여 기존 악기 조작키가 절대 변경되지 않도록 조치.
-4. **엘리트 보스 탄막 피격 데미지 안 들어오는 버그:** `BossProjectile.cs` 생성 시 `CircleCollider2D (radius = 0.45f, isTrigger = true)` 컴포넌트가 누락되어 있던 것을 발견하여 복구 완료.
-5. **아바타 스케일 조정 후 탄막 판정 미스 현상:** `PlayerController.cs` 높이를 `1.0m`로 감축하고 피격 콜라이더 반경(`col.radius`)을 `0.65f`로 확장하여 부드럽고 정확한 피격 판정 구현.
-6. **QWER 가이드 라벨 겹침 현상:** 부채꼴 UI 가이드의 부가설명을 지우고 `Q/R=100, W/E=80` 정밀 거리 좌표로 배치하여 호위 악기 도트와 단 1픽셀도 겹치지 않도록 조치.
-7. **지휘자가 악기에 가려지는 레이어 문제:** 지휘자 아바타 `sortingOrder = 10`, 호위 악기 `sortingOrder = 5`로 설정하여 지휘자를 최상단 레이어로 노출.
+1. **WASD 인지 부조화 & 손가락 꼬임:** 왼손 `Q, W, E, R` 가로 4키 + 오른손 `방향키`로 전면 개편.
+2. **2번째 악기 `R`키 오디오 미재생 버그:** `RhythmAttackManager`에서 `GetSlotForLane(lane)`으로 수정하여 Slot 1 오디오 키음 정상 재생.
+3. **오디오 재생 중 속도 늘어짐 현상:** 단음 타건음 피치 변경(`0.95f`)이 WAV 음원 오디오 채널에 간섭하던 원인 발견 ➡️ **`acquisitionSource` 채널 신설 후 1.0x 피치로 독립 고정**.
+4. **노트 이동 속도 및 오디오 박자 어긋남 현상:** 97 BPM 기준 1마디(2.474초) 이동 시간(`noteTravelDuration = 2.474s`) 및 오디오 정밀 지연(`PlayDelayed(1.8557s)`) 적용으로 1ms 오차 없는 정밀 싱크 달성.
+5. **드럼 노트 박자가 여전히 빠르게 내려오던 2단 원인 규명 & 해결:**
+   * **원인 A (패턴 밀도 2배 버그):** `InstrumentPatternDatabase.cs`의 Drums Lv1~3 패턴이 4스텝(1.237초)마다 노트를 생성 ➡️ 설계된 8스텝(2.474초, 1마디) 간격보다 정확히 2배 빠르게 노트가 쏟아지던 문제. `"10001000..."` ➡️ `"10000000..."`(Step 0, 8, 16, 24)로 재배치하여 1마디당 1노트로 수정.
+   * **원인 B (씬 직렬화 오버라이드가 코드 기본값을 덮어씀):** 패턴을 고쳐도 체감 박자가 그대로였던 진짜 원인은 `Gameplay.unity`에 저장된 `RhythmManager` 컴포넌트의 **Inspector 직렬화 값**이 `bpm: 120`, `noteTravelDuration: 1.2`, `perfectWindow: 0.08`, `greatWindow: 0.18`로 코드의 새 기본값(`97` / `2.474` / `0.10` / `0.22`)을 그대로 덮어쓰고 있었기 때문. **`[SerializeField]` 필드는 스크립트 기본값을 바꿔도, 씬/프리팹에 이미 저장된 값이 항상 우선 적용된다** ➡️ Unity MCP(`manage_editor stop` → `manage_components set_property` → `manage_scene save`)로 씬에 저장된 실제 값을 코드 기본값과 동기화하여 해결.
+   * ⚠️ **교훈:** 리듬/밸런스 관련 `[SerializeField]` 수치를 코드에서 조정할 때는 반드시 `Gameplay.unity`(또는 해당 프리팹)에 박제된 실제 Inspector 값도 함께 확인·동기화해야 함. 코드만 고치고 "값이 안 바뀐다"고 착각하기 쉬운 대표적인 Unity 함정.
+6. **일시정지 반복 시 오디오-비트 미세 누적 밀림 버그 (Single Source of Truth SongTime 해결):**
+   * **원인 (이중 시계 오차):** 게임 시계(`Time.time`)와 오디오 하드웨어 DSP 시계(`AudioSource.time`)가 분리되어 있어, 일시정지(`Time.timeScale=0`) 해제 시 사운드 카드 오디오 버퍼 믹싱 재개(20~40ms) 오차가 누적되던 현상.
+   * **해결 (단일 진실 출처 `SongTime` 건축):** `AudioLayerManager.SongTime` 프로퍼티를 신설하여 하드웨어 오디오 재생 샘플 위치(`timeSamples / frequency`)를 단일 진실 소스로 정의하고, `RhythmManager` 시퀀서 스텝과 `RhythmNote` 이동 `progress` 계산이 모두 `SongTime`만을 바라보도록 통일하여 0.000ms 오차 없는 완전 무결점 오디오 클록 동기화 달성.
 
 ---
 
@@ -95,42 +92,46 @@ IDE(VS Code, Visual Studio, Rider 등)에서 이 문서를 열람하여 언제�
 ```text
 Assets/
 ├── Resources/
-│   └── Sprites/
-│       ├── Instruments/            # 10종 악기 픽셀 아트 PNG 에셋 (Drums, Guitar, Violin 등)
-│       └── Player/                 # 대기(Idle), 이동(Move), 지휘(Hit) 픽셀 아트 PNG 에셋
+│   ├── Audio/                      # 11종 고품질 WAV 음원 에셋 (Sound_Drums, Sound_Piano, BGM_BossBattle 등)
+│   ├── Sprites/
+│   │   ├── Instruments/            # 10종 악기 픽셀 아트 PNG 에셋 (Drums, Piano, Violin 등)
+│   │   └── Player/                 # 대기(Idle), 이동(Move), 지휘(Hit) 픽셀 아트 PNG 에셋
+Assets/Prefabs/
+├── Combat/                         # 발사체 프리팹
+├── Enemies/                        # EnemyMonster.prefab, BossMonster.prefab
+├── Instruments/                    # InstrumentOrbit.prefab
+├── Items/                          # ExpGem.prefab, EliteRewardChest.prefab
+├── Player/                         # Player.prefab
+└── UI/                             # UI 프리팹
 Assets/Scripts/
 ├── Audio/
-│   └── AudioLayerManager.cs        # 10종 악기 고유 키음(Sine/Saw/Square/Triangle/Noise) 합성 및 메트로놈 BGM
+│   └── AudioLayerManager.cs        # 11종 WAV 음원 습득 연주 & 단음 SFX 키음 재생 제어
 ├── Camera/
-│   └── CameraController.cs         # 지휘자 1:1 화면 중앙 고정 카메라 추적 스크립트
+│   └── CameraController.cs         # 지휘자 1:1 화면 중앙 고정 카메라 추적
 ├── Combat/
-│   ├── AttackProjectile.cs         # 유도 음파 발사체 (일반 몬스터 & 엘리트 보스 타겟팅)
-│   └── RhythmAttackManager.cs      # QWER 리듬 성공 시 오토 타겟팅 Multi-Shot 발사 & 키음 재생
+│   ├── AttackProjectile.cs         # 유도 음파 발사체
+│   └── RhythmAttackManager.cs      # QWER 리듬 성공 시 오토 타겟팅 Multi-Shot 발사
 ├── Enemy/
-│   ├── BossMonster.cs              # 거대 엘리트 보스 AI, 120 HP base, 3가지 360도 탄막 패턴 및 특수 상자 드롭
-│   ├── BossProjectile.cs           # 보스 전용 360도/조준/스파이럴 탄막 발사체 (CircleCollider2D 0.45f 탑재)
-│   ├── EnemyMonster.cs             # 음표 몬스터 추적 AI, HP, 상호 척력(Separation), 100% ExpGem 드롭
-│   └── EnemySpawner.cs             # 보스 처치 후 2분 리셋 보스 스폰 및 잡몹 스폰 억제/재개 루프
+│   ├── BossMonster.cs              # 거대 엘리트 보스 AI & 탄막 패턴
+│   ├── BossProjectile.cs           # 보스 전용 360도/조준/스파이럴 탄막 발사체
+│   ├── EnemyMonster.cs             # 음표 몬스터 추적 AI
+│   └── EnemySpawner.cs             # 몬스터 스폰 루프
 ├── Instrument/
-│   ├── InstrumentData.cs            # 악기 데이터 클래스 & 레벨업 스탯(데미지/멀티샷/점수)
-│   ├── InstrumentItem.cs            # 몬스터 드롭 악기 수집 아이템 개체
-│   ├── InstrumentManager.cs         # 10종 악기 중 4슬롯 덱빌딩 & 단계적 슬롯 해금(Lv 5, 8)
-│   ├── InstrumentOrbit.cs           # QWER 방향 1:1 매핑 호위 펫 0.68m 둥둥 부유 & Lerp 추적 모션
-│   └── InstrumentPatternDatabase.cs # 10종 악기 Lv.1~5 (100% 고유 비트 & 다이내믹 4마디 변주 DB)
-├── Item/
-│   └── EliteRewardChest.cs         # 엘리트 보스 처치 시 드롭되는 황금 보물상자 (습득 반경 0.75f)
+│   ├── InstrumentData.cs            # 악기 데이터 클래스
+│   ├── InstrumentManager.cs         # 시작 시 드럼 기본 장착 & 4슬롯 덱빌딩
+│   ├── InstrumentOrbit.cs           # QWER 방향 1:1 매핑 호위 펫 0.68m 부유
+│   └── InstrumentPatternDatabase.cs # 10종 악기 97 BPM 32비트 고유 비트 DB
 ├── Player/
-│   ├── ExpGem.cs                    # 몬스터 사망 시 드롭되는 에메랄드 경험치 보석 (자석 흡수)
-│   ├── PlayerController.cs          # 방향키 이동 4방향 애니메이션, QWER 지휘 포즈, 1.0m 스케일 & HP 관리
-│   └── PlayerExperience.cs         # 경험치 획득, 레벨업 감지, 지수 요구량 곡선 및 Event 전달
+│   ├── ExpGem.cs                    # 에메랄드 경험치 보석
+│   ├── PlayerController.cs          # 방향키 이동 4방향 애니메이션, QWER 지휘 포즈
+│   └── PlayerExperience.cs         # 경험치 획득 & 레벨업 전달
 ├── Rhythm/
-│   ├── HitFloatingText.cs           # 지휘자 머리 위 3D 월드 플로팅 타격 텍스트 팝업 (PERFECT, GREAT, MISS)
-│   ├── RhythmManager.cs             # 90 BPM 32비트(4마디) 시퀀서 루프 엔진 & QWER 판정
-│   ├── RhythmNote.cs                # 실시간 상대 좌표 추적 노트 개체 (Q, W, E, R Arc 4레인)
-│   ├── RhythmUI.cs                  # Score, Combo, HP, EXP, Boss HP, Instrument QWER Slot UI
-│   └── ShrinkingRhythmRing.cs       # 동시타 식별용 0.005f 초미세 수축 비트 링 개체
+│   ├── HitFloatingText.cs           # 3D 월드 플로팅 타격 텍스트 팝업 (PERFECT, GREAT, MISS)
+│   ├── RhythmManager.cs             # 97 BPM 32비트 시퀀서 루프 엔진 & QWER 판정
+│   ├── RhythmNote.cs                # 실시간 상대 좌표 추적 노트 개체
+│   └── ShrinkingRhythmRing.cs       # 동시타 식별용 0.005f 초미세 수축 비트 링
 └── UI/
-    └── LevelUpUI.cs                 # 스타팅/레벨업/엘리트상자 3카드 팝업, 픽셀 아트 아이콘 & 중복 그룹 필터링
+    └── LevelUpUI.cs                 # 그룹 제한 해제 10종 악기 무작위 3카드 팝업
 ```
 
 ---

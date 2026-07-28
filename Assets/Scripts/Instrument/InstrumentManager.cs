@@ -32,6 +32,12 @@ namespace ConductorSymphony.Instrument
             {
                 playerTransform = PlayerController.Instance.transform;
             }
+
+            // Automatically equip Drums as default starting instrument on Slot 0 (Q)
+            if (!HasInstrument(InstrumentType.Drums))
+            {
+                AcquireOrUpgradeInstrument(InstrumentType.Drums);
+            }
         }
 
         public int GetUnlockedSlotsCount()
