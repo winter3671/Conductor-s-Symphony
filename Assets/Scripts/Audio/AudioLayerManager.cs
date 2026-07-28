@@ -7,6 +7,9 @@ namespace ConductorSymphony.Audio
 {
     public class AudioLayerManager : MonoSingleton<AudioLayerManager>
     {
+        [Header("Audio Delay Sync Offset")]
+        [SerializeField] private float audioStartDelay = 2.5242f; // Fine-tuned +50ms offset so audio beat matches Perfect window
+
         [Header("Audio Sources")]
         [SerializeField] private AudioSource bgmSource;
         [SerializeField] private AudioSource sfxSource;
@@ -45,7 +48,7 @@ namespace ConductorSymphony.Audio
             if (acquisitionSource == null)
             {
                 acquisitionSource = gameObject.AddComponent<AudioSource>();
-                acquisitionSource.loop = false;
+                acquisitionSource.loop = true; // Continuous seamless looping throughout gameplay!
                 acquisitionSource.playOnAwake = false;
                 acquisitionSource.volume = 0.85f;
                 acquisitionSource.pitch = 1.0f; // Fixed speed!
@@ -144,9 +147,8 @@ namespace ConductorSymphony.Audio
                 {
                     acquisitionSource.pitch = 1.0f; // Always 1.0x normal speed!
                     acquisitionSource.clip = clip;
-                    // Delay audio start by (noteTravelDuration 2.474s - audio first beat onset 0.6185s = 1.8557s)
-                    // so note reaching target and audio kick drum beat hit at the exact same millisecond!
-                    acquisitionSource.PlayDelayed(1.8557f);
+                    acquisitionSource.loop = true; // Seamless continuous looping!
+                    acquisitionSource.PlayDelayed(audioStartDelay);
                 }
             }
             else

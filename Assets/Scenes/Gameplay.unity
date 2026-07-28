@@ -1425,6 +1425,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ee627bd215d7e114e939e1b3e0f7ecdc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ConductorSymphony.Audio.AudioLayerManager
+  audioStartDelay: 2.5242
   bgmSource: {fileID: 0}
   sfxSource: {fileID: 0}
   acquisitionSource: {fileID: 0}

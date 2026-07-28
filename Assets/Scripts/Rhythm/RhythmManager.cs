@@ -39,9 +39,8 @@ namespace ConductorSymphony.Rhythm
             base.Awake();
             if (Instance != this) return;
 
-            // 90 BPM: 32-beat cycle over ~10.6s => 0.333s per step
+            // 97 BPM: 32-step cycle over 2 bars (16 beats) => 0.309278s per 16th-note step
             stepDuration = (60f / bpm) / 2f;
-            nextStepTime = Time.time + stepDuration;
 
             defaultNoteSprite = ProceduralSpriteFactory.CreateFilledCircle(32, 14f, Color.cyan);
         }
@@ -52,6 +51,9 @@ namespace ConductorSymphony.Rhythm
             {
                 targetTransform = PlayerController.Instance.transform;
             }
+
+            nextStepTime = Time.time;
+            currentStep = 0;
         }
 
         private void Update()
@@ -138,10 +140,10 @@ namespace ConductorSymphony.Rhythm
             }
         }
 
-        private void SpawnNoteForLane(RhythmLane lane, Color color)
+        private void SpawnNoteForLane(RhythmLane lane, Color color, float explicitTargetTime = -1f)
         {
             Vector3 spawnDir = GetLaneDirection(lane);
-            float targetTime = Time.time + noteTravelDuration;
+            float targetTime = explicitTargetTime > 0f ? explicitTargetTime : Time.time + noteTravelDuration;
 
             GameObject noteObj = new GameObject($"Note_{lane}_{Time.frameCount}");
             SpriteRenderer sr = noteObj.AddComponent<SpriteRenderer>();
@@ -184,7 +186,7 @@ namespace ConductorSymphony.Rhythm
                 if (activeNotes[i].Lane == lane)
                 {
                     float diff = Mathf.Abs(currentTime - activeNotes[i].TargetTime);
-                    if (diff < closestDiff)
+                    if (diff < closestDiff && diff <= greatWindow)
                     {
                         closestDiff = diff;
                         targetNote = activeNotes[i];
@@ -192,14 +194,10 @@ namespace ConductorSymphony.Rhythm
                 }
             }
 
-            if (targetNote != null && closestDiff <= greatWindow)
+            if (targetNote != null)
             {
                 HitRating rating = (closestDiff <= perfectWindow) ? HitRating.Perfect : HitRating.Great;
                 ProcessHit(targetNote, rating);
-            }
-            else if (targetNote != null && closestDiff <= greatWindow * 1.5f)
-            {
-                ProcessHit(targetNote, HitRating.Miss);
             }
         }
 
@@ -210,50 +208,50 @@ namespace ConductorSymphony.Rhythm
 
             if (rating == HitRating.Perfect)
             {
+                currentScore += 100;
                 currentCombo++;
-                currentScore += 100 + (currentCombo * 10);
             }
             else if (rating == HitRating.Great)
             {
+                currentScore += 50;
                 currentCombo++;
-                currentScore += 50 + (currentCombo * 5);
             }
-            else
-            {
-                currentCombo = 0;
-            }
-
-            if (rating == HitRating.Perfect || rating == HitRating.Great)
-            {
-                OnHitSuccessEvent?.Invoke(rating, note.Lane);
-            }
-
-            TriggerVisualHitFeedback(rating);
 
             OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, rating);
+
+            if (targetTransform != null)
+            {
+                GameObject popupObj = new GameObject("HitPopup");
+                HitFloatingText popup = popupObj.AddComponent<HitFloatingText>();
+                popup.Initialize(targetTransform.position, rating);
+            }
+
+            OnHitSuccessEvent?.Invoke(rating, note.Lane);
+
+            int slot = GetSlotForLane(note.Lane);
+            if (InstrumentManager.Instance != null && slot < InstrumentManager.Instance.AcquiredInstruments.Count)
+            {
+                InstrumentType type = InstrumentManager.Instance.AcquiredInstruments[slot].type;
+
+                if (Audio.AudioLayerManager.Instance != null)
+                {
+                    Audio.AudioLayerManager.Instance.PlayInstrumentKeySound(type, rating == HitRating.Perfect);
+                }
+            }
         }
 
         public void OnNoteMissed(RhythmNote note)
         {
-            if (activeNotes.Contains(note))
+            activeNotes.Remove(note);
+            currentCombo = 0;
+            OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, HitRating.Miss);
+
+            if (targetTransform != null)
             {
-                activeNotes.Remove(note);
-                currentCombo = 0;
-
-                TriggerVisualHitFeedback(HitRating.Miss);
-
-                OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, HitRating.Miss);
+                GameObject popupObj = new GameObject("HitPopup");
+                HitFloatingText popup = popupObj.AddComponent<HitFloatingText>();
+                popup.Initialize(targetTransform.position, HitRating.Miss);
             }
-        }
-
-        private void TriggerVisualHitFeedback(HitRating rating)
-        {
-            Vector3 playerPos = (targetTransform != null) ? targetTransform.position : Vector3.zero;
-
-            // Spawn 3D World Floating Hit Text Popup above conductor
-            GameObject textObj = new GameObject($"HitText_{Time.frameCount}");
-            HitFloatingText floatingText = textObj.AddComponent<HitFloatingText>();
-            floatingText.Initialize(playerPos, rating);
         }
     }
 }
