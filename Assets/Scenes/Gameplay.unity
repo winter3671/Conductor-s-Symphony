@@ -1425,6 +1425,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ee627bd215d7e114e939e1b3e0f7ecdc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ConductorSymphony.Audio.AudioLayerManager
+  bgmSource: {fileID: 0}
+  sfxSource: {fileID: 0}
+  acquisitionSource: {fileID: 0}
 --- !u!4 &713899007
 Transform:
   m_ObjectHideFlags: 0
@@ -2761,11 +2764,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ea6915b3e78dc7248a7754d66ccf4d11, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ConductorSymphony.Rhythm.RhythmManager
-  bpm: 120
+  bpm: 97
   spawnDistance: 4
-  noteTravelDuration: 1.2
-  perfectWindow: 0.08
-  greatWindow: 0.18
+  noteTravelDuration: 2.474
+  perfectWindow: 0.1
+  greatWindow: 0.22
   targetTransform: {fileID: 0}
 --- !u!4 &1520719334
 Transform:

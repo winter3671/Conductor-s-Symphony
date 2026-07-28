@@ -6,15 +6,15 @@ namespace ConductorSymphony.Instrument
     public enum InstrumentType
     {
         Drums = 0,
-        Violin = 1,
-        Flute = 2,
-        Trumpet = 3,
-        Guitar = 4,
-        Piano = 5,
+        Piano = 1,
+        Violin = 2,
+        Flute = 3,
+        FrenchHorn = 4,
+        Glockenspiel = 5,
         Cello = 6,
-        Saxophone = 7,
-        Harp = 8,
-        Xylophone = 9
+        Timpani = 7,
+        Marimba = 8,
+        Bell = 9
     }
 
     [System.Serializable]
@@ -44,20 +44,20 @@ namespace ConductorSymphony.Instrument
             {
                 case InstrumentType.Drums:
                 case InstrumentType.Cello:
+                case InstrumentType.Timpani:
                     return InstrumentGroup.GroupA_Downbeat;
 
-                case InstrumentType.Guitar:
-                case InstrumentType.Violin:
+                case InstrumentType.Piano:
+                case InstrumentType.Marimba:
                     return InstrumentGroup.GroupB_Offbeat;
 
                 case InstrumentType.Flute:
-                case InstrumentType.Harp:
+                case InstrumentType.FrenchHorn:
                     return InstrumentGroup.GroupC_Midbeat;
 
-                case InstrumentType.Trumpet:
-                case InstrumentType.Saxophone:
-                case InstrumentType.Piano:
-                case InstrumentType.Xylophone:
+                case InstrumentType.Violin:
+                case InstrumentType.Glockenspiel:
+                case InstrumentType.Bell:
                 default:
                     return InstrumentGroup.GroupD_Upbeat;
             }
@@ -74,123 +74,123 @@ namespace ConductorSymphony.Instrument
         {
             database = new Dictionary<InstrumentType, InstrumentDefinition>();
 
-            // 1. Drums (Dynamic 4-bar Song-Form Groove & Turnaround Fills)
+            // 1. Drums (1 Downbeat per 2.474s Measure = every 8 steps, matching noteTravelDuration)
             database[InstrumentType.Drums] = new InstrumentDefinition(
-                InstrumentType.Drums, "Drums", new Color(0.9f, 0.3f, 0.3f), "Dynamic 4-bar song-form kick & snare fill-ins",
+                InstrumentType.Drums, "Drums", new Color(0.9f, 0.3f, 0.3f), "360° Shockwave Beat Bang",
                 new List<int[]> {
-                    ParsePattern("10000000100000001000000010000000"), // Lv 1 (4 hits: Straight Downbeats)
-                    ParsePattern("10000000100000000010000010001000"), // Lv 2 (5 hits: Bar 3 Offbeat Shift & Bar 4 Fill)
-                    ParsePattern("10000000100010000010000010001001"), // Lv 3 (6 hits: Bar 2 Variation & Bar 4 Turnaround)
-                    ParsePattern("10000100100010000010010010001001"), // Lv 4 (7 hits: Synco-Pushes)
-                    ParsePattern("10000100100110000010010010001010")  // Lv 5 (8 hits MAX: Complete Dynamic 4-Bar Song Form)
+                    ParsePattern("10000000100000001000000010000000"), // Lv 1 (1 hit per 2.474s measure = Step 0, 8, 16, 24)
+                    ParsePattern("10000000100000001000000010000000"), // Lv 2
+                    ParsePattern("10000000100000001000000010000000"), // Lv 3
+                    ParsePattern("10000000100000001000000010000001"), // Lv 4 (base beat + pickup hit before loop)
+                    ParsePattern("10000000100010001000000010001001")  // Lv 5 MAX (base beat + syncopated accents)
                 }
             );
 
-            // 2. Cello (Dynamic Low Bass Pushes & Rhythmic Variations)
-            database[InstrumentType.Cello] = new InstrumentDefinition(
-                InstrumentType.Cello, "Cello", new Color(0.6f, 0.3f, 0.1f), "Deep low-pitch bass pushes with bar variations",
-                new List<int[]> {
-                    ParsePattern("01000000010000000100000001000000"), // Lv 1 (4 hits: Step 2 Push)
-                    ParsePattern("01000000010000000010000001000100"), // Lv 2 (5 hits: Bar 3 Shift & Bar 4 Fill)
-                    ParsePattern("01000000010001000010000001000101"), // Lv 3 (6 hits: Bar 2 Fill & Bar 4 End Accent)
-                    ParsePattern("01000010010001000010010001000101"), // Lv 4 (7 hits: Poly-rhythmic Bass Pushes)
-                    ParsePattern("01000010010101000010010001000110")  // Lv 5 (8 hits MAX: Dynamic 4-Bar Cello Groove)
-                }
-            );
-
-            // 3. Guitar (Dynamic Power Riffs & Turnarounds)
-            database[InstrumentType.Guitar] = new InstrumentDefinition(
-                InstrumentType.Guitar, "Guitar", new Color(0.8f, 0.2f, 1.0f), "Power rock offbeat riffs with bar shifts",
-                new List<int[]> {
-                    ParsePattern("00100000001000000010000000100000"), // Lv 1 (4 hits: Step 3 Offbeats)
-                    ParsePattern("00100000001000001000000000100100"), // Lv 2 (5 hits: Bar 3 Downbeat Shift & Bar 4 Riff)
-                    ParsePattern("00100000001001001000000000100101"), // Lv 3 (6 hits: Bar 2 Accent & Bar 4 Turnaround)
-                    ParsePattern("00100010001001001000010000100101"), // Lv 4 (7 hits: Synco-Riffs)
-                    ParsePattern("00100010001101001000010000100110")  // Lv 5 (8 hits MAX: Dynamic 4-Bar Rock Riff)
-                }
-            );
-
-            // 4. Violin (Melodic Sweeping Variations)
-            database[InstrumentType.Violin] = new InstrumentDefinition(
-                InstrumentType.Violin, "Violin", new Color(1.0f, 0.5f, 0.2f), "Melodic sweeping strings with bar variations",
-                new List<int[]> {
-                    ParsePattern("00010000000100000001000000010000"), // Lv 1 (4 hits: Step 4 Strokes)
-                    ParsePattern("00010000000100000000100000010010"), // Lv 2 (5 hits: Bar 3 Shift & Bar 4 Run)
-                    ParsePattern("00010000000100100000100000010011"), // Lv 3 (6 hits: Bar 2 Accent & Bar 4 Turnaround)
-                    ParsePattern("00010100000100100000101000010011"), // Lv 4 (7 hits: Poly String Runs)
-                    ParsePattern("00010100000110100000101000010110")  // Lv 5 (8 hits MAX: Dynamic 4-Bar String Melody)
-                }
-            );
-
-            // 5. Flute (Light Woodwind Arpeggio Variations)
-            database[InstrumentType.Flute] = new InstrumentDefinition(
-                InstrumentType.Flute, "Flute", new Color(0.2f, 0.9f, 1.0f), "Light woodwind arpeggios with bar shifts",
-                new List<int[]> {
-                    ParsePattern("00001000000010000000100000001000"), // Lv 1 (4 hits: Step 5 Midbeats)
-                    ParsePattern("00001000000010000001000000001001"), // Lv 2 (5 hits: Bar 3 Shift & Bar 4 Trill)
-                    ParsePattern("00001000000010010001000000001010"), // Lv 3 (6 hits: Bar 2 Fill & Bar 4 Turnaround)
-                    ParsePattern("00001010000010010001001000001010"), // Lv 4 (7 hits: Synco Woodwind Trills)
-                    ParsePattern("00001010000011010001001000001011")  // Lv 5 (8 hits MAX: Dynamic 4-Bar Flute Riff)
-                }
-            );
-
-            // 6. Harp (Cascading Glissando Runs with Bar Shifts)
-            database[InstrumentType.Harp] = new InstrumentDefinition(
-                InstrumentType.Harp, "Harp", new Color(0.4f, 1.0f, 0.8f), "Cascading glissando runs with bar shifts",
-                new List<int[]> {
-                    ParsePattern("00000100000001000000010000000100"), // Lv 1 (4 hits: Step 6 Runs)
-                    ParsePattern("00000100000001000000100000000101"), // Lv 2 (5 hits: Bar 3 Shift & Bar 4 Run)
-                    ParsePattern("00000100000001010000100000000110"), // Lv 3 (6 hits: Bar 2 Fill & Bar 4 Turnaround)
-                    ParsePattern("00000110000001010000101000000110"), // Lv 4 (7 hits: Poly Harp Runs)
-                    ParsePattern("00000110000001110000101000000111")  // Lv 5 (8 hits MAX: Dynamic 4-Bar Harp Cascade)
-                }
-            );
-
-            // 7. Trumpet (High Brass Fanfare & Turnaround Accent)
-            database[InstrumentType.Trumpet] = new InstrumentDefinition(
-                InstrumentType.Trumpet, "Trumpet", new Color(1.0f, 0.85f, 0.2f), "Majestic upbeat brass fanfare with bar shifts",
-                new List<int[]> {
-                    ParsePattern("00000010000000100000001000000010"), // Lv 1 (4 hits: Step 7 Upbeats)
-                    ParsePattern("00000010000000100100000000000011"), // Lv 2 (5 hits: Bar 3 Shift & Bar 4 Fanfare)
-                    ParsePattern("00000010000000110100000000000110"), // Lv 3 (6 hits: Bar 2 Accent & Bar 4 Turnaround)
-                    ParsePattern("01000010000000110100001000000110"), // Lv 4 (7 hits: Synco Brass Calls)
-                    ParsePattern("01000010010000110100001000000111")  // Lv 5 (8 hits MAX: Dynamic 4-Bar Brass Fanfare)
-                }
-            );
-
-            // 8. Saxophone (Jazz Swing Accents & Fill-Ins)
-            database[InstrumentType.Saxophone] = new InstrumentDefinition(
-                InstrumentType.Saxophone, "Saxophone", new Color(1.0f, 0.4f, 0.7f), "Jazz swing end-bar accents & fill-ins",
-                new List<int[]> {
-                    ParsePattern("00000001000000010000000100000001"), // Lv 1 (4 hits: Step 8 End-Bar)
-                    ParsePattern("00000001000000010000001000000101"), // Lv 2 (5 hits: Bar 3 Shift & Bar 4 Swing)
-                    ParsePattern("00000001000001010000001000000110"), // Lv 3 (6 hits: Bar 2 Accent & Bar 4 Turnaround)
-                    ParsePattern("01000001000001010000001100000110"), // Lv 4 (7 hits: Poly Sax Accents)
-                    ParsePattern("01000001010001010000001100000111")  // Lv 5 (8 hits MAX: Dynamic 4-Bar Sax Riff)
-                }
-            );
-
-            // 9. Piano (Syncopated Alternating Chords & Groove Shifts)
+            // 2. Piano (Rapid Chord Taps & Bar 4 Cascade)
             database[InstrumentType.Piano] = new InstrumentDefinition(
-                InstrumentType.Piano, "Piano", new Color(0.9f, 0.9f, 0.9f), "Syncopated alternating piano chords & groove shifts",
+                InstrumentType.Piano, "Piano", new Color(0.9f, 0.9f, 0.9f), "Auto-Target Chord Laser & Piano Cascade Volley",
                 new List<int[]> {
-                    ParsePattern("10000000100000000010000000100000"), // Lv 1 (4 hits: Alternating Chords)
-                    ParsePattern("10000000100000000010000010001000"), // Lv 2 (5 hits: Bar 4 Groove Shift)
-                    ParsePattern("10000000100010000010000010001001"), // Lv 3 (6 hits: Bar 2 Fill & Bar 4 Turnaround)
-                    ParsePattern("10000100100010000010010010001001"), // Lv 4 (7 hits: Synco Chords)
-                    ParsePattern("10000100100110000010010010001010")  // Lv 5 (8 hits MAX: Dynamic 4-Bar Piano Groove)
+                    ParsePattern("10000000100000001000000010000000"), // Lv 1
+                    ParsePattern("10001000100010001000100010001000"), // Lv 2
+                    ParsePattern("10001000100010001000100011111100"), // Lv 3 (Bar 4 6-tap cascade)
+                    ParsePattern("10011001100110011001100111111100"), // Lv 4
+                    ParsePattern("11011011101110111101101111111100")  // Lv 5 MAX
                 }
             );
 
-            // 10. Xylophone (Bright Popping Tones & Polyrhythmic Shifts)
-            database[InstrumentType.Xylophone] = new InstrumentDefinition(
-                InstrumentType.Xylophone, "Xylophone", new Color(0.9f, 1.0f, 0.3f), "Bright popping alternating high tones with bar shifts",
+            // 3. Violin (13-Step Long Note Hold & Release Arc Slash)
+            database[InstrumentType.Violin] = new InstrumentDefinition(
+                InstrumentType.Violin, "Violin", new Color(1.0f, 0.5f, 0.2f), "Orbiting Blades (Hold) & Crescent Arc Slash (Release)",
                 new List<int[]> {
-                    ParsePattern("00001000000010000000001000000010"), // Lv 1 (4 hits: Alternating High Tones)
-                    ParsePattern("00001000000010000000001001000010"), // Lv 2 (5 hits: Bar 4 Pop Shift)
-                    ParsePattern("00001000010010000000001001000010"), // Lv 3 (6 hits: Bar 2 Accent & Bar 4 Fill)
-                    ParsePattern("01001000010010000000011001000010"), // Lv 4 (7 hits: Poly Xylo Pops)
-                    ParsePattern("01001000010010000001011001000011")  // Lv 5 (8 hits MAX: Dynamic 4-Bar Xylo Riff)
+                    ParsePattern("11111111111110001111111111111000"), // Lv 1 (13-step hold + 3-step rest release)
+                    ParsePattern("11111111111110001111111111111000"), // Lv 2
+                    ParsePattern("11111111111110001111111111111000"), // Lv 3
+                    ParsePattern("11111111111110001111111111111000"), // Lv 4
+                    ParsePattern("11111111111110001111111111111000")  // Lv 5 MAX
+                }
+            );
+
+            // 4. Flute (Short Hold Swells & Mini Vortex Pull)
+            database[InstrumentType.Flute] = new InstrumentDefinition(
+                InstrumentType.Flute, "Flute", new Color(0.2f, 0.9f, 1.0f), "Mini Vortex (Release Pull) & Woodwind Swells",
+                new List<int[]> {
+                    ParsePattern("00111000001110000011100000111000"), // Lv 1 (3-step short holds)
+                    ParsePattern("00111000001110000011100000111000"), // Lv 2
+                    ParsePattern("00111000001110000011100000111000"), // Lv 3
+                    ParsePattern("00111000001110000011100000111000"), // Lv 4
+                    ParsePattern("00111000001110000011100000111000")  // Lv 5 MAX
+                }
+            );
+
+            // 5. French Horn (6-Step Swell Long Note & Sonic Brass Cannon)
+            database[InstrumentType.FrenchHorn] = new InstrumentDefinition(
+                InstrumentType.FrenchHorn, "FrenchHorn", new Color(1.0f, 0.85f, 0.2f), "Sonic Brass Cannon Cone Knockback & Swell Hold",
+                new List<int[]> {
+                    ParsePattern("11111100000000001111110000000000"), // Lv 1 (6-step swells)
+                    ParsePattern("11111100000000001111110000000000"), // Lv 2
+                    ParsePattern("11111100000000001111110000000000"), // Lv 3
+                    ParsePattern("11111100000000001111110000000000"), // Lv 4
+                    ParsePattern("11111100000000001111110000000000")  // Lv 5 MAX
+                }
+            );
+
+            // 6. Glockenspiel (Star Fall & Bar 4 Finale Burst)
+            database[InstrumentType.Glockenspiel] = new InstrumentDefinition(
+                InstrumentType.Glockenspiel, "Glockenspiel", new Color(0.4f, 1.0f, 0.8f), "Star Fall on Highest HP Enemy & Finale Star Burst",
+                new List<int[]> {
+                    ParsePattern("10000000100000001000000011111111"), // Lv 1 (Starlight taps + 8-step finale burst)
+                    ParsePattern("10000000100000001000000011111111"), // Lv 2
+                    ParsePattern("10000000100000001000000011111111"), // Lv 3
+                    ParsePattern("10000000100000001000000011111111"), // Lv 4
+                    ParsePattern("10000000100000001000000011111111")  // Lv 5 MAX
+                }
+            );
+
+            // 7. Cello (13-Step Deep Bass Long Note & Gravity Binding)
+            database[InstrumentType.Cello] = new InstrumentDefinition(
+                InstrumentType.Cello, "Cello", new Color(0.6f, 0.3f, 0.1f), "Gravity Binding Slow Zone (13-step Deep Bass Hold)",
+                new List<int[]> {
+                    ParsePattern("11111111111110001111111111111000"), // Lv 1 (13-step hold + 3-step rest)
+                    ParsePattern("11111111111110001111111111111000"), // Lv 2
+                    ParsePattern("11111111111110001111111111111000"), // Lv 3
+                    ParsePattern("11111111111110001111111111111000"), // Lv 4
+                    ParsePattern("11111111111110001111111111111000")  // Lv 5 MAX
+                }
+            );
+
+            // 8. Timpani (Timpani Cannon & Roll Carpet Bomb)
+            database[InstrumentType.Timpani] = new InstrumentDefinition(
+                InstrumentType.Timpani, "Timpani", new Color(0.7f, 0.4f, 0.2f), "Timpani Cannon Mortar Impact & 16-Bar Roll Carpet Bomb",
+                new List<int[]> {
+                    ParsePattern("10000000100000001000000011111111"), // Lv 1 (Mortar taps + 13-step roll hold)
+                    ParsePattern("10000000100000001000000011111111"), // Lv 2
+                    ParsePattern("10000000100000001000000011111111"), // Lv 3
+                    ParsePattern("10000000100000001000000011111111"), // Lv 4
+                    ParsePattern("10000000100000001000000011111111")  // Lv 5 MAX
+                }
+            );
+
+            // 9. Marimba (Steps 3 & 11 Off-beat Wood Ricochet)
+            database[InstrumentType.Marimba] = new InstrumentDefinition(
+                InstrumentType.Marimba, "Marimba", new Color(0.9f, 0.6f, 0.2f), "Off-Beat Marimba Ricochet Wave (Steps 3 & 11 Taps)",
+                new List<int[]> {
+                    ParsePattern("00100000001000000010000000100000"), // Lv 1 (Steps 3 & 11 offbeat taps)
+                    ParsePattern("00100000001000000010000000100000"), // Lv 2
+                    ParsePattern("00100000001000000010000000100000"), // Lv 3
+                    ParsePattern("00100000001000000010000000100000"), // Lv 4
+                    ParsePattern("00100000001000000010000000100000")  // Lv 5 MAX
+                }
+            );
+
+            // 10. Bell (Steps 5 & 13 8-Direction Starlight Burst)
+            database[InstrumentType.Bell] = new InstrumentDefinition(
+                InstrumentType.Bell, "Bell", new Color(0.9f, 1.0f, 0.3f), "8-Direction Starlight Burst (Steps 5 & 13 Accent Taps)",
+                new List<int[]> {
+                    ParsePattern("00001000000010000000100000001000"), // Lv 1 (Steps 5 & 13 accent taps)
+                    ParsePattern("00001000000010000000100000001000"), // Lv 2
+                    ParsePattern("00001000000010000000100000001000"), // Lv 3
+                    ParsePattern("00001000000010000000100000001000"), // Lv 4
+                    ParsePattern("00001000000010000000100000001000")  // Lv 5 MAX
                 }
             );
         }

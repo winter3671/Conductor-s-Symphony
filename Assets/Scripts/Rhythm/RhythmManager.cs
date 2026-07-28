@@ -13,9 +13,9 @@ namespace ConductorSymphony.Rhythm
         public static event System.Action<int, int, HitRating> OnScoreUpdatedEvent; // score, combo, rating
 
         [Header("Rhythm Sequencer Settings")]
-        [SerializeField] private float bpm = 90f;
+        [SerializeField] private float bpm = 97f;
         [SerializeField] private float spawnDistance = 4.0f;
-        [SerializeField] private float noteTravelDuration = 1.4f;
+        [SerializeField] private float noteTravelDuration = 2.474f; // Exactly 4 beats (1 bar) at 97 BPM for smooth readable travel speed
 
         [Header("Timing Windows (Seconds)")]
         [SerializeField] private float perfectWindow = 0.10f;
