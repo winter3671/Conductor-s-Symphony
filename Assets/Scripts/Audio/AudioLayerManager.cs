@@ -7,9 +7,12 @@ namespace ConductorSymphony.Audio
 {
     public class AudioLayerManager : MonoSingleton<AudioLayerManager>
     {
-        private AudioSource baseBgmSource;
-        private AudioSource sfxSource;
+        [Header("Audio Sources")]
+        [SerializeField] private AudioSource bgmSource;
+        [SerializeField] private AudioSource sfxSource;
+        [SerializeField] private AudioSource acquisitionSource;
 
+        private Dictionary<InstrumentType, AudioClip> instrumentAcquisitionClips = new Dictionary<InstrumentType, AudioClip>();
         private Dictionary<InstrumentType, AudioClip> instrumentKeySounds = new Dictionary<InstrumentType, AudioClip>();
 
         protected override void Awake()
@@ -17,61 +20,63 @@ namespace ConductorSymphony.Audio
             base.Awake();
             if (Instance != this) return;
 
-            sfxSource = gameObject.AddComponent<AudioSource>();
-            sfxSource.playOnAwake = false;
-
-            SetupBaseBgm();
-            GenerateInstrumentKeySounds();
+            EnsureAudioSources();
+            LoadAudioClipsAndKeySounds();
         }
 
-        private void SetupBaseBgm()
+        private void EnsureAudioSources()
         {
-            baseBgmSource = gameObject.AddComponent<AudioSource>();
-            baseBgmSource.clip = CreateMetronomeBeatClip();
-            baseBgmSource.loop = true;
-            baseBgmSource.volume = 0.35f;
-            baseBgmSource.Play();
-        }
-
-        private AudioClip CreateMetronomeBeatClip()
-        {
-            int sampleRate = 44100;
-            int lengthSamples = sampleRate * 2; // 2 sec (120 BPM = 4 beats)
-            float[] samples = new float[lengthSamples];
-
-            for (int beat = 0; beat < 4; beat++)
+            if (bgmSource == null)
             {
-                int startSample = beat * (sampleRate / 2);
-                int pulseLen = sampleRate / 20; // 0.05s click
-
-                float freq = (beat == 0) ? 800f : 400f; // High click on beat 1
-
-                for (int i = 0; i < pulseLen && (startSample + i) < lengthSamples; i++)
-                {
-                    float t = (float)i / sampleRate;
-                    float env = 1f - ((float)i / pulseLen);
-                    samples[startSample + i] = Mathf.Sin(2 * Mathf.PI * freq * t) * env * 0.15f;
-                }
+                bgmSource = gameObject.AddComponent<AudioSource>();
+                bgmSource.loop = true;
+                bgmSource.playOnAwake = false;
+                bgmSource.volume = 0.5f;
             }
 
-            AudioClip clip = AudioClip.Create("MetronomeBeat", lengthSamples, 1, sampleRate, false);
-            clip.SetData(samples, 0);
-            return clip;
+            if (sfxSource == null)
+            {
+                sfxSource = gameObject.AddComponent<AudioSource>();
+                sfxSource.loop = false;
+                sfxSource.playOnAwake = false;
+                sfxSource.volume = 0.8f;
+            }
+
+            if (acquisitionSource == null)
+            {
+                acquisitionSource = gameObject.AddComponent<AudioSource>();
+                acquisitionSource.loop = false;
+                acquisitionSource.playOnAwake = false;
+                acquisitionSource.volume = 0.85f;
+                acquisitionSource.pitch = 1.0f; // Fixed speed!
+            }
         }
 
-        private void GenerateInstrumentKeySounds()
+        private void LoadAudioClipsAndKeySounds()
         {
-            // Frequencies for 10 instruments
-            instrumentKeySounds[InstrumentType.Drums]     = CreateSynthTone(120f, 0.15f, SynthWaveType.Noise);
-            instrumentKeySounds[InstrumentType.Violin]    = CreateSynthTone(523.25f, 0.25f, SynthWaveType.Sawtooth); // C5
-            instrumentKeySounds[InstrumentType.Flute]     = CreateSynthTone(659.25f, 0.2f, SynthWaveType.Sine);     // E5
-            instrumentKeySounds[InstrumentType.Trumpet]   = CreateSynthTone(392.00f, 0.22f, SynthWaveType.Square);  // G4
-            instrumentKeySounds[InstrumentType.Guitar]    = CreateSynthTone(220.00f, 0.25f, SynthWaveType.Square);  // A3
-            instrumentKeySounds[InstrumentType.Piano]     = CreateSynthTone(440.00f, 0.3f, SynthWaveType.Triangle); // A4
-            instrumentKeySounds[InstrumentType.Cello]     = CreateSynthTone(130.81f, 0.35f, SynthWaveType.Sawtooth); // C3
-            instrumentKeySounds[InstrumentType.Saxophone] = CreateSynthTone(349.23f, 0.25f, SynthWaveType.Square);  // F4
-            instrumentKeySounds[InstrumentType.Harp]      = CreateSynthTone(880.00f, 0.2f, SynthWaveType.Sine);     // A5
-            instrumentKeySounds[InstrumentType.Xylophone] = CreateSynthTone(1046.50f, 0.15f, SynthWaveType.Triangle);// C6
+            // 1. Acquisition WAV audio tracks (Played ONCE when acquiring an instrument / starting game)
+            instrumentAcquisitionClips[InstrumentType.Drums]        = Resources.Load<AudioClip>("Audio/Sound_Drums");
+            instrumentAcquisitionClips[InstrumentType.Piano]        = Resources.Load<AudioClip>("Audio/Sound_Piano");
+            instrumentAcquisitionClips[InstrumentType.Violin]       = Resources.Load<AudioClip>("Audio/Sound_Violin");
+            instrumentAcquisitionClips[InstrumentType.Flute]        = Resources.Load<AudioClip>("Audio/Sound_Flute");
+            instrumentAcquisitionClips[InstrumentType.FrenchHorn]   = Resources.Load<AudioClip>("Audio/Sound_FrenchHorn");
+            instrumentAcquisitionClips[InstrumentType.Glockenspiel] = Resources.Load<AudioClip>("Audio/Sound_Glockenspiel");
+            instrumentAcquisitionClips[InstrumentType.Cello]        = Resources.Load<AudioClip>("Audio/Sound_Cello");
+            instrumentAcquisitionClips[InstrumentType.Timpani]      = Resources.Load<AudioClip>("Audio/Sound_Timpani");
+            instrumentAcquisitionClips[InstrumentType.Marimba]      = Resources.Load<AudioClip>("Audio/Sound_Marimba");
+            instrumentAcquisitionClips[InstrumentType.Bell]         = Resources.Load<AudioClip>("Audio/Sound_Bell");
+
+            // 2. Clean single-note key tap sounds (Played on EVERY beat note hit)
+            instrumentKeySounds[InstrumentType.Drums]        = CreateSynthTone(120f, 0.12f, SynthWaveType.Noise);
+            instrumentKeySounds[InstrumentType.Piano]        = CreateSynthTone(440f, 0.15f, SynthWaveType.Triangle);
+            instrumentKeySounds[InstrumentType.Violin]       = CreateSynthTone(523.25f, 0.18f, SynthWaveType.Sawtooth);
+            instrumentKeySounds[InstrumentType.Flute]        = CreateSynthTone(659.25f, 0.15f, SynthWaveType.Sine);
+            instrumentKeySounds[InstrumentType.FrenchHorn]   = CreateSynthTone(392.00f, 0.18f, SynthWaveType.Square);
+            instrumentKeySounds[InstrumentType.Glockenspiel] = CreateSynthTone(880.00f, 0.12f, SynthWaveType.Sine);
+            instrumentKeySounds[InstrumentType.Cello]        = CreateSynthTone(130.81f, 0.22f, SynthWaveType.Sawtooth);
+            instrumentKeySounds[InstrumentType.Timpani]      = CreateSynthTone(180.00f, 0.15f, SynthWaveType.Noise);
+            instrumentKeySounds[InstrumentType.Marimba]      = CreateSynthTone(523.25f, 0.14f, SynthWaveType.Triangle);
+            instrumentKeySounds[InstrumentType.Bell]         = CreateSynthTone(1046.50f, 0.12f, SynthWaveType.Sine);
         }
 
         private enum SynthWaveType { Sine, Square, Sawtooth, Triangle, Noise }
@@ -85,7 +90,7 @@ namespace ConductorSymphony.Audio
             for (int i = 0; i < lengthSamples; i++)
             {
                 float t = (float)i / sampleRate;
-                float env = Mathf.Exp(-5.0f * (t / duration)); // Exponential decay envelope
+                float env = Mathf.Exp(-6.0f * (t / duration));
                 float wave = 0f;
 
                 switch (waveType)
@@ -107,7 +112,7 @@ namespace ConductorSymphony.Audio
                         break;
                 }
 
-                samples[i] = wave * env * 0.4f;
+                samples[i] = wave * env * 0.35f;
             }
 
             AudioClip clip = AudioClip.Create($"KeySound_{freq}_{waveType}", lengthSamples, 1, sampleRate, false);
@@ -115,19 +120,49 @@ namespace ConductorSymphony.Audio
             return clip;
         }
 
+        /// <summary>
+        /// Called on EVERY beat note hit during gameplay. Plays a clean, crisp single-note key tap sound on sfxSource.
+        /// </summary>
         public void PlayInstrumentKeySound(InstrumentType type, bool isPerfect)
         {
             if (instrumentKeySounds.TryGetValue(type, out AudioClip clip))
             {
-                sfxSource.pitch = 1.0f;
-                sfxSource.PlayOneShot(clip, 0.8f);
+                sfxSource.pitch = isPerfect ? 1.05f : 0.95f;
+                sfxSource.PlayOneShot(clip, 0.7f);
             }
         }
 
+        /// <summary>
+        /// Called ONCE when an instrument is acquired (including game start with Drums).
+        /// Plays the corresponding WAV audio track on a dedicated acquisitionSource (locked at 1.0x speed).
+        /// </summary>
         public void ActivateInstrumentAudio(InstrumentType type)
         {
-            // Play a celebratory chime when a new instrument is acquired
-            PlayInstrumentKeySound(type, true);
+            if (instrumentAcquisitionClips.TryGetValue(type, out AudioClip clip) && clip != null)
+            {
+                if (acquisitionSource != null)
+                {
+                    acquisitionSource.pitch = 1.0f; // Always 1.0x normal speed!
+                    acquisitionSource.clip = clip;
+                    // Delay audio start by (noteTravelDuration 2.474s - audio first beat onset 0.6185s = 1.8557s)
+                    // so note reaching target and audio kick drum beat hit at the exact same millisecond!
+                    acquisitionSource.PlayDelayed(1.8557f);
+                }
+            }
+            else
+            {
+                PlayInstrumentKeySound(type, true);
+            }
+        }
+
+        public void PlayBossBattleBGM()
+        {
+            AudioClip bossBgm = Resources.Load<AudioClip>("Audio/BGM_BossBattle");
+            if (bossBgm != null && bgmSource != null)
+            {
+                bgmSource.clip = bossBgm;
+                bgmSource.Play();
+            }
         }
     }
 }
