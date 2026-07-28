@@ -174,38 +174,24 @@ namespace ConductorSymphony.UI
                 equippedGroups.Add(InstrumentPatternDatabase.GetGroup(inst.type));
             }
 
-            if (isGameStart)
+            if (!slotsFull)
             {
-                // All 10 instruments available for starting choice
+                // Add all unacquired instruments from remaining 9 instruments
                 foreach (InstrumentType t in System.Enum.GetValues(typeof(InstrumentType)))
                 {
-                    availableTypes.Add(t);
+                    if (!InstrumentManager.Instance.HasInstrument(t))
+                    {
+                        availableTypes.Add(t);
+                    }
                 }
             }
-            else
-            {
-                if (!slotsFull)
-                {
-                    foreach (InstrumentType t in System.Enum.GetValues(typeof(InstrumentType)))
-                    {
-                        if (!InstrumentManager.Instance.HasInstrument(t))
-                        {
-                            // Exclude instruments that belong to an already equipped group
-                            if (!equippedGroups.Contains(InstrumentPatternDatabase.GetGroup(t)))
-                            {
-                                availableTypes.Add(t);
-                            }
-                        }
-                    }
-                }
 
-                // Add equipped instruments that are not max level (< 5)
-                foreach (var inst in equipped)
+            // Add equipped instruments that are not max level (< 5), including Drums
+            foreach (var inst in equipped)
+            {
+                if (inst.level < 5)
                 {
-                    if (inst.level < 5)
-                    {
-                        availableTypes.Add(inst.type);
-                    }
+                    availableTypes.Add(inst.type);
                 }
             }
 

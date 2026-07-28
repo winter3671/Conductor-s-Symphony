@@ -15,11 +15,6 @@ namespace ConductorSymphony.Player
         private void Start()
         {
             OnExpChangedEvent?.Invoke(CurrentLevel, CurrentExp, MaxExp);
-
-            if (Instrument.InstrumentManager.Instance != null && Instrument.InstrumentManager.Instance.AcquiredInstruments.Count == 0)
-            {
-                OnLevelUpEvent?.Invoke(true);
-            }
         }
 
         public void AddExp(int amount)
