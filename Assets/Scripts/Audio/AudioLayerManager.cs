@@ -13,10 +13,57 @@ namespace ConductorSymphony.Audio
         [Header("Audio Sources")]
         [SerializeField] private AudioSource bgmSource;
         [SerializeField] private AudioSource sfxSource;
-        [SerializeField] private AudioSource acquisitionSource;
 
+        private Dictionary<InstrumentType, AudioSource> activeInstrumentSources = new Dictionary<InstrumentType, AudioSource>();
         private Dictionary<InstrumentType, AudioClip> instrumentAcquisitionClips = new Dictionary<InstrumentType, AudioClip>();
         private Dictionary<InstrumentType, AudioClip> instrumentKeySounds = new Dictionary<InstrumentType, AudioClip>();
+
+        // dspTime (AudioSettings.dspTime) at which the master track becomes audible.
+        // Used as the single source of truth for rhythm timing (see SongTime) so that
+        // gameplay/visual timing never has to be re-synced against audio after a pause.
+        private double masterStartDspTime = -1.0;
+
+        /// <summary>
+        /// The current playback position of the song, in seconds, derived directly from the
+        /// master AudioSource's actual sample position (or, before playback truly starts, from
+        /// the audio engine's own dspTime clock). This is the single master clock that
+        /// RhythmManager/RhythmNote/ShrinkingRhythmRing read every frame instead of Time.time,
+        /// so there is no second independently-advancing clock that can drift out of sync with
+        /// the audio across a pause/resume cycle.
+        /// Returns a negative value while the master track is scheduled but not yet audible
+        /// (pre-roll), and 0 if no track has been scheduled at all yet.
+        /// </summary>
+        public float SongTime
+        {
+            get
+            {
+                AudioSource src = GetAnyActiveInstrumentSource();
+                if (src != null && src.clip != null && src.timeSamples > 0)
+                {
+                    return src.timeSamples / (float)src.clip.frequency;
+                }
+                if (masterStartDspTime > 0.0)
+                {
+                    return (float)(AudioSettings.dspTime - masterStartDspTime);
+                }
+                return -1f;
+            }
+        }
+
+        /// <summary>
+        /// Length in seconds of the currently looping master track. SongTime wraps back to 0
+        /// every time this many seconds pass, since the underlying AudioSource loops. Callers
+        /// tracking an elapsed duration across frames (RhythmNote, ShrinkingRhythmRing) must
+        /// add this value back in if they observe SongTime jump backwards mid-flight.
+        /// </summary>
+        public float SongLoopLength
+        {
+            get
+            {
+                AudioSource src = GetAnyActiveInstrumentSource();
+                return (src != null && src.clip != null) ? src.clip.length : 0f;
+            }
+        }
 
         protected override void Awake()
         {
@@ -44,20 +91,11 @@ namespace ConductorSymphony.Audio
                 sfxSource.playOnAwake = false;
                 sfxSource.volume = 0.8f;
             }
-
-            if (acquisitionSource == null)
-            {
-                acquisitionSource = gameObject.AddComponent<AudioSource>();
-                acquisitionSource.loop = true; // Continuous seamless looping throughout gameplay!
-                acquisitionSource.playOnAwake = false;
-                acquisitionSource.volume = 0.85f;
-                acquisitionSource.pitch = 1.0f; // Fixed speed!
-            }
         }
 
         private void LoadAudioClipsAndKeySounds()
         {
-            // 1. Acquisition WAV audio tracks (Played ONCE when acquiring an instrument / starting game)
+            // 1. Acquisition WAV audio tracks (Played in sync as instruments are acquired)
             instrumentAcquisitionClips[InstrumentType.Drums]        = Resources.Load<AudioClip>("Audio/Sound_Drums");
             instrumentAcquisitionClips[InstrumentType.Piano]        = Resources.Load<AudioClip>("Audio/Sound_Piano");
             instrumentAcquisitionClips[InstrumentType.Violin]       = Resources.Load<AudioClip>("Audio/Sound_Violin");
@@ -99,62 +137,107 @@ namespace ConductorSymphony.Audio
                 switch (waveType)
                 {
                     case SynthWaveType.Sine:
-                        wave = Mathf.Sin(2 * Mathf.PI * freq * t);
+                        wave = Mathf.Sin(2f * Mathf.PI * freq * t);
                         break;
                     case SynthWaveType.Square:
-                        wave = Mathf.Sign(Mathf.Sin(2 * Mathf.PI * freq * t));
+                        wave = Mathf.Sin(2f * Mathf.PI * freq * t) >= 0f ? 1f : -1f;
                         break;
                     case SynthWaveType.Sawtooth:
-                        wave = 2f * (t * freq - Mathf.Floor(0.5f + t * freq));
+                        wave = 2f * (t * freq - Mathf.Floor(t * freq + 0.5f));
                         break;
                     case SynthWaveType.Triangle:
-                        wave = Mathf.PingPong(t * freq * 4f, 1f) * 2f - 1f;
+                        wave = Mathf.PingPong(t * freq * 4f, 2f) - 1f;
                         break;
                     case SynthWaveType.Noise:
                         wave = Random.Range(-1f, 1f);
                         break;
                 }
-
-                samples[i] = wave * env * 0.35f;
+                samples[i] = wave * env * 0.7f;
             }
 
-            AudioClip clip = AudioClip.Create($"KeySound_{freq}_{waveType}", lengthSamples, 1, sampleRate, false);
+            AudioClip clip = AudioClip.Create($"KeySound_{freq}Hz", lengthSamples, 1, sampleRate, false);
             clip.SetData(samples, 0);
             return clip;
         }
 
-        /// <summary>
-        /// Called on EVERY beat note hit during gameplay. Plays a clean, crisp single-note key tap sound on sfxSource.
-        /// </summary>
         public void PlayInstrumentKeySound(InstrumentType type, bool isPerfect)
         {
-            if (instrumentKeySounds.TryGetValue(type, out AudioClip clip))
+            if (instrumentKeySounds.TryGetValue(type, out AudioClip clip) && clip != null)
             {
-                sfxSource.pitch = isPerfect ? 1.05f : 0.95f;
-                sfxSource.PlayOneShot(clip, 0.7f);
+                if (sfxSource != null)
+                {
+                    sfxSource.pitch = isPerfect ? 1.05f : 1.0f;
+                    sfxSource.PlayOneShot(clip);
+                }
             }
         }
 
         /// <summary>
-        /// Called ONCE when an instrument is acquired (including game start with Drums).
-        /// Plays the corresponding WAV audio track on a dedicated acquisitionSource (locked at 1.0x speed).
+        /// Activates and layers an instrument's WAV audio track.
+        /// If another instrument is already playing (e.g. Drums), the new instrument's AudioSource
+        /// is synchronized to the exact same sample position (timeSamples) so all instruments play in 100% sync.
         /// </summary>
         public void ActivateInstrumentAudio(InstrumentType type)
         {
-            if (instrumentAcquisitionClips.TryGetValue(type, out AudioClip clip) && clip != null)
+            if (!instrumentAcquisitionClips.TryGetValue(type, out AudioClip clip) || clip == null)
             {
-                if (acquisitionSource != null)
-                {
-                    acquisitionSource.pitch = 1.0f; // Always 1.0x normal speed!
-                    acquisitionSource.clip = clip;
-                    acquisitionSource.loop = true; // Seamless continuous looping!
-                    acquisitionSource.PlayDelayed(audioStartDelay);
-                }
+                PlayInstrumentKeySound(type, true);
+                return;
+            }
+
+            if (!activeInstrumentSources.TryGetValue(type, out AudioSource source) || source == null)
+            {
+                source = gameObject.AddComponent<AudioSource>();
+                source.loop = true; // Continuous seamless looping!
+                source.playOnAwake = false;
+                source.volume = 0.85f;
+                source.pitch = 1.0f; // Fixed speed!
+                activeInstrumentSources[type] = source;
+            }
+
+            source.clip = clip;
+
+            // Find an active reference source to synchronize timeSamples
+            AudioSource referenceSource = GetActiveReferenceSource(excludeType: type);
+
+            if (referenceSource != null && (referenceSource.isPlaying || referenceSource.timeSamples > 0))
+            {
+                source.timeSamples = referenceSource.timeSamples % clip.samples;
+                source.Play();
             }
             else
             {
-                PlayInstrumentKeySound(type, true);
+                // First instrument (e.g. Drums at game start). Scheduled via the audio engine's
+                // own dspTime clock (not PlayDelayed's frame-relative timer) so SongTime can
+                // report an accurate pre-roll countdown before real playback begins.
+                double startDsp = AudioSettings.dspTime + audioStartDelay;
+                source.PlayScheduled(startDsp);
+                masterStartDspTime = startDsp;
             }
+        }
+
+        private AudioSource GetActiveReferenceSource(InstrumentType excludeType)
+        {
+            foreach (var kvp in activeInstrumentSources)
+            {
+                if (kvp.Key != excludeType && kvp.Value != null && (kvp.Value.isPlaying || kvp.Value.timeSamples > 0))
+                {
+                    return kvp.Value;
+                }
+            }
+            return null;
+        }
+
+        private AudioSource GetAnyActiveInstrumentSource()
+        {
+            foreach (var kvp in activeInstrumentSources)
+            {
+                if (kvp.Value != null && (kvp.Value.isPlaying || kvp.Value.timeSamples > 0))
+                {
+                    return kvp.Value;
+                }
+            }
+            return null;
         }
 
         public void PlayBossBattleBGM()
@@ -164,6 +247,36 @@ namespace ConductorSymphony.Audio
             {
                 bgmSource.clip = bossBgm;
                 bgmSource.Play();
+            }
+        }
+
+        public void PauseAllAudio()
+        {
+            foreach (var kvp in activeInstrumentSources)
+            {
+                if (kvp.Value != null && kvp.Value.isPlaying)
+                {
+                    kvp.Value.Pause();
+                }
+            }
+            if (bgmSource != null && bgmSource.isPlaying)
+            {
+                bgmSource.Pause();
+            }
+        }
+
+        public void ResumeAllAudio()
+        {
+            foreach (var kvp in activeInstrumentSources)
+            {
+                if (kvp.Value != null)
+                {
+                    kvp.Value.UnPause();
+                }
+            }
+            if (bgmSource != null)
+            {
+                bgmSource.UnPause();
             }
         }
     }

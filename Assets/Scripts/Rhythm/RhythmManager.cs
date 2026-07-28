@@ -26,8 +26,7 @@ namespace ConductorSymphony.Rhythm
 
         private List<RhythmNote> activeNotes = new List<RhythmNote>();
         private float stepDuration; // Seconds per step in 32-step grid
-        private float nextStepTime;
-        private int currentStep = 0; // 0 to 31
+        private int lastProcessedStep = -1; // Last step index fired, derived fresh from AudioLayerManager.SongTime each frame
 
         private int currentScore = 0;
         private int currentCombo = 0;
@@ -52,21 +51,28 @@ namespace ConductorSymphony.Rhythm
                 targetTransform = PlayerController.Instance.transform;
             }
 
-            nextStepTime = Time.time;
-            currentStep = 0;
+            lastProcessedStep = -1;
         }
 
         private void Update()
         {
             // Block rhythm note updates and QWER inputs when paused
             if (Time.timeScale <= 0f) return;
+            if (Audio.AudioLayerManager.Instance == null) return;
 
-            // 32-Step Sequencer Loop
-            if (Time.time >= nextStepTime)
+            // 32-Step Sequencer Loop — step index is derived fresh every frame from the actual
+            // audio playback position (SongTime), not accumulated independently. This means
+            // there is no separate gameplay clock that can fall out of sync with the audio
+            // after a pause/resume cycle (see pause_beat_drift_analysis.md).
+            float songTime = Audio.AudioLayerManager.Instance.SongTime;
+            if (songTime >= 0f)
             {
-                ProcessSequencerStep(currentStep);
-                currentStep = (currentStep + 1) % 32;
-                nextStepTime += stepDuration;
+                int stepIndex = Mathf.FloorToInt(songTime / stepDuration) % 32;
+                if (stepIndex != lastProcessedStep)
+                {
+                    lastProcessedStep = stepIndex;
+                    ProcessSequencerStep(stepIndex);
+                }
             }
 
             // Left-hand inputs (QWER Arc Keys) via New Input System
@@ -111,9 +117,11 @@ namespace ConductorSymphony.Rhythm
         {
             if (targetTransform == null) return;
 
+            float songTimeNow = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongTime : 0f;
+
             GameObject ringObj = new GameObject($"RhythmRing_{Time.frameCount}");
             ShrinkingRhythmRing ring = ringObj.AddComponent<ShrinkingRhythmRing>();
-            ring.Initialize(targetTransform, spawnDistance, Time.time, noteTravelDuration, Color.white, alphaAmount);
+            ring.Initialize(targetTransform, spawnDistance, songTimeNow, noteTravelDuration, Color.white, alphaAmount);
         }
 
         public static RhythmLane GetLaneForSlot(int slot)
@@ -140,10 +148,11 @@ namespace ConductorSymphony.Rhythm
             }
         }
 
-        private void SpawnNoteForLane(RhythmLane lane, Color color, float explicitTargetTime = -1f)
+        private void SpawnNoteForLane(RhythmLane lane, Color color)
         {
             Vector3 spawnDir = GetLaneDirection(lane);
-            float targetTime = explicitTargetTime > 0f ? explicitTargetTime : Time.time + noteTravelDuration;
+            float songTimeNow = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongTime : 0f;
+            float targetTime = songTimeNow + noteTravelDuration;
 
             GameObject noteObj = new GameObject($"Note_{lane}_{Time.frameCount}");
             SpriteRenderer sr = noteObj.AddComponent<SpriteRenderer>();
@@ -173,7 +182,7 @@ namespace ConductorSymphony.Rhythm
         {
             RhythmNote targetNote = null;
             float closestDiff = float.MaxValue;
-            float currentTime = Time.time;
+            float currentTime = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongTime : 0f;
 
             for (int i = activeNotes.Count - 1; i >= 0; i--)
             {

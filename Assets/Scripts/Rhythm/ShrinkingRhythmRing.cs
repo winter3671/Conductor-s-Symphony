@@ -38,8 +38,19 @@ namespace ConductorSymphony.Rhythm
 
         private void Update()
         {
-            float currentTime = Time.time;
-            float progress = (currentTime - spawnTime) / travelDuration;
+            float currentTime = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongTime : 0f;
+            float elapsed = currentTime - spawnTime;
+
+            // Audio loop wrap-around guard: same issue as RhythmNote — if SongTime jumps back
+            // to ~0 mid-flight because the master track looped, unwrap it so this ring still
+            // reaches its Destroy condition instead of freezing on screen forever.
+            if (elapsed < -travelDuration)
+            {
+                float loopLength = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongLoopLength : 0f;
+                if (loopLength > 0f) elapsed += loopLength;
+            }
+
+            float progress = elapsed / travelDuration;
 
             if (progress > 1.05f || targetTransform == null)
             {

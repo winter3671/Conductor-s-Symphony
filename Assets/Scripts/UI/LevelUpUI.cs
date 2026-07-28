@@ -159,6 +159,12 @@ namespace ConductorSymphony.UI
         public void ShowLevelUpSelection(bool isGameStart = false)
         {
             Time.timeScale = 0.0f; // Pause game
+
+            if (Audio.AudioLayerManager.Instance != null)
+            {
+                Audio.AudioLayerManager.Instance.PauseAllAudio();
+            }
+
             cardPanel.SetActive(true);
 
             currentChoices.Clear();
@@ -284,6 +290,11 @@ namespace ConductorSymphony.UI
 
             if (cardPanel != null) cardPanel.SetActive(false);
             Time.timeScale = 1.0f; // Resume game
+
+            if (Audio.AudioLayerManager.Instance != null)
+            {
+                Audio.AudioLayerManager.Instance.ResumeAllAudio();
+            }
         }
     }
 }
