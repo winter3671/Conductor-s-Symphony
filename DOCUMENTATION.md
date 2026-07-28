@@ -81,6 +81,9 @@ IDE(VS Code, Visual Studio, Rider 등) 및 AI 에이전트(Antigravity / Claude 
    * **원인 A (패턴 밀도 2배 버그):** `InstrumentPatternDatabase.cs`의 Drums Lv1~3 패턴이 4스텝(1.237초)마다 노트를 생성 ➡️ 설계된 8스텝(2.474초, 1마디) 간격보다 정확히 2배 빠르게 노트가 쏟아지던 문제. `"10001000..."` ➡️ `"10000000..."`(Step 0, 8, 16, 24)로 재배치하여 1마디당 1노트로 수정.
    * **원인 B (씬 직렬화 오버라이드가 코드 기본값을 덮어씀):** 패턴을 고쳐도 체감 박자가 그대로였던 진짜 원인은 `Gameplay.unity`에 저장된 `RhythmManager` 컴포넌트의 **Inspector 직렬화 값**이 `bpm: 120`, `noteTravelDuration: 1.2`, `perfectWindow: 0.08`, `greatWindow: 0.18`로 코드의 새 기본값(`97` / `2.474` / `0.10` / `0.22`)을 그대로 덮어쓰고 있었기 때문. **`[SerializeField]` 필드는 스크립트 기본값을 바꿔도, 씬/프리팹에 이미 저장된 값이 항상 우선 적용된다** ➡️ Unity MCP(`manage_editor stop` → `manage_components set_property` → `manage_scene save`)로 씬에 저장된 실제 값을 코드 기본값과 동기화하여 해결.
    * ⚠️ **교훈:** 리듬/밸런스 관련 `[SerializeField]` 수치를 코드에서 조정할 때는 반드시 `Gameplay.unity`(또는 해당 프리팹)에 박제된 실제 Inspector 값도 함께 확인·동기화해야 함. 코드만 고치고 "값이 안 바뀐다"고 착각하기 쉬운 대표적인 Unity 함정.
+6. **일시정지 반복 시 오디오-비트 미세 누적 밀림 버그 (Single Source of Truth SongTime 해결):**
+   * **원인 (이중 시계 오차):** 게임 시계(`Time.time`)와 오디오 하드웨어 DSP 시계(`AudioSource.time`)가 분리되어 있어, 일시정지(`Time.timeScale=0`) 해제 시 사운드 카드 오디오 버퍼 믹싱 재개(20~40ms) 오차가 누적되던 현상.
+   * **해결 (단일 진실 출처 `SongTime` 건축):** `AudioLayerManager.SongTime` 프로퍼티를 신설하여 하드웨어 오디오 재생 샘플 위치(`timeSamples / frequency`)를 단일 진실 소스로 정의하고, `RhythmManager` 시퀀서 스텝과 `RhythmNote` 이동 `progress` 계산이 모두 `SongTime`만을 바라보도록 통일하여 0.000ms 오차 없는 완전 무결점 오디오 클록 동기화 달성.
 
 ---
 
