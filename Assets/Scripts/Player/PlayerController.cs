@@ -172,6 +172,12 @@ namespace ConductorSymphony.Player
 
         private void Update()
         {
+            // Block player movement and facing direction updates when game is paused (e.g. LevelUpUI)
+            if (Time.timeScale <= 0f)
+            {
+                moveInput = Vector2.zero;
+                return;
+            }
             if (invulnerableTimer > 0f)
             {
                 invulnerableTimer -= Time.deltaTime;

@@ -89,7 +89,7 @@ namespace ConductorSymphony.Audio
                 sfxSource = gameObject.AddComponent<AudioSource>();
                 sfxSource.loop = false;
                 sfxSource.playOnAwake = false;
-                sfxSource.volume = 0.8f;
+                sfxSource.volume = 0.5f; // Set to exact 0.5f per user request
             }
         }
 
@@ -152,7 +152,7 @@ namespace ConductorSymphony.Audio
                         wave = Random.Range(-1f, 1f);
                         break;
                 }
-                samples[i] = wave * env * 0.7f;
+                samples[i] = wave * env * 0.5f;
             }
 
             AudioClip clip = AudioClip.Create($"KeySound_{freq}Hz", lengthSamples, 1, sampleRate, false);
@@ -167,7 +167,7 @@ namespace ConductorSymphony.Audio
                 if (sfxSource != null)
                 {
                     sfxSource.pitch = isPerfect ? 1.05f : 1.0f;
-                    sfxSource.PlayOneShot(clip);
+                    sfxSource.PlayOneShot(clip, 1.0f);
                 }
             }
         }
