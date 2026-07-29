@@ -240,13 +240,55 @@ namespace ConductorSymphony.Audio
             return null;
         }
 
+        private void OnEnable()
+        {
+            Enemy.BossMonster.OnBossSpawnedEvent += HandleBossSpawned;
+            Enemy.BossMonster.OnBossDefeatedEvent += HandleBossDefeated;
+        }
+
+        private void OnDisable()
+        {
+            Enemy.BossMonster.OnBossSpawnedEvent -= HandleBossSpawned;
+            Enemy.BossMonster.OnBossDefeatedEvent -= HandleBossDefeated;
+        }
+
+        private void HandleBossSpawned(int maxHp)
+        {
+            PlayBossBattleBGM();
+        }
+
+        private void HandleBossDefeated()
+        {
+            StopBossBattleBGM();
+        }
+
         public void PlayBossBattleBGM()
         {
             AudioClip bossBgm = Resources.Load<AudioClip>("Audio/BGM_BossBattle");
-            if (bossBgm != null && bgmSource != null)
+            if (bossBgm == null || bgmSource == null) return;
+
+            bgmSource.clip = bossBgm;
+            bgmSource.loop = true;
+            bgmSource.volume = 0.75f;
+
+            AudioSource referenceSource = GetAnyActiveInstrumentSource();
+            if (referenceSource != null && (referenceSource.isPlaying || referenceSource.timeSamples > 0))
             {
-                bgmSource.clip = bossBgm;
+                bgmSource.timeSamples = referenceSource.timeSamples % bossBgm.samples;
                 bgmSource.Play();
+            }
+            else
+            {
+                bgmSource.Play();
+            }
+        }
+
+        public void StopBossBattleBGM()
+        {
+            if (bgmSource != null)
+            {
+                bgmSource.Stop();
+                bgmSource.clip = null;
             }
         }
 
