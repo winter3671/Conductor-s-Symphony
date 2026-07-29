@@ -23,30 +23,40 @@ namespace ConductorSymphony.Audio
         // gameplay/visual timing never has to be re-synced against audio after a pause.
         private double masterStartDspTime = -1.0;
 
+        // dspTime at which the mix was last paused via PauseAllAudio(), or -1.0 while playing.
+        // Combined with totalPausedDuration below, this lets SongTime stay a pure function of
+        // AudioSettings.dspTime instead of any individual AudioSource's timeSamples (see
+        // ring_freeze_bug_fix.md for why reading timeSamples off "whichever instrument source
+        // happens to be active" was unsafe once multiple instruments are equipped).
+        private double pauseStartDspTime = -1.0;
+        private double totalPausedDuration = 0.0;
+
         /// <summary>
-        /// The current playback position of the song, in seconds, derived directly from the
-        /// master AudioSource's actual sample position (or, before playback truly starts, from
-        /// the audio engine's own dspTime clock). This is the single master clock that
-        /// RhythmManager/RhythmNote/ShrinkingRhythmRing read every frame instead of Time.time,
-        /// so there is no second independently-advancing clock that can drift out of sync with
-        /// the audio across a pause/resume cycle.
+        /// The current playback position of the song, in seconds, derived purely from
+        /// AudioSettings.dspTime relative to masterStartDspTime, with cumulative paused time
+        /// subtracted out. This is the single master clock that RhythmManager/RhythmNote/
+        /// ShrinkingRhythmRing read every frame instead of Time.time or any AudioSource's
+        /// timeSamples, so there is no second clock — and no per-instrument AudioSource — that
+        /// can independently drift out of sync with it across a pause/resume cycle or once
+        /// multiple instruments are layered in.
         /// Returns a negative value while the master track is scheduled but not yet audible
-        /// (pre-roll), and 0 if no track has been scheduled at all yet.
+        /// (pre-roll), and -1 if no track has been scheduled at all yet.
         /// </summary>
         public float SongTime
         {
             get
             {
-                AudioSource src = GetAnyActiveInstrumentSource();
-                if (src != null && src.clip != null && src.timeSamples > 0)
-                {
-                    return src.timeSamples / (float)src.clip.frequency;
-                }
-                if (masterStartDspTime > 0.0)
-                {
-                    return (float)(AudioSettings.dspTime - masterStartDspTime);
-                }
-                return -1f;
+                if (masterStartDspTime <= 0.0) return -1f;
+
+                double referenceDsp = (pauseStartDspTime > 0.0) ? pauseStartDspTime : AudioSettings.dspTime;
+                double elapsed = referenceDsp - masterStartDspTime - totalPausedDuration;
+
+                if (elapsed < 0.0) return (float)elapsed;
+
+                float loopLength = SongLoopLength;
+                if (loopLength > 0f) elapsed %= loopLength;
+
+                return (float)elapsed;
             }
         }
 
@@ -204,6 +214,15 @@ namespace ConductorSymphony.Audio
             {
                 source.timeSamples = referenceSource.timeSamples % clip.samples;
                 source.Play();
+
+                // If a new instrument is acquired while the level-up screen has the rest of the
+                // mix paused, freeze it immediately too — otherwise it keeps advancing in real
+                // time while its siblings are frozen, drifting this source's playback position
+                // out of sync with the rest of the mix once ResumeAllAudio() unpauses everyone.
+                if (pauseStartDspTime > 0.0)
+                {
+                    source.Pause();
+                }
             }
             else
             {
@@ -294,6 +313,14 @@ namespace ConductorSymphony.Audio
 
         public void PauseAllAudio()
         {
+            // Idempotent: a second PauseAllAudio() before the matching Resume (e.g. an elite
+            // chest popup opening while already paused) must not overwrite the original
+            // pause timestamp, or the paused-duration accounting below would undercount.
+            if (pauseStartDspTime < 0.0)
+            {
+                pauseStartDspTime = AudioSettings.dspTime;
+            }
+
             foreach (var kvp in activeInstrumentSources)
             {
                 if (kvp.Value != null && kvp.Value.isPlaying)
@@ -309,6 +336,12 @@ namespace ConductorSymphony.Audio
 
         public void ResumeAllAudio()
         {
+            if (pauseStartDspTime > 0.0)
+            {
+                totalPausedDuration += AudioSettings.dspTime - pauseStartDspTime;
+                pauseStartDspTime = -1.0;
+            }
+
             foreach (var kvp in activeInstrumentSources)
             {
                 if (kvp.Value != null)
