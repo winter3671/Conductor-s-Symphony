@@ -65,9 +65,14 @@ namespace ConductorSymphony.Rhythm
             // there is no separate gameplay clock that can fall out of sync with the audio
             // after a pause/resume cycle (see pause_beat_drift_analysis.md).
             float songTime = Audio.AudioLayerManager.Instance.SongTime;
-            if (songTime >= 0f)
+            if (songTime >= -noteTravelDuration)
             {
-                int stepIndex = Mathf.FloorToInt(songTime / stepDuration) % 32;
+                float audioOffsetSongTime = songTime + noteTravelDuration;
+                float cycleDuration = 32f * stepDuration;
+                float normalizedTime = audioOffsetSongTime;
+                while (normalizedTime < 0f) normalizedTime += cycleDuration;
+
+                int stepIndex = Mathf.FloorToInt(normalizedTime / stepDuration) % 32;
                 if (stepIndex != lastProcessedStep)
                 {
                     lastProcessedStep = stepIndex;

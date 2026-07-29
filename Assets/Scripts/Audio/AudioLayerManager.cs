@@ -8,7 +8,7 @@ namespace ConductorSymphony.Audio
     public class AudioLayerManager : MonoSingleton<AudioLayerManager>
     {
         [Header("Audio Delay Sync Offset")]
-        [SerializeField] private float audioStartDelay = 2.5242f; // Fine-tuned +50ms offset so audio beat matches Perfect window
+        [SerializeField] private float audioStartDelay = 2.4742f; // Exactly 1 measure (2.4742s) for 1-bar pre-roll note arrival
 
         [Header("Audio Sources")]
         [SerializeField] private AudioSource bgmSource;
