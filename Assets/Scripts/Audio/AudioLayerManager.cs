@@ -8,7 +8,7 @@ namespace ConductorSymphony.Audio
     public class AudioLayerManager : MonoSingleton<AudioLayerManager>
     {
         [Header("Audio Delay Sync Offset")]
-        [SerializeField] private float audioStartDelay = 2.5242f; // Fine-tuned +50ms offset so audio beat matches Perfect window
+        [SerializeField] private float audioStartDelay = 2.4742f; // Exactly 1 measure (2.4742s) for 1-bar pre-roll note arrival
 
         [Header("Audio Sources")]
         [SerializeField] private AudioSource bgmSource;
@@ -23,30 +23,40 @@ namespace ConductorSymphony.Audio
         // gameplay/visual timing never has to be re-synced against audio after a pause.
         private double masterStartDspTime = -1.0;
 
+        // dspTime at which the mix was last paused via PauseAllAudio(), or -1.0 while playing.
+        // Combined with totalPausedDuration below, this lets SongTime stay a pure function of
+        // AudioSettings.dspTime instead of any individual AudioSource's timeSamples (see
+        // ring_freeze_bug_fix.md for why reading timeSamples off "whichever instrument source
+        // happens to be active" was unsafe once multiple instruments are equipped).
+        private double pauseStartDspTime = -1.0;
+        private double totalPausedDuration = 0.0;
+
         /// <summary>
-        /// The current playback position of the song, in seconds, derived directly from the
-        /// master AudioSource's actual sample position (or, before playback truly starts, from
-        /// the audio engine's own dspTime clock). This is the single master clock that
-        /// RhythmManager/RhythmNote/ShrinkingRhythmRing read every frame instead of Time.time,
-        /// so there is no second independently-advancing clock that can drift out of sync with
-        /// the audio across a pause/resume cycle.
+        /// The current playback position of the song, in seconds, derived purely from
+        /// AudioSettings.dspTime relative to masterStartDspTime, with cumulative paused time
+        /// subtracted out. This is the single master clock that RhythmManager/RhythmNote/
+        /// ShrinkingRhythmRing read every frame instead of Time.time or any AudioSource's
+        /// timeSamples, so there is no second clock — and no per-instrument AudioSource — that
+        /// can independently drift out of sync with it across a pause/resume cycle or once
+        /// multiple instruments are layered in.
         /// Returns a negative value while the master track is scheduled but not yet audible
-        /// (pre-roll), and 0 if no track has been scheduled at all yet.
+        /// (pre-roll), and -1 if no track has been scheduled at all yet.
         /// </summary>
         public float SongTime
         {
             get
             {
-                AudioSource src = GetAnyActiveInstrumentSource();
-                if (src != null && src.clip != null && src.timeSamples > 0)
-                {
-                    return src.timeSamples / (float)src.clip.frequency;
-                }
-                if (masterStartDspTime > 0.0)
-                {
-                    return (float)(AudioSettings.dspTime - masterStartDspTime);
-                }
-                return -1f;
+                if (masterStartDspTime <= 0.0) return -1f;
+
+                double referenceDsp = (pauseStartDspTime > 0.0) ? pauseStartDspTime : AudioSettings.dspTime;
+                double elapsed = referenceDsp - masterStartDspTime - totalPausedDuration;
+
+                if (elapsed < 0.0) return (float)elapsed;
+
+                float loopLength = SongLoopLength;
+                if (loopLength > 0f) elapsed %= loopLength;
+
+                return (float)elapsed;
             }
         }
 
@@ -89,7 +99,7 @@ namespace ConductorSymphony.Audio
                 sfxSource = gameObject.AddComponent<AudioSource>();
                 sfxSource.loop = false;
                 sfxSource.playOnAwake = false;
-                sfxSource.volume = 0.8f;
+                sfxSource.volume = 0.5f; // Set to exact 0.5f per user request
             }
         }
 
@@ -152,7 +162,7 @@ namespace ConductorSymphony.Audio
                         wave = Random.Range(-1f, 1f);
                         break;
                 }
-                samples[i] = wave * env * 0.7f;
+                samples[i] = wave * env * 0.5f;
             }
 
             AudioClip clip = AudioClip.Create($"KeySound_{freq}Hz", lengthSamples, 1, sampleRate, false);
@@ -167,7 +177,7 @@ namespace ConductorSymphony.Audio
                 if (sfxSource != null)
                 {
                     sfxSource.pitch = isPerfect ? 1.05f : 1.0f;
-                    sfxSource.PlayOneShot(clip);
+                    sfxSource.PlayOneShot(clip, 1.0f);
                 }
             }
         }
@@ -204,6 +214,15 @@ namespace ConductorSymphony.Audio
             {
                 source.timeSamples = referenceSource.timeSamples % clip.samples;
                 source.Play();
+
+                // If a new instrument is acquired while the level-up screen has the rest of the
+                // mix paused, freeze it immediately too — otherwise it keeps advancing in real
+                // time while its siblings are frozen, drifting this source's playback position
+                // out of sync with the rest of the mix once ResumeAllAudio() unpauses everyone.
+                if (pauseStartDspTime > 0.0)
+                {
+                    source.Pause();
+                }
             }
             else
             {
@@ -240,18 +259,68 @@ namespace ConductorSymphony.Audio
             return null;
         }
 
+        private void OnEnable()
+        {
+            Enemy.BossMonster.OnBossSpawnedEvent += HandleBossSpawned;
+            Enemy.BossMonster.OnBossDefeatedEvent += HandleBossDefeated;
+        }
+
+        private void OnDisable()
+        {
+            Enemy.BossMonster.OnBossSpawnedEvent -= HandleBossSpawned;
+            Enemy.BossMonster.OnBossDefeatedEvent -= HandleBossDefeated;
+        }
+
+        private void HandleBossSpawned(int maxHp)
+        {
+            PlayBossBattleBGM();
+        }
+
+        private void HandleBossDefeated()
+        {
+            StopBossBattleBGM();
+        }
+
         public void PlayBossBattleBGM()
         {
             AudioClip bossBgm = Resources.Load<AudioClip>("Audio/BGM_BossBattle");
-            if (bossBgm != null && bgmSource != null)
+            if (bossBgm == null || bgmSource == null) return;
+
+            bgmSource.clip = bossBgm;
+            bgmSource.loop = true;
+            bgmSource.volume = 0.75f;
+
+            AudioSource referenceSource = GetAnyActiveInstrumentSource();
+            if (referenceSource != null && (referenceSource.isPlaying || referenceSource.timeSamples > 0))
             {
-                bgmSource.clip = bossBgm;
+                bgmSource.timeSamples = referenceSource.timeSamples % bossBgm.samples;
                 bgmSource.Play();
+            }
+            else
+            {
+                bgmSource.Play();
+            }
+        }
+
+        public void StopBossBattleBGM()
+        {
+            if (bgmSource != null)
+            {
+                bgmSource.Stop();
+                bgmSource.clip = null;
             }
         }
 
         public void PauseAllAudio()
         {
+            // Idempotent: a second PauseAllAudio() before the matching Resume (e.g. an elite
+            // chest popup opening while already paused) must not overwrite the original
+            // pause timestamp, or the paused-duration accounting below would undercount.
+            if (pauseStartDspTime < 0.0)
+            {
+                pauseStartDspTime = AudioSettings.dspTime;
+            }
+
             foreach (var kvp in activeInstrumentSources)
             {
                 if (kvp.Value != null && kvp.Value.isPlaying)
@@ -267,6 +336,12 @@ namespace ConductorSymphony.Audio
 
         public void ResumeAllAudio()
         {
+            if (pauseStartDspTime > 0.0)
+            {
+                totalPausedDuration += AudioSettings.dspTime - pauseStartDspTime;
+                pauseStartDspTime = -1.0;
+            }
+
             foreach (var kvp in activeInstrumentSources)
             {
                 if (kvp.Value != null)
