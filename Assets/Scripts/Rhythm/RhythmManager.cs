@@ -20,6 +20,7 @@ namespace ConductorSymphony.Rhythm
         [Header("Timing Windows (Seconds)")]
         [SerializeField] private float perfectWindow = 0.10f;
         [SerializeField] private float greatWindow = 0.22f;
+        [SerializeField] private float missWindow = 0.45f; // Outer input window: presses outside greatWindow but inside this consume the note as a Miss
 
         [Header("Target Tracking")]
         [SerializeField] private Transform targetTransform;
@@ -200,7 +201,7 @@ namespace ConductorSymphony.Rhythm
                 if (activeNotes[i].Lane == lane)
                 {
                     float diff = Mathf.Abs(currentTime - activeNotes[i].TargetTime);
-                    if (diff < closestDiff && diff <= greatWindow)
+                    if (diff < closestDiff && diff <= missWindow)
                     {
                         closestDiff = diff;
                         targetNote = activeNotes[i];
@@ -208,10 +209,22 @@ namespace ConductorSymphony.Rhythm
                 }
             }
 
-            if (targetNote != null)
+            if (targetNote == null) return;
+
+            if (closestDiff <= greatWindow)
             {
                 HitRating rating = (closestDiff <= perfectWindow) ? HitRating.Perfect : HitRating.Great;
                 ProcessHit(targetNote, rating);
+            }
+            else
+            {
+                // Pressed too early/late relative to the note (outside greatWindow but still the
+                // nearest reachable note within missWindow) — consume it as a Miss instead of
+                // silently ignoring the input. This closes the spam exploit where mashing a key
+                // early cost nothing and let the player wait risk-free for a later press to land
+                // inside the window.
+                OnNoteMissed(targetNote);
+                targetNote.DestroyNote();
             }
         }
 
