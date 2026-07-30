@@ -31,6 +31,14 @@ namespace ConductorSymphony.Audio
         private double pauseStartDspTime = -1.0;
         private double totalPausedDuration = 0.0;
 
+        // Sources whose bar-aligned join was requested while the mix was paused (e.g. picking a
+        // new instrument on the level-up screen, which acquires it before ResumeAllAudio() is
+        // called). Scheduling against AudioSettings.dspTime is meaningless while paused — that
+        // clock keeps ticking in real time regardless of how long the player lingers on the
+        // popup — so these are held here and only actually scheduled once ResumeAllAudio() makes
+        // the master clock live again.
+        private List<AudioSource> pendingBarAlignedJoins = new List<AudioSource>();
+
         /// <summary>
         /// The current playback position of the song, in seconds, derived purely from
         /// AudioSettings.dspTime relative to masterStartDspTime, with cumulative paused time
@@ -212,16 +220,22 @@ namespace ConductorSymphony.Audio
 
             if (referenceSource != null && (referenceSource.isPlaying || referenceSource.timeSamples > 0))
             {
-                source.timeSamples = referenceSource.timeSamples % clip.samples;
-                source.Play();
-
-                // If a new instrument is acquired while the level-up screen has the rest of the
-                // mix paused, freeze it immediately too — otherwise it keeps advancing in real
-                // time while its siblings are frozen, drifting this source's playback position
-                // out of sync with the rest of the mix once ResumeAllAudio() unpauses everyone.
                 if (pauseStartDspTime > 0.0)
                 {
-                    source.Pause();
+                    // Mix is currently paused (e.g. level-up popup open, which is exactly when
+                    // instruments are normally acquired) — there is no live playback to "wait for
+                    // the next bar" against, and AudioSettings.dspTime keeps ticking in real time
+                    // regardless of how long the player lingers on the popup, so a PlayScheduled
+                    // target computed now would go stale by an unknown amount. Leave this source
+                    // unplayed and defer the actual bar-aligned scheduling to ResumeAllAudio(),
+                    // once the master clock is live again and "next bar" is a real answer.
+                    pendingBarAlignedJoins.Add(source);
+                }
+                else
+                {
+                    // Join at the next bar line instead of cutting in on whatever sample the mix
+                    // is currently on — an instrument acquired mid-phrase used to layer in abruptly.
+                    ScheduleSourceJoinAtNextBar(source, clip);
                 }
             }
             else
@@ -233,6 +247,73 @@ namespace ConductorSymphony.Audio
                 source.PlayScheduled(startDsp);
                 masterStartDspTime = startDsp;
             }
+        }
+
+        /// <summary>
+        /// Computes the dsp time of the next bar line of the master clock (see SongTime), and the
+        /// corresponding SongTime value at that moment. Shared by both bar-aligned scheduling
+        /// paths below — the two differ only in what sample position they start playback from,
+        /// not in when they start.
+        /// </summary>
+        private double ComputeNextBarDspTime(out float targetSongTime)
+        {
+            float barDuration = audioStartDelay; // 1 bar (2.4742s) — see field comment above
+            float currentSongTime = SongTime;
+
+            double targetDsp;
+
+            if (currentSongTime < 0f)
+            {
+                // Master track is still in its pre-roll countdown (no bar has started yet) —
+                // join at the same moment the master track itself becomes audible.
+                targetDsp = masterStartDspTime;
+                targetSongTime = 0f;
+            }
+            else
+            {
+                float phase = currentSongTime % barDuration;
+                // Floating point accumulation can land "phase" a hair above 0 right as a bar
+                // starts; without this guard that would be misread as "just missed the line"
+                // and schedule a full extra bar of silence before joining.
+                float timeUntilNextBar = (phase < 0.01f) ? 0f : (barDuration - phase);
+
+                targetDsp = AudioSettings.dspTime + timeUntilNextBar;
+                targetSongTime = currentSongTime + timeUntilNextBar;
+            }
+
+            return targetDsp;
+        }
+
+        /// <summary>
+        /// Schedules an instrument's AudioSource to start exactly on the next bar line of the
+        /// master clock rather than immediately, so a newly layered instrument joins on a musical
+        /// phrase boundary instead of cutting in mid-bar. The source's playhead (timeSamples) is
+        /// pre-positioned to the sample that corresponds to that same future bar-line moment in
+        /// the shared master timeline — correct here because every instrument clip is a track of
+        /// the *same* underlying composition, so "the same absolute song-time sample" is also the
+        /// musically correct position within this clip.
+        /// </summary>
+        private void ScheduleSourceJoinAtNextBar(AudioSource source, AudioClip clip)
+        {
+            double targetDsp = ComputeNextBarDspTime(out float targetSongTime);
+
+            long targetSample = (long)(targetSongTime * clip.frequency);
+            source.timeSamples = (int)(targetSample % clip.samples);
+            source.PlayScheduled(targetDsp);
+        }
+
+        /// <summary>
+        /// Schedules an unrelated clip (e.g. the boss battle BGM) to start on the next bar line of
+        /// the master clock, always from the clip's own beginning. Unlike
+        /// ScheduleSourceJoinAtNextBar, this clip is not another track of the main composition, so
+        /// borrowing a sample position from the main song's elapsed time would start it from an
+        /// arbitrary point instead of its own intro, clipping off the start of the cue.
+        /// </summary>
+        private void ScheduleClipStartAtNextBar(AudioSource source)
+        {
+            double targetDsp = ComputeNextBarDspTime(out _);
+            source.timeSamples = 0;
+            source.PlayScheduled(targetDsp);
         }
 
         private AudioSource GetActiveReferenceSource(InstrumentType excludeType)
@@ -293,8 +374,11 @@ namespace ConductorSymphony.Audio
             AudioSource referenceSource = GetAnyActiveInstrumentSource();
             if (referenceSource != null && (referenceSource.isPlaying || referenceSource.timeSamples > 0))
             {
-                bgmSource.timeSamples = referenceSource.timeSamples % bossBgm.samples;
-                bgmSource.Play();
+                // Join at the next bar line instead of cutting in immediately — an elite boss
+                // spawning mid-phrase used to layer its BGM in abruptly on top of the mix. Starts
+                // from the clip's own beginning (see ScheduleClipStartAtNextBar) since the boss
+                // theme is a separate composition, not another track of the main song.
+                ScheduleClipStartAtNextBar(bgmSource);
             }
             else
             {
@@ -344,7 +428,7 @@ namespace ConductorSymphony.Audio
 
             foreach (var kvp in activeInstrumentSources)
             {
-                if (kvp.Value != null)
+                if (kvp.Value != null && !pendingBarAlignedJoins.Contains(kvp.Value))
                 {
                     kvp.Value.UnPause();
                 }
@@ -353,6 +437,18 @@ namespace ConductorSymphony.Audio
             {
                 bgmSource.UnPause();
             }
+
+            // The master clock is live again now — resolve any instruments that were acquired
+            // while paused into a real bar-aligned PlayScheduled call (see ActivateInstrumentAudio).
+            for (int i = 0; i < pendingBarAlignedJoins.Count; i++)
+            {
+                AudioSource pendingSource = pendingBarAlignedJoins[i];
+                if (pendingSource != null && pendingSource.clip != null)
+                {
+                    ScheduleSourceJoinAtNextBar(pendingSource, pendingSource.clip);
+                }
+            }
+            pendingBarAlignedJoins.Clear();
         }
     }
 }
