@@ -27,9 +27,11 @@ namespace ConductorSymphony.Rhythm
         private float initialDistance;
         private float travelDuration;
         private float spawnTime;
+        private float judgmentRadius;
+        private float missWindow;
         private bool isInitialized = false;
 
-        public void Initialize(RhythmLane lane, Transform target, Vector3 direction, float initialDistance, float targetTime, float travelDuration)
+        public void Initialize(RhythmLane lane, Transform target, Vector3 direction, float initialDistance, float targetTime, float travelDuration, float judgmentRadius, float missWindow)
         {
             Lane = lane;
             targetTransform = target;
@@ -37,6 +39,8 @@ namespace ConductorSymphony.Rhythm
             this.initialDistance = initialDistance;
             TargetTime = targetTime;
             this.travelDuration = travelDuration;
+            this.judgmentRadius = judgmentRadius;
+            this.missWindow = missWindow;
             spawnTime = targetTime - travelDuration;
             isInitialized = true;
 
@@ -62,8 +66,9 @@ namespace ConductorSymphony.Rhythm
 
             UpdatePosition(elapsed / travelDuration);
 
-            // If note has passed the target time beyond Miss window threshold (e.g. 0.2s late), trigger Miss
-            if (elapsed > travelDuration + 0.2f)
+            // If note has passed the target time beyond the Miss window, it has fully descended
+            // past the judgment ring and reached the miss point — trigger Miss and destroy it.
+            if (elapsed > travelDuration + missWindow)
             {
                 RhythmManager.Instance?.OnNoteMissed(this);
                 Destroy(gameObject);
@@ -72,7 +77,21 @@ namespace ConductorSymphony.Rhythm
 
         private void UpdatePosition(float progress)
         {
-            float currentDistance = Mathf.Lerp(initialDistance, 0f, progress);
+            float currentDistance;
+            if (progress <= 1f)
+            {
+                // Approach phase: travel from spawn point down to the fixed judgment ring.
+                currentDistance = Mathf.Lerp(initialDistance, judgmentRadius, progress);
+            }
+            else
+            {
+                // Missed phase: only dip slightly past the judgment ring (not a fast rush to the
+                // character) and vanish near the line once the Miss window (above) expires.
+                float lateProgress = Mathf.Clamp01((progress - 1f) * travelDuration / missWindow);
+                float missOvershoot = judgmentRadius * 0.25f;
+                currentDistance = Mathf.Lerp(judgmentRadius, judgmentRadius - missOvershoot, lateProgress);
+            }
+
             Vector3 centerPos = (targetTransform != null) ? targetTransform.position : Vector3.zero;
             transform.position = centerPos + laneDirection * currentDistance;
         }

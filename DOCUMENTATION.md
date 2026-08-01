@@ -129,7 +129,7 @@ Assets/Scripts/
 │   ├── HitFloatingText.cs           # 3D 월드 플로팅 타격 텍스트 팝업 (PERFECT, GREAT, MISS)
 │   ├── RhythmManager.cs             # 97 BPM 32비트 시퀀서 루프 엔진 & QWER 판정
 │   ├── RhythmNote.cs                # 실시간 상대 좌표 추적 노트 개체
-│   └── ShrinkingRhythmRing.cs       # 동시타 식별용 0.005f 초미세 수축 비트 링
+│   └── JudgmentRing.cs              # 캐릭터 주변 고정 반경 Perfect 판정선 (박자 무관 고정 링)
 └── UI/
     └── LevelUpUI.cs                 # 그룹 제한 해제 10종 악기 무작위 3카드 팝업
 ```
