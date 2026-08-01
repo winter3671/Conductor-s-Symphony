@@ -25,6 +25,9 @@ namespace ConductorSymphony.Rhythm
         [Header("Target Tracking")]
         [SerializeField] private Transform targetTransform;
 
+        [Header("Judgment Ring")]
+        [SerializeField] private float judgmentRadius = 0.6f; // Fixed radius of the Perfect judgment line around the character
+
         private List<RhythmNote> activeNotes = new List<RhythmNote>();
         private float stepDuration; // Seconds per step in 32-step grid
         private int lastProcessedStep = -1; // Last step index fired, derived fresh from AudioLayerManager.SongTime each frame
@@ -50,6 +53,13 @@ namespace ConductorSymphony.Rhythm
             if (targetTransform == null && PlayerController.Instance != null)
             {
                 targetTransform = PlayerController.Instance.transform;
+            }
+
+            if (targetTransform != null)
+            {
+                GameObject ringObj = new GameObject("JudgmentRing");
+                JudgmentRing ring = ringObj.AddComponent<JudgmentRing>();
+                ring.Initialize(targetTransform, judgmentRadius, Color.white, 0.6f);
             }
 
             lastProcessedStep = -1;
@@ -98,7 +108,6 @@ namespace ConductorSymphony.Rhythm
 
             var equipped = InstrumentManager.Instance.AcquiredInstruments;
             int maxUnlocked = InstrumentManager.Instance.GetUnlockedSlotsCount();
-            bool stepHasNotes = false;
 
             for (int slot = 0; slot < equipped.Count && slot < maxUnlocked; slot++)
             {
@@ -109,25 +118,8 @@ namespace ConductorSymphony.Rhythm
                 {
                     RhythmLane lane = GetLaneForSlot(slot);
                     SpawnNoteForLane(lane, inst.themeColor);
-                    stepHasNotes = true;
                 }
             }
-
-            if (stepHasNotes)
-            {
-                SpawnShrinkingRingForStep(0.85f);
-            }
-        }
-
-        private void SpawnShrinkingRingForStep(float alphaAmount)
-        {
-            if (targetTransform == null) return;
-
-            float songTimeNow = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongTime : 0f;
-
-            GameObject ringObj = new GameObject($"RhythmRing_{Time.frameCount}");
-            ShrinkingRhythmRing ring = ringObj.AddComponent<ShrinkingRhythmRing>();
-            ring.Initialize(targetTransform, spawnDistance, songTimeNow, noteTravelDuration, Color.white, alphaAmount);
         }
 
         public static RhythmLane GetLaneForSlot(int slot)
@@ -167,7 +159,7 @@ namespace ConductorSymphony.Rhythm
             sr.sortingOrder = 10;
 
             RhythmNote note = noteObj.AddComponent<RhythmNote>();
-            note.Initialize(lane, targetTransform, spawnDir, spawnDistance, targetTime, noteTravelDuration);
+            note.Initialize(lane, targetTransform, spawnDir, spawnDistance, targetTime, noteTravelDuration, judgmentRadius, missWindow);
 
             activeNotes.Add(note);
         }
