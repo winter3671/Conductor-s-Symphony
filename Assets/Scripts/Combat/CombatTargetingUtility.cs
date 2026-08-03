@@ -9,7 +9,7 @@ namespace ConductorSymphony.Combat
     {
         public static EnemyMonster GetNearestEnemy(Vector3 origin)
         {
-            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>(FindObjectsSortMode.None);
+            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>();
             EnemyMonster nearest = null;
             float minDistance = float.MaxValue;
 
@@ -30,7 +30,7 @@ namespace ConductorSymphony.Combat
         // 글록켄슈필: "체력이 가장 높은 적" 타겟팅. 동률이면 더 가까운 쪽을 우선한다(플레이어 체감상 자연스러움).
         public static EnemyMonster GetHighestHpEnemy(Vector3 originForTieBreak)
         {
-            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>(FindObjectsSortMode.None);
+            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>();
             EnemyMonster best = null;
             int bestHp = int.MinValue;
             float bestDist = float.MaxValue;
