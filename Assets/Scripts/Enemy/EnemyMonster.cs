@@ -15,6 +15,8 @@ namespace ConductorSymphony.Enemy
         private SpriteRenderer spriteRenderer;
 
         public int DamageToPlayer => damageToPlayer;
+        public int CurrentHealth => currentHealth;
+        public int MaxHealth => maxHealth;
 
         private void Awake()
         {

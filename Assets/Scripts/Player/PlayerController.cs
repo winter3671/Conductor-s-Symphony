@@ -63,6 +63,20 @@ namespace ConductorSymphony.Player
 
         public int CurrentHealth => currentHealth;
         public int MaxHealth => maxHealth;
+        public PlayerFacingDirection FacingDirection => facingDirection;
+
+        // 10종 악기별 공격 메커니즘 기획서: 프렌치호른/마림바(이동 방향 발사), 바이올린(릴리즈 시 이동 방향 참격) 등에서 사용
+        public Vector2 GetFacingDirectionVector()
+        {
+            switch (facingDirection)
+            {
+                case PlayerFacingDirection.Up:    return Vector2.up;
+                case PlayerFacingDirection.Down:  return Vector2.down;
+                case PlayerFacingDirection.Left:  return Vector2.left;
+                case PlayerFacingDirection.Right: return Vector2.right;
+                default: return Vector2.down;
+            }
+        }
 
         public static event System.Action<int, int> OnHealthChangedEvent;
 
