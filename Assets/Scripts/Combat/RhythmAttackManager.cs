@@ -31,6 +31,11 @@ namespace ConductorSymphony.Combat
             {
                 RhythmManager.Instance.OnHitSuccessEvent += HandleRhythmHit;
             }
+
+            // 2단계(홀드 기반 4종: 바이올린/프렌치호른/첼로/팀파니)의 유지/해제 처리.
+            // 홀드 "시작"은 OnHitSuccessEvent(HandleRhythmHit)에서 이미 처리하므로 여기선 유지/해제만 구독한다.
+            RhythmManager.OnHoldTickEvent += HandleHoldTick;
+            RhythmManager.OnHoldReleasedEvent += HandleHoldReleased;
         }
 
         private void OnDestroy()
@@ -39,6 +44,19 @@ namespace ConductorSymphony.Combat
             {
                 RhythmManager.Instance.OnHitSuccessEvent -= HandleRhythmHit;
             }
+
+            RhythmManager.OnHoldTickEvent -= HandleHoldTick;
+            RhythmManager.OnHoldReleasedEvent -= HandleHoldReleased;
+        }
+
+        private void HandleHoldTick(RhythmLane lane)
+        {
+            InstrumentAttacks.HoldEffectCoordinator.Tick(lane, Time.deltaTime);
+        }
+
+        private void HandleHoldReleased(RhythmLane lane, float progress01, bool completedFully)
+        {
+            InstrumentAttacks.HoldEffectCoordinator.Release(lane, completedFully);
         }
 
         public void HandleRhythmHit(HitRating rating, RhythmLane lane)
@@ -82,6 +100,15 @@ namespace ConductorSymphony.Combat
             {
                 int comboCount = RhythmManager.Instance != null ? RhythmManager.Instance.CurrentCombo : 0;
                 InstrumentAttacks.InstrumentAttackDispatcher.Execute(hitInstrument.type, hitInstrument.level, damage, comboCount, spawnPos, projColor);
+                return;
+            }
+
+            // 2단계: 홀드 기반 4종(바이올린/프렌치호른/첼로/팀파니)은 이 최초 판정 성공 시점(=홀드 시작)에
+            // HoldEffectCoordinator로 지속 이펙트를 등록한다. 이후 유지/해제는 OnHoldTickEvent/OnHoldReleasedEvent
+            // 구독(HandleHoldTick/HandleHoldReleased)에서 계속 처리한다.
+            if (hitInstrument != null && InstrumentAttacks.InstrumentAttackDispatcher.IsHoldImplemented(hitInstrument.type))
+            {
+                InstrumentAttacks.HoldEffectCoordinator.BeginHold(lane, hitInstrument.type, hitInstrument.level, damage, spawnPos, projColor);
                 return;
             }
 

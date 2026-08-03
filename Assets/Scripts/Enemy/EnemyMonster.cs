@@ -14,9 +14,17 @@ namespace ConductorSymphony.Enemy
         private Transform playerTransform;
         private SpriteRenderer spriteRenderer;
 
+        // 첼로(중력의 구속) 등 이속 감소 효과용. 1.0 = 정상 속도. 필드를 벗어나면 다시 1.0으로 복원되어야 한다.
+        private float speedMultiplier = 1f;
+
         public int DamageToPlayer => damageToPlayer;
         public int CurrentHealth => currentHealth;
         public int MaxHealth => maxHealth;
+
+        public void SetSpeedMultiplier(float multiplier)
+        {
+            speedMultiplier = multiplier;
+        }
 
         private void Awake()
         {
@@ -48,7 +56,7 @@ namespace ConductorSymphony.Enemy
 
             // Move towards player
             Vector3 direction = (playerTransform.position - transform.position).normalized;
-            transform.position += direction * moveSpeed * Time.deltaTime;
+            transform.position += direction * moveSpeed * speedMultiplier * Time.deltaTime;
 
             // Apply mutual separation force from neighboring enemies to prevent stacking into a single point
             ApplySeparation();

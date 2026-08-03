@@ -6,9 +6,10 @@ using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
 {
-    // "10종 악기별 공격 메커니즘 기획서" 1단계: 탭+오토타겟 4종(피아노/벨/마림바/글록켄슈필).
-    // 나머지 6종(홀드 기반 4종 + 드럼/플루트)은 아직 여기 연결되지 않았고, RhythmAttackManager의
-    // 기존 범용 투사체 로직으로 계속 폴백한다 - IsImplemented(type)가 false를 반환하는 동안은 안전.
+    // "10종 악기별 공격 메커니즘 기획서" 1단계(탭+오토타겟 4종: 피아노/벨/마림바/글록켄슈필)는
+    // IsImplemented()/Execute()로, 2단계(홀드 기반 4종: 바이올린/프렌치호른/첼로/팀파니)는
+    // IsHoldImplemented()/CreateHoldEffect()로 각각 처리한다. 나머지 2종(드럼/플루트)은 아직 여기
+    // 연결되지 않았고, RhythmAttackManager의 기존 범용 투사체 로직으로 계속 폴백한다.
     public static class InstrumentAttackDispatcher
     {
         private static Sprite beamSprite;
@@ -20,6 +21,32 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 || type == InstrumentType.Bell
                 || type == InstrumentType.Marimba
                 || type == InstrumentType.Glockenspiel;
+        }
+
+        // 2단계: 홀드 기반 4종(바이올린/프렌치호른/첼로/팀파니). 탭 4종과 달리 HoldEffectCoordinator를 통해
+        // 지속 이펙트(IHoldAttackEffect)로 처리되며, 여기서는 "해당 타입이 홀드 이펙트를 갖는지"만 판별한다.
+        public static bool IsHoldImplemented(InstrumentType type)
+        {
+            return type == InstrumentType.Violin
+                || type == InstrumentType.FrenchHorn
+                || type == InstrumentType.Cello
+                || type == InstrumentType.Timpani;
+        }
+
+        // HoldEffectCoordinator가 홀드 시작 시 호출 - 악기 타입에 맞는 지속 이펙트 컴포넌트를 생성해 반환한다.
+        public static IHoldAttackEffect CreateHoldEffect(InstrumentType type)
+        {
+            GameObject obj = new GameObject($"HoldEffect_{type}");
+            switch (type)
+            {
+                case InstrumentType.Violin: return obj.AddComponent<ViolinOrbitEffect>();
+                case InstrumentType.FrenchHorn: return obj.AddComponent<FrenchHornConeEffect>();
+                case InstrumentType.Cello: return obj.AddComponent<CelloGravityFieldEffect>();
+                case InstrumentType.Timpani: return obj.AddComponent<TimpaniBombardmentEffect>();
+                default:
+                    Object.Destroy(obj);
+                    return null;
+            }
         }
 
         public static void Execute(InstrumentType type, int level, int damage, int currentCombo, Vector3 origin, Color color)
