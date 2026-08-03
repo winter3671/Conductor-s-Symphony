@@ -9,7 +9,10 @@ namespace ConductorSymphony.Enemy
     {
         public static event System.Action<int> OnBossSpawnedEvent;       // maxHp
         public static event System.Action<int, int> OnBossHpChangedEvent; // currentHp, maxHp
-        public static event System.Action OnBossDefeatedEvent;
+        public static event System.Action OnBossDefeatedEvent;           // elite defeated (reward chest)
+        public static event System.Action OnFinalBossClearedEvent;       // 10:00~12:00 final boss defeated in time
+        public static event System.Action OnFinalBossTimeUpEvent;        // final boss NOT defeated within time limit (defeat)
+        public static event System.Action<float, float> OnFinalBossTimeChangedEvent; // remaining, limit
 
         [Header("Boss Stats")]
         [SerializeField] private int maxHp = 120;
@@ -26,8 +29,15 @@ namespace ConductorSymphony.Enemy
         private float attackInterval = 3.5f;
         private int attackPatternIndex = 0;
 
+        // Final boss (10:00~12:00 time-attack) specific state - see game_balance_design.docx section 3
+        private bool isFinalBoss = false;
+        private float finalBossTimeLimit = 120f;
+        private float finalBossTimer = 0f;
+        private bool timeUpTriggered = false;
+
         public int CurrentHp => currentHp;
         public int MaxHp => maxHp;
+        public bool IsFinalBoss => isFinalBoss;
 
         protected override void Awake()
         {
@@ -42,6 +52,32 @@ namespace ConductorSymphony.Enemy
         {
             maxHp = hp;
             currentHp = maxHp;
+            isFinalBoss = false;
+            OnBossSpawnedEvent?.Invoke(maxHp);
+        }
+
+        // 같은 프레임 안에서 이 인스턴스를 Destroy()하고 곧바로 새 BossMonster(예: 최종 보스)를
+        // AddComponent 하는 경우, Destroy()는 프레임 끝까지 지연 적용되므로 새 인스턴스의 Awake()가
+        // 아직 살아있는 이 인스턴스를 보고 자기 자신을 파괴해버리는 소프트락이 발생할 수 있다.
+        // (실측: 엘리트 생존 중 10:00 도달 시 최종 보스가 영구히 스폰되지 않던 버그, balance_1to3_test_result.md 참고)
+        // Destroy() 호출 "직전"에 이 메서드로 정적 Instance를 먼저 비워서 새 인스턴스가 정상적으로 등록되게 한다.
+        public void ReleaseSingletonSlot()
+        {
+            if (Instance == this)
+            {
+                ClearInstance();
+            }
+        }
+
+        // 10:00~12:00 최종 보스전 (HP 180,000 / 120초 타임어택) 전용 초기화
+        public void InitializeFinalBoss(int hp, float timeLimit = 120f)
+        {
+            maxHp = hp;
+            currentHp = maxHp;
+            isFinalBoss = true;
+            finalBossTimeLimit = timeLimit;
+            finalBossTimer = 0f;
+            timeUpTriggered = false;
             OnBossSpawnedEvent?.Invoke(maxHp);
         }
 
@@ -67,6 +103,18 @@ namespace ConductorSymphony.Enemy
 
         private void Update()
         {
+            if (isFinalBoss && !timeUpTriggered)
+            {
+                finalBossTimer += Time.deltaTime;
+                OnFinalBossTimeChangedEvent?.Invoke(Mathf.Max(0f, finalBossTimeLimit - finalBossTimer), finalBossTimeLimit);
+
+                if (finalBossTimer >= finalBossTimeLimit)
+                {
+                    TriggerTimeUpDefeat();
+                    return;
+                }
+            }
+
             if (player == null) player = PlayerController.Instance;
             if (player != null)
             {
@@ -161,13 +209,35 @@ namespace ConductorSymphony.Enemy
 
         private void Die()
         {
-            OnBossDefeatedEvent?.Invoke();
+            if (isFinalBoss)
+            {
+                // 최종 보스 클리어 (게임 클리어). 전리품 상자는 엘리트 전용이라 여기서는 스폰하지 않음.
+                OnFinalBossClearedEvent?.Invoke();
+                Debug.Log("[BossMonster] Final boss cleared within time limit - Victory!");
+            }
+            else
+            {
+                OnBossDefeatedEvent?.Invoke();
 
-            GameObject chestObj = new GameObject("EliteRewardChest");
-            chestObj.transform.position = transform.position;
-            chestObj.AddComponent<Item.EliteRewardChest>();
+                GameObject chestObj = new GameObject("EliteRewardChest");
+                chestObj.transform.position = transform.position;
+                chestObj.AddComponent<Item.EliteRewardChest>();
+            }
 
             Destroy(gameObject);
+        }
+
+        private void TriggerTimeUpDefeat()
+        {
+            if (timeUpTriggered) return;
+            timeUpTriggered = true;
+
+            Debug.Log("[BossMonster] Final boss time limit exceeded - Defeat (Time Over)");
+            OnFinalBossTimeUpEvent?.Invoke();
+
+            // Freeze the run on failure, mirroring PlayerController.OnPlayerDeath()'s current stub-level handling.
+            // TODO(follow-up): hook this into a real Game Over screen once one exists.
+            Time.timeScale = 0f;
         }
 
         private void OnTriggerEnter2D(Collider2D other)
