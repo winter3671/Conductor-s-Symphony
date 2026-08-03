@@ -42,10 +42,12 @@ namespace ConductorSymphony.Instrument
 
         public int GetUnlockedSlotsCount()
         {
+            // game_balance_design.docx section 2: Lv1(드럼 고정 시작)=1슬롯, Lv5=2번째, Lv10=3번째, Lv15=4번째(풀세팅)
             int pLevel = PlayerExperience.Instance != null ? PlayerExperience.Instance.CurrentLevel : 1;
-            if (pLevel < 5) return 2;      // Lv 1 ~ 4: 2 slots (Q & R)
-            else if (pLevel < 8) return 3; // Lv 5 ~ 7: 3 slots (Q, W, R)
-            else return 4;                // Lv 8+: 4 slots (Q, W, E, R)
+            if (pLevel < 5) return 1;        // Lv 1 ~ 4: 1 slot (Q, 드럼 고정)
+            else if (pLevel < 10) return 2;  // Lv 5 ~ 9: 2 slots (Q & R)
+            else if (pLevel < 15) return 3;  // Lv 10 ~ 14: 3 slots (Q, R, W)
+            else return 4;                  // Lv 15+: 4 slots (Q, R, W, E)
         }
 
         public bool HasInstrument(InstrumentType type)

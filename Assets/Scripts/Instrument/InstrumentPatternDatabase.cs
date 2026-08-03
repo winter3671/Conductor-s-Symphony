@@ -232,5 +232,27 @@ namespace ConductorSymphony.Instrument
                     return InstrumentGroup.MelodyHarmony;
             }
         }
+
+        // 10종 악기별 공격 메커니즘 기획서: 홀드(롱노트) 기반 악기 4종 + 각자의 노트 길이(32스텝 기준).
+        // 기존 탭 패턴(levelPatterns)의 onset 스텝은 그대로 재사용하고, 이 악기들만 "그 스텝에서 홀드가
+        // 시작된다"는 의미로 재해석한다 - 레벨별 홀드 전용 패턴을 별도로 새로 만들 필요가 없다.
+        private static readonly Dictionary<InstrumentType, int> holdLengthSteps = new Dictionary<InstrumentType, int>
+        {
+            { InstrumentType.Violin, 13 },     // 13칸 롱노트 (홀드 중 회전 칼날, 릴리즈 시 부채꼴 참격)
+            { InstrumentType.FrenchHorn, 6 },  // 6칸 스웰 롱노트 (홀드 중 전방 부채꼴 충격파 지속)
+            { InstrumentType.Cello, 13 },      // 13칸 베이스 롱노트 (홀드 중 중력장 유지)
+            { InstrumentType.Timpani, 16 },    // 16마디 롤ing (홀드 중 지진 융단폭격)
+            { InstrumentType.Flute, 3 },       // 2~4칸 숏 홀드 (릴리즈 시 미니 소용돌이 - 3단계에서 추가)
+        };
+
+        public static bool IsHoldBased(InstrumentType type)
+        {
+            return holdLengthSteps.ContainsKey(type);
+        }
+
+        public static int GetHoldLengthSteps(InstrumentType type)
+        {
+            return holdLengthSteps.TryGetValue(type, out int steps) ? steps : 0;
+        }
     }
 }

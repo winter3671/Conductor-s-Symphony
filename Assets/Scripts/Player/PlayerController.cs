@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using ConductorSymphony.Enemy;
+using ConductorSymphony.Passive;
 using ConductorSymphony.Rhythm;
 using ConductorSymphony.Utility;
 
@@ -27,6 +28,7 @@ namespace ConductorSymphony.Player
         [SerializeField] private int maxHealth = 100;
         [SerializeField] private float invulnerabilityDuration = 0.5f;
 
+        private int baseMaxHealth; // maxHealth before Tuning 패시브 보너스 적용 (Awake에서 스냅샷)
         private int currentHealth;
         private float invulnerableTimer = 0f;
         private Rigidbody2D rb;
@@ -61,6 +63,20 @@ namespace ConductorSymphony.Player
 
         public int CurrentHealth => currentHealth;
         public int MaxHealth => maxHealth;
+        public PlayerFacingDirection FacingDirection => facingDirection;
+
+        // 10종 악기별 공격 메커니즘 기획서: 프렌치호른/마림바(이동 방향 발사), 바이올린(릴리즈 시 이동 방향 참격) 등에서 사용
+        public Vector2 GetFacingDirectionVector()
+        {
+            switch (facingDirection)
+            {
+                case PlayerFacingDirection.Up:    return Vector2.up;
+                case PlayerFacingDirection.Down:  return Vector2.down;
+                case PlayerFacingDirection.Left:  return Vector2.left;
+                case PlayerFacingDirection.Right: return Vector2.right;
+                default: return Vector2.down;
+            }
+        }
 
         public static event System.Action<int, int> OnHealthChangedEvent;
 
@@ -84,6 +100,7 @@ namespace ConductorSymphony.Player
             }
             spriteRenderer.sortingOrder = 10;
 
+            baseMaxHealth = maxHealth;
             currentHealth = maxHealth;
 
             LoadPlayerSprites();
@@ -294,7 +311,9 @@ namespace ConductorSymphony.Player
 
         private void FixedUpdate()
         {
-            rb.linearVelocity = moveInput * moveSpeed;
+            // 비바체(Vivace) 패시브: 이동 속도 +8%/Lv (최대 +40%)
+            float speedMultiplier = PassiveStatManager.Instance != null ? PassiveStatManager.Instance.GetMoveSpeedMultiplier() : 1.0f;
+            rb.linearVelocity = moveInput * moveSpeed * speedMultiplier;
         }
 
         private void OnTriggerStay2D(Collider2D other)
@@ -308,11 +327,34 @@ namespace ConductorSymphony.Player
             }
         }
 
+        // 악보 튜닝(Tuning) 패시브 획득/업그레이드 시점에 PassiveStatManager가 호출.
+        // 최대 HP를 base 기준으로 재계산하고, 늘어난 만큼 현재 HP도 함께 채워준다(일반적인 로그라이트 관례).
+        public void RefreshMaxHealthBonus(float bonusFraction)
+        {
+            int previousMax = maxHealth;
+            maxHealth = Mathf.RoundToInt(baseMaxHealth * (1f + bonusFraction));
+            int delta = maxHealth - previousMax;
+            if (delta > 0)
+            {
+                currentHealth = Mathf.Min(maxHealth, currentHealth + delta);
+            }
+            else
+            {
+                currentHealth = Mathf.Min(currentHealth, maxHealth);
+            }
+
+            OnHealthChangedEvent?.Invoke(currentHealth, maxHealth);
+        }
+
         public void TakeDamage(int amount)
         {
             if (invulnerableTimer > 0f) return;
 
-            currentHealth = Mathf.Max(0, currentHealth - amount);
+            // 악보 튜닝(Tuning) 패시브: 피해 감소 +5%/Lv (최대 -25%)
+            float damageReduction = PassiveStatManager.Instance != null ? PassiveStatManager.Instance.GetDamageReductionFraction() : 0f;
+            int reducedAmount = Mathf.Max(1, Mathf.RoundToInt(amount * (1f - damageReduction))); // 최소 1 피해는 보장 (완전 무적 방지)
+
+            currentHealth = Mathf.Max(0, currentHealth - reducedAmount);
             invulnerableTimer = invulnerabilityDuration;
 
             OnHealthChangedEvent?.Invoke(currentHealth, maxHealth);

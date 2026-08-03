@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using ConductorSymphony.Instrument;
+using ConductorSymphony.Passive;
 using ConductorSymphony.Player;
 using ConductorSymphony.Item;
 using ConductorSymphony.Utility;
@@ -18,13 +19,30 @@ namespace ConductorSymphony.UI
         [SerializeField] private Image[] cardIconImages;
         [SerializeField] private Text[] cardDescTexts;
 
-        private List<InstrumentInfo> currentChoices = new List<InstrumentInfo>();
+        // 카드 한 장의 후보 - 악기 업그레이드/신규 악기 또는 패시브 스탯 강화 둘 중 하나를 담는다.
+        // (game_balance_design.docx section 2: "성장 구간엔 기존 무기 레벨업 또는 패시브 스탯 강화 무작위 제시")
+        private class LevelUpChoice
+        {
+            public bool isPassive;
+
+            // isPassive == false
+            public InstrumentType instrumentType;
+            public int instrumentTargetLevel;
+
+            // isPassive == true
+            public PassiveStatType passiveType;
+            public int passiveTargetLevel;
+        }
+
+        private List<LevelUpChoice> currentChoices = new List<LevelUpChoice>();
+        private Sprite passiveIconSprite;
 
         protected override void Awake()
         {
             base.Awake();
             if (Instance != this) return;
 
+            passiveIconSprite = ProceduralSpriteFactory.CreateFilledCircle(32, 12f, Color.white);
             EnsureUIComponents();
         }
 
@@ -168,17 +186,11 @@ namespace ConductorSymphony.UI
             cardPanel.SetActive(true);
 
             currentChoices.Clear();
-            List<InstrumentType> availableTypes = new List<InstrumentType>();
+            List<LevelUpChoice> candidates = new List<LevelUpChoice>();
 
             List<InstrumentInfo> equipped = InstrumentManager.Instance != null ? InstrumentManager.Instance.AcquiredInstruments : new List<InstrumentInfo>();
             int unlocked = InstrumentManager.Instance != null ? InstrumentManager.Instance.GetUnlockedSlotsCount() : 2;
             bool slotsFull = equipped.Count >= unlocked;
-
-            HashSet<InstrumentGroup> equippedGroups = new HashSet<InstrumentGroup>();
-            foreach (var inst in equipped)
-            {
-                equippedGroups.Add(InstrumentPatternDatabase.GetGroup(inst.type));
-            }
 
             if (!slotsFull)
             {
@@ -187,7 +199,7 @@ namespace ConductorSymphony.UI
                 {
                     if (!InstrumentManager.Instance.HasInstrument(t))
                     {
-                        availableTypes.Add(t);
+                        candidates.Add(new LevelUpChoice { isPassive = false, instrumentType = t, instrumentTargetLevel = 1 });
                     }
                 }
             }
@@ -197,26 +209,36 @@ namespace ConductorSymphony.UI
             {
                 if (inst.level < 5)
                 {
-                    availableTypes.Add(inst.type);
+                    candidates.Add(new LevelUpChoice { isPassive = false, instrumentType = inst.type, instrumentTargetLevel = inst.level + 1 });
                 }
             }
 
-            // Shuffle availableTypes and pick up to 3
-            for (int i = 0; i < availableTypes.Count; i++)
+            // 패시브 스탯 8종 (game_balance_design.docx section 4) - 슬롯 제한 없이 레벨 5 미만이면 항상 후보
+            if (PassiveStatManager.Instance != null)
             {
-                InstrumentType temp = availableTypes[i];
-                int randomIndex = Random.Range(i, availableTypes.Count);
-                availableTypes[i] = availableTypes[randomIndex];
-                availableTypes[randomIndex] = temp;
+                foreach (PassiveStatType pt in PassiveStatDatabase.AllTypes)
+                {
+                    int curLv = PassiveStatManager.Instance.GetLevel(pt);
+                    if (curLv < PassiveStatDatabase.MaxLevel)
+                    {
+                        candidates.Add(new LevelUpChoice { isPassive = true, passiveType = pt, passiveTargetLevel = curLv + 1 });
+                    }
+                }
             }
 
-            int count = Mathf.Min(3, availableTypes.Count);
+            // Shuffle candidates and pick up to 3
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                LevelUpChoice temp = candidates[i];
+                int randomIndex = Random.Range(i, candidates.Count);
+                candidates[i] = candidates[randomIndex];
+                candidates[randomIndex] = temp;
+            }
+
+            int count = Mathf.Min(3, candidates.Count);
             for (int i = 0; i < count; i++)
             {
-                InstrumentType t = availableTypes[i];
-                int currentLv = InstrumentManager.Instance != null ? InstrumentManager.Instance.GetInstrumentLevel(t) : 0;
-                InstrumentInfo info = new InstrumentInfo(t, currentLv + 1);
-                currentChoices.Add(info);
+                currentChoices.Add(candidates[i]);
             }
 
             // Center alignment for available choices (1, 2, or 3 cards)
@@ -240,30 +262,58 @@ namespace ConductorSymphony.UI
                         rt.anchoredPosition = new Vector2(posX, 0f);
                     }
 
-                    InstrumentInfo choice = currentChoices[i];
-                    InstrumentDefinition def = InstrumentPatternDatabase.GetDefinition(choice.type);
+                    LevelUpChoice choice = currentChoices[i];
 
                     int slotIdx = i;
                     cardButtons[i].onClick.RemoveAllListeners();
                     cardButtons[i].onClick.AddListener(() => OnCardSelected(slotIdx));
 
-                    if (cardTitleTexts != null && i < cardTitleTexts.Length)
+                    if (choice.isPassive)
                     {
-                        string colorHex = ColorUtility.ToHtmlStringRGB(def.themeColor);
-                        string badge = (choice.level == 1) ? "<color=#00FF7F>[NEW]</color>" : $"<color=#FFD700>[Lv.{choice.level}]</color>";
-                        cardTitleTexts[i].text = $"<color=#FFFF00>[Key {i + 1}]</color>\n<color=#{colorHex}>{def.name}</color> {badge}";
-                    }
+                        PassiveStatDefinition def = PassiveStatDatabase.GetDefinition(choice.passiveType);
 
-                    if (cardIconImages != null && i < cardIconImages.Length && cardIconImages[i] != null)
-                    {
-                        Sprite iconSprite = Resources.Load<Sprite>($"Sprites/Instruments/{choice.type}");
-                        cardIconImages[i].sprite = iconSprite;
-                        cardIconImages[i].color = (iconSprite != null) ? Color.white : Color.clear;
-                    }
+                        if (cardTitleTexts != null && i < cardTitleTexts.Length)
+                        {
+                            string colorHex = ColorUtility.ToHtmlStringRGB(def.themeColor);
+                            string badge = (choice.passiveTargetLevel == 1) ? "<color=#00FF7F>[NEW]</color>" : $"<color=#FFD700>[Lv.{choice.passiveTargetLevel}]</color>";
+                            cardTitleTexts[i].text = $"<color=#FFFF00>[Key {i + 1}]</color>\n<color=#{colorHex}>{def.name}</color> {badge}\n<size=11>({def.theme})</size>";
+                        }
 
-                    if (cardDescTexts != null && i < cardDescTexts.Length)
+                        if (cardIconImages != null && i < cardIconImages.Length && cardIconImages[i] != null)
+                        {
+                            // 패시브 전용 아이콘 아트가 아직 없어 테마 컬러로 물들인 원형 플레이스홀더 사용
+                            cardIconImages[i].sprite = passiveIconSprite;
+                            cardIconImages[i].color = def.themeColor;
+                        }
+
+                        if (cardDescTexts != null && i < cardDescTexts.Length)
+                        {
+                            cardDescTexts[i].text = def.description;
+                        }
+                    }
+                    else
                     {
-                        cardDescTexts[i].text = $"{def.description}\n(Dmg +{choice.extraDamage}, Multi +{choice.extraProjectiles})";
+                        InstrumentDefinition def = InstrumentPatternDatabase.GetDefinition(choice.instrumentType);
+                        InstrumentInfo previewInfo = new InstrumentInfo(choice.instrumentType, choice.instrumentTargetLevel);
+
+                        if (cardTitleTexts != null && i < cardTitleTexts.Length)
+                        {
+                            string colorHex = ColorUtility.ToHtmlStringRGB(def.themeColor);
+                            string badge = (choice.instrumentTargetLevel == 1) ? "<color=#00FF7F>[NEW]</color>" : $"<color=#FFD700>[Lv.{choice.instrumentTargetLevel}]</color>";
+                            cardTitleTexts[i].text = $"<color=#FFFF00>[Key {i + 1}]</color>\n<color=#{colorHex}>{def.name}</color> {badge}";
+                        }
+
+                        if (cardIconImages != null && i < cardIconImages.Length && cardIconImages[i] != null)
+                        {
+                            Sprite iconSprite = Resources.Load<Sprite>($"Sprites/Instruments/{choice.instrumentType}");
+                            cardIconImages[i].sprite = iconSprite;
+                            cardIconImages[i].color = (iconSprite != null) ? Color.white : Color.clear;
+                        }
+
+                        if (cardDescTexts != null && i < cardDescTexts.Length)
+                        {
+                            cardDescTexts[i].text = $"{def.description}\n(Dmg +{previewInfo.extraDamage}, Multi +{previewInfo.extraProjectiles})";
+                        }
                     }
                 }
                 else
@@ -282,10 +332,20 @@ namespace ConductorSymphony.UI
         {
             if (index < 0 || index >= currentChoices.Count) return;
 
-            InstrumentInfo selected = currentChoices[index];
-            if (InstrumentManager.Instance != null)
+            LevelUpChoice selected = currentChoices[index];
+            if (selected.isPassive)
             {
-                InstrumentManager.Instance.AcquireOrUpgradeInstrument(selected.type);
+                if (PassiveStatManager.Instance != null)
+                {
+                    PassiveStatManager.Instance.AcquireOrUpgrade(selected.passiveType);
+                }
+            }
+            else
+            {
+                if (InstrumentManager.Instance != null)
+                {
+                    InstrumentManager.Instance.AcquireOrUpgradeInstrument(selected.instrumentType);
+                }
             }
 
             if (cardPanel != null) cardPanel.SetActive(false);

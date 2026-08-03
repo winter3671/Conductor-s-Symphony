@@ -12,6 +12,10 @@ namespace ConductorSymphony.Rhythm
         public event System.Action<HitRating, RhythmLane> OnHitSuccessEvent;
         public static event System.Action<int, int, HitRating> OnScoreUpdatedEvent; // score, combo, rating
 
+        // 홀드(롱노트) 전용 이벤트 - 10종 악기별 공격 메커니즘 기획서의 바이올린/프렌치호른/첼로/팀파니용.
+        public static event System.Action<RhythmLane> OnHoldTickEvent; // 홀드 유지 중 매 프레임 (지속 피해 등에 사용)
+        public static event System.Action<RhythmLane, float, bool> OnHoldReleasedEvent; // lane, progress01, completedFully(끝까지 채웠는지)
+
         [Header("Rhythm Sequencer Settings")]
         [SerializeField] private float bpm = 97f;
         [SerializeField] private float spawnDistance = 4.0f;
@@ -34,6 +38,19 @@ namespace ConductorSymphony.Rhythm
 
         private int currentScore = 0;
         private int currentCombo = 0;
+        public int CurrentCombo => currentCombo; // 피아노 6연타 캐스케이드/글록켄슈필 4·8버스트 등 "N연속 성공" 트리거용 공개 게터
+
+        // 레인(4개)별 현재 진행 중인 홀드 노트. null이면 해당 레인은 홀드 중이 아님.
+        private readonly RhythmNote[] activeHoldByLane = new RhythmNote[4];
+
+        // Rolling accuracy window backing M_rhythm (game_balance_design.docx section 1).
+        // Perfect/Great both count as a "success"; Miss counts as a failure. Window (not lifetime total)
+        // so the multiplier tracks recent play rather than being dominated by an early streak or a single miss.
+        private const int SuccessRateWindowSize = 20;
+        private readonly Queue<bool> recentHitWindow = new Queue<bool>();
+
+        // 0% (no recent hits) -> 0.5x, 50% -> 1.25x, 100% (full recent combo) -> 2.0x
+        public float RhythmSuccessRate01 { get; private set; } = 0f;
 
         private Sprite defaultNoteSprite;
 
@@ -100,6 +117,53 @@ namespace ConductorSymphony.Rhythm
                 if (keyboard.eKey.wasPressedThisFrame) CheckHit(RhythmLane.UpRight); // Slot 2 (E = Upper-Right)
                 if (keyboard.rKey.wasPressedThisFrame) CheckHit(RhythmLane.Right);   // Slot 3 (R = Right)
             }
+
+            UpdateActiveHolds(keyboard);
+        }
+
+        // 진행 중인 홀드 노트들의 "키를 계속 누르고 있는지"를 매 프레임 확인.
+        // 도중에 떼면 조기 이탈(완료되지 못함), 지속시간을 다 채우면 정상 완료로 각각 OnHoldReleasedEvent를 발행.
+        private void UpdateActiveHolds(Keyboard keyboard)
+        {
+            for (int i = 0; i < activeHoldByLane.Length; i++)
+            {
+                RhythmNote note = activeHoldByLane[i];
+                if (note == null) continue;
+
+                RhythmLane lane = (RhythmLane)i;
+                bool keyDown = IsLaneKeyPressed(keyboard, lane);
+
+                if (!keyDown)
+                {
+                    activeHoldByLane[i] = null;
+                    OnHoldReleasedEvent?.Invoke(lane, note.HoldProgress01, false);
+                    note.DestroyNote();
+                    continue;
+                }
+
+                bool stillHolding = note.TickHold(Time.deltaTime);
+                OnHoldTickEvent?.Invoke(lane);
+
+                if (!stillHolding)
+                {
+                    activeHoldByLane[i] = null;
+                    OnHoldReleasedEvent?.Invoke(lane, 1.0f, true);
+                    note.DestroyNote();
+                }
+            }
+        }
+
+        private bool IsLaneKeyPressed(Keyboard keyboard, RhythmLane lane)
+        {
+            if (keyboard == null) return false;
+            switch (lane)
+            {
+                case RhythmLane.Left:    return keyboard.qKey.isPressed;
+                case RhythmLane.UpLeft:  return keyboard.wKey.isPressed;
+                case RhythmLane.UpRight: return keyboard.eKey.isPressed;
+                case RhythmLane.Right:   return keyboard.rKey.isPressed;
+                default: return false;
+            }
         }
 
         private void ProcessSequencerStep(int step)
@@ -117,7 +181,20 @@ namespace ConductorSymphony.Rhythm
                 if (pattern != null && step < pattern.Length && pattern[step] == 1)
                 {
                     RhythmLane lane = GetLaneForSlot(slot);
-                    SpawnNoteForLane(lane, inst.themeColor);
+                    bool isHold = InstrumentPatternDatabase.IsHoldBased(inst.type);
+
+                    // 홀드 기반 악기(바이올린/프렌치호른/첼로/팀파니)는 같은 레인에 이미 홀드가 진행 중이면
+                    // 새 노트를 스폰하지 않는다 - 고레벨 패턴은 onset 간격이 홀드 길이보다 짧아질 수 있어
+                    // 겹쳐 스폰되면 activeHoldByLane 슬롯이 충돌한다.
+                    if (isHold && activeHoldByLane[(int)lane] != null)
+                    {
+                        continue;
+                    }
+
+                    int holdSteps = isHold ? InstrumentPatternDatabase.GetHoldLengthSteps(inst.type) : 0;
+                    float holdDurationSeconds = holdSteps * stepDuration;
+
+                    SpawnNoteForLane(lane, inst.themeColor, isHold ? NoteKind.Hold : NoteKind.Tap, holdDurationSeconds);
                 }
             }
         }
@@ -134,6 +211,29 @@ namespace ConductorSymphony.Rhythm
             }
         }
 
+        private void RecordHitResult(bool success)
+        {
+            recentHitWindow.Enqueue(success);
+            if (recentHitWindow.Count > SuccessRateWindowSize)
+            {
+                recentHitWindow.Dequeue();
+            }
+
+            int hitCount = 0;
+            foreach (bool wasHit in recentHitWindow)
+            {
+                if (wasHit) hitCount++;
+            }
+            RhythmSuccessRate01 = recentHitWindow.Count > 0 ? (float)hitCount / recentHitWindow.Count : 0f;
+        }
+
+        // M_rhythm from game_balance_design.docx section 1: linear from 0.5x (0% success) to 2.0x (100% success),
+        // passing exactly through 1.25x at 50% success.
+        public float GetRhythmDamageMultiplier()
+        {
+            return 0.5f + 1.5f * RhythmSuccessRate01;
+        }
+
         public static int GetSlotForLane(RhythmLane lane)
         {
             switch (lane)
@@ -146,7 +246,7 @@ namespace ConductorSymphony.Rhythm
             }
         }
 
-        private void SpawnNoteForLane(RhythmLane lane, Color color)
+        private void SpawnNoteForLane(RhythmLane lane, Color color, NoteKind kind = NoteKind.Tap, float holdDurationSeconds = 0f)
         {
             Vector3 spawnDir = GetLaneDirection(lane);
             float songTimeNow = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongTime : 0f;
@@ -159,7 +259,7 @@ namespace ConductorSymphony.Rhythm
             sr.sortingOrder = 10;
 
             RhythmNote note = noteObj.AddComponent<RhythmNote>();
-            note.Initialize(lane, targetTransform, spawnDir, spawnDistance, targetTime, noteTravelDuration, judgmentRadius, missWindow);
+            note.Initialize(lane, targetTransform, spawnDir, spawnDistance, targetTime, noteTravelDuration, judgmentRadius, missWindow, kind, holdDurationSeconds);
 
             activeNotes.Add(note);
         }
@@ -223,7 +323,18 @@ namespace ConductorSymphony.Rhythm
         private void ProcessHit(RhythmNote note, HitRating rating)
         {
             activeNotes.Remove(note);
-            note.DestroyNote();
+
+            // Hold 노트는 초기 판정에 성공해도 즉시 파괴하지 않고 판정 링에 고정한 채 지속시간을 추적한다.
+            // (UpdateActiveHolds()가 매 프레임 키 유지 여부를 확인해 조기 이탈/정상 완료를 각각 처리)
+            if (note.Kind == NoteKind.Hold)
+            {
+                activeHoldByLane[(int)note.Lane] = note;
+                note.BeginHold();
+            }
+            else
+            {
+                note.DestroyNote();
+            }
 
             if (rating == HitRating.Perfect)
             {
@@ -236,6 +347,7 @@ namespace ConductorSymphony.Rhythm
                 currentCombo++;
             }
 
+            RecordHitResult(success: true);
             OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, rating);
 
             if (targetTransform != null)
@@ -263,6 +375,7 @@ namespace ConductorSymphony.Rhythm
         {
             activeNotes.Remove(note);
             currentCombo = 0;
+            RecordHitResult(success: false);
             OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, HitRating.Miss);
 
             if (targetTransform != null)
