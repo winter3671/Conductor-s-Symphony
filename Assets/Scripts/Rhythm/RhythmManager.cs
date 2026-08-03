@@ -35,6 +35,15 @@ namespace ConductorSymphony.Rhythm
         private int currentScore = 0;
         private int currentCombo = 0;
 
+        // Rolling accuracy window backing M_rhythm (game_balance_design.docx section 1).
+        // Perfect/Great both count as a "success"; Miss counts as a failure. Window (not lifetime total)
+        // so the multiplier tracks recent play rather than being dominated by an early streak or a single miss.
+        private const int SuccessRateWindowSize = 20;
+        private readonly Queue<bool> recentHitWindow = new Queue<bool>();
+
+        // 0% (no recent hits) -> 0.5x, 50% -> 1.25x, 100% (full recent combo) -> 2.0x
+        public float RhythmSuccessRate01 { get; private set; } = 0f;
+
         private Sprite defaultNoteSprite;
 
         protected override void Awake()
@@ -132,6 +141,29 @@ namespace ConductorSymphony.Rhythm
                 case 3: return RhythmLane.UpRight; // Slot 3 = E (UpRight)
                 default: return RhythmLane.Left;
             }
+        }
+
+        private void RecordHitResult(bool success)
+        {
+            recentHitWindow.Enqueue(success);
+            if (recentHitWindow.Count > SuccessRateWindowSize)
+            {
+                recentHitWindow.Dequeue();
+            }
+
+            int hitCount = 0;
+            foreach (bool wasHit in recentHitWindow)
+            {
+                if (wasHit) hitCount++;
+            }
+            RhythmSuccessRate01 = recentHitWindow.Count > 0 ? (float)hitCount / recentHitWindow.Count : 0f;
+        }
+
+        // M_rhythm from game_balance_design.docx section 1: linear from 0.5x (0% success) to 2.0x (100% success),
+        // passing exactly through 1.25x at 50% success.
+        public float GetRhythmDamageMultiplier()
+        {
+            return 0.5f + 1.5f * RhythmSuccessRate01;
         }
 
         public static int GetSlotForLane(RhythmLane lane)
@@ -236,6 +268,7 @@ namespace ConductorSymphony.Rhythm
                 currentCombo++;
             }
 
+            RecordHitResult(success: true);
             OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, rating);
 
             if (targetTransform != null)
@@ -263,6 +296,7 @@ namespace ConductorSymphony.Rhythm
         {
             activeNotes.Remove(note);
             currentCombo = 0;
+            RecordHitResult(success: false);
             OnScoreUpdatedEvent?.Invoke(currentScore, currentCombo, HitRating.Miss);
 
             if (targetTransform != null)

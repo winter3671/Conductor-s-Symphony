@@ -64,7 +64,11 @@ namespace ConductorSymphony.Combat
             int extraDamage = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraDamage() : 0;
             int extraProj = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraProjectiles() : 0;
 
-            int damage = ((rating == HitRating.Perfect) ? 2 : 1) + extraDamage;
+            // 최종 딜량 공식 (game_balance_design.docx section 1): 기본 DPS × M_rhythm × M_stat
+            int baseDamage = ((rating == HitRating.Perfect) ? 2 : 1) + extraDamage;
+            float mRhythm = RhythmManager.Instance != null ? RhythmManager.Instance.GetRhythmDamageMultiplier() : 1.0f;
+            const float mStat = 1.0f; // TODO(balance): 패시브 스탯 강화 시스템(문서 4번) 구현 후 실제 강화도(0~100%) 값으로 교체
+            int damage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * mRhythm * mStat));
             int projCount = 1 + extraProj;
 
             // Collect all potential target components (regular trash mobs + boss)

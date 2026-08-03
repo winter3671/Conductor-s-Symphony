@@ -111,10 +111,13 @@ namespace ConductorSymphony.Enemy
 
         private void Die()
         {
-            // 100% Guaranteed EXP Gem Drop on every kill
+            // 100% Guaranteed EXP Gem Drop on every kill.
+            // EXP amount scales with elapsed game time per game_balance_design.docx section 2 (10/12/15/20 across 4 segments).
+            int expAmount = EnemySpawner.Instance != null ? EnemySpawner.Instance.GetCurrentExpPerKill() : 15;
+
             GameObject gemObj = new GameObject($"ExpGem_{Time.frameCount}");
             Player.ExpGem gem = gemObj.AddComponent<Player.ExpGem>();
-            gem.Initialize(transform.position, 15);
+            gem.Initialize(transform.position, expAmount);
 
             Destroy(gameObject);
         }
