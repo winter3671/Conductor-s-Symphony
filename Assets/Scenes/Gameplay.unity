@@ -1556,6 +1556,7 @@ Transform:
   - {fileID: 669202613}
   - {fileID: 713899007}
   - {fileID: 1308559576}
+  - {fileID: 1714291902}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &776145123
@@ -2769,7 +2770,9 @@ MonoBehaviour:
   noteTravelDuration: 2.474
   perfectWindow: 0.1
   greatWindow: 0.22
+  missWindow: 0.45
   targetTransform: {fileID: 0}
+  judgmentRadius: 0.6
 --- !u!4 &1520719334
 Transform:
   m_ObjectHideFlags: 0
@@ -2894,7 +2897,26 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ConductorSymphony.Enemy.EnemySpawner
   spawnRadius: 8
-  bossInterval: 60
+  mobPhaseDuration: 600
+  segmentEndTimes:
+  - 150
+  - 300
+  - 450
+  - 600
+  concurrentMin: 0f0000001e0000003c00000064000000
+  concurrentMax: 1e0000003c0000006400000096000000
+  mobHpMin: 0f00000032000000960000005e010000
+  mobHpMax: 1e00000064000000fa000000f4010000
+  eliteHp: c80000005802000008070000a00f0000
+  expPerKill: 0a0000000c0000000f00000014000000
+  spawnIntervalPerSegment:
+  - 1
+  - 0.6
+  - 0.4
+  - 0.28
+  eliteInterval: 120
+  finalBossHp: 180000
+  finalBossTimeLimit: 120
 --- !u!4 &1708175327
 Transform:
   m_ObjectHideFlags: 0
@@ -2910,6 +2932,50 @@ Transform:
   m_Children: []
   m_Father: {fileID: 772272467}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1714291901
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1714291902}
+  - component: {fileID: 1714291903}
+  m_Layer: 0
+  m_Name: PassiveStatManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1714291902
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1714291901}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 772272467}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1714291903
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1714291901}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e00d5335bf3cc884fa427fc15095d492, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ConductorSymphony.Passive.PassiveStatManager
 --- !u!1 &1762138289
 GameObject:
   m_ObjectHideFlags: 0

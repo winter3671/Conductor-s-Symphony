@@ -1,4 +1,5 @@
 using UnityEngine;
+using ConductorSymphony.Passive;
 using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Player
@@ -46,8 +47,12 @@ namespace ConductorSymphony.Player
         {
             if (playerTransform == null) return;
 
+            // 공명 패널(Resonance) 패시브: EXP 구슬 획득 범위 +25%/Lv (최대 +125%)
+            float rangeMultiplier = PassiveStatManager.Instance != null ? PassiveStatManager.Instance.GetPickupRangeMultiplier() : 1.0f;
+            float effectiveMagnetDistance = magnetDistance * rangeMultiplier;
+
             float dist = Vector3.Distance(transform.position, playerTransform.position);
-            if (dist <= magnetDistance)
+            if (dist <= effectiveMagnetDistance)
             {
                 isMagnetized = true;
             }

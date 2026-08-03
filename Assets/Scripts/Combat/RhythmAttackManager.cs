@@ -63,11 +63,15 @@ namespace ConductorSymphony.Combat
 
             int extraDamage = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraDamage() : 0;
             int extraProj = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraProjectiles() : 0;
+            // 레가토(Legato) 패시브: 투사체 수 +1(Lv3), +1(Lv5) 추가 지급
+            extraProj += Passive.PassiveStatManager.Instance != null ? Passive.PassiveStatManager.Instance.GetExtraProjectiles() : 0;
 
             // 최종 딜량 공식 (game_balance_design.docx section 1): 기본 DPS × M_rhythm × M_stat
             int baseDamage = ((rating == HitRating.Perfect) ? 2 : 1) + extraDamage;
             float mRhythm = RhythmManager.Instance != null ? RhythmManager.Instance.GetRhythmDamageMultiplier() : 1.0f;
-            const float mStat = 1.0f; // TODO(balance): 패시브 스탯 강화 시스템(문서 4번) 구현 후 실제 강화도(0~100%) 값으로 교체
+            // M_stat = 시포르찬도(Sforzando) 패시브 배율(1.0~1.5). 나머지 7종 패시브는 서로 다른 종류의
+            // 스탯(공속/범위/이속/투사체/지속시간/자석범위/방어)이라 하나의 M_stat 숫자로 합쳐지지 않는다.
+            float mStat = Passive.PassiveStatManager.Instance != null ? Passive.PassiveStatManager.Instance.GetDamageMultiplier() : 1.0f;
             int damage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * mRhythm * mStat));
             int projCount = 1 + extraProj;
 
