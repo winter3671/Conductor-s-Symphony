@@ -242,6 +242,7 @@ namespace ConductorSymphony.Instrument
             { InstrumentType.FrenchHorn, 6 },  // 6칸 스웰 롱노트 (홀드 중 전방 부채꼴 충격파 지속)
             { InstrumentType.Cello, 13 },      // 13칸 베이스 롱노트 (홀드 중 중력장 유지)
             { InstrumentType.Timpani, 16 },    // 16마디 롤ing (홀드 중 지진 융단폭격)
+            { InstrumentType.Flute, 3 },       // 2~4칸 숏 홀드 (릴리즈 시 미니 소용돌이 - 3단계에서 추가)
         };
 
         public static bool IsHoldBased(InstrumentType type)
