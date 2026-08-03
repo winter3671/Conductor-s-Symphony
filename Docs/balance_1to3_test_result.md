@@ -1,15 +1,127 @@
-# game_balance_design.docx 1~3번 구현 검증 결과
+# game_balance_design.docx 1~3번(+4번) 구현 검증 결과
 
 `balance_1to3_test_guide.md`에 정리된 절차에 따라 **Unity MCP(Unity 6000.5.5f1, `My project` 인스턴스)**로
-실측 검증을 진행한 결과입니다. 총 2차에 걸쳐 검증했습니다.
+실측 검증을 진행한 결과입니다. 총 3차에 걸쳐 검증했습니다.
 
 - **1차 검증**: 딜량/레벨링 공식은 전부 정상이었으나, 몬스터 스폰 로직에서 보스 전환 시점 치명적 회귀
   버그(엘리트 생존 중 10:00 도달 시 최종 보스 미스폰 소프트락) 1건 발견.
-- **2차 검증(이 문서 상단에 결과 추가)**: `MonoSingleton.ClearInstance()` + `BossMonster.ReleaseSingletonSlot()`
-  수정 적용 후 동일 시나리오로 회귀 테스트 → **버그 해결 확인**. 그 외 항목은 코드 변경이 없어 스팟체크로
-  재확인, 전부 정상.
+- **2차 검증**: `MonoSingleton.ClearInstance()` + `BossMonster.ReleaseSingletonSlot()` 수정 적용 후 동일
+  시나리오로 회귀 테스트 → **버그 해결 확인**. 그 외 항목은 코드 변경이 없어 스팟체크로 재확인, 전부 정상.
+- **3차 검증(가이드 5번 항목 = 문서 4번 "패시브 스탯" 신규 검증)**: 8종 패시브의 수치 계산 로직 자체는
+  전부 정상이지만, **`PassiveStatManager`가 실제 `Gameplay.unity` 씬에 배치되어 있지 않아 실제 플레이에서는
+  패시브 시스템 전체가 완전히 죽어있는 상태**임을 발견 (Critical).
+- **수정 및 재검증(이 문서 상단에 결과 추가)**: Unity MCP로 직접 `_Managers` 하위에 `PassiveStatManager`
+  GameObject를 추가하고 씬을 저장한 뒤 재검증 → **해결 확인**. 상세는 "3차 검증" 섹션의 "수정 작업" 항목 참고.
 
-**최종 종합 결과: 문서 1~3번 항목 전부 PASS.** (아래 "2차 검증" 섹션과 최하단 종합 결론 표 참고)
+**최종 종합 결과: 문서 1~4번(딜량 / 레벨링 / 몬스터 스폰·보스전 / 패시브 스탯) 전부 PASS.**
+(아래 "3차 검증" 섹션과 최하단 종합 결론 표 참고)
+
+---
+
+## 3차 검증 (패시브 스탯 시스템, 문서 4번 / 가이드 5번 항목) — 2026-08-03
+
+### 무엇을 테스트했나
+신규 파일 `Assets/Scripts/Passive/PassiveStatData.cs`, `PassiveStatManager.cs` + 기존 파일 수정
+(`RhythmAttackManager.cs`의 `mStat`, `PlayerController.cs`의 이동속도/피해감소/최대HP, `ExpGem.cs`의 자석범위,
+`LevelUpUI.cs`의 카드풀 혼합)을 가이드 5번 절차대로 검증.
+
+### ✅ Edit Mode — 8종 getter 수치 검증: PASS
+가이드 제시 스크립트를 확장해서, 만렙(Lv5) 수치뿐 아니라 **Legato의 계단식 지급(Lv1~5: 0,0,1,1,2)**과
+**Lv5 이후 추가 획득 시도 시 레벨 캡 유지**까지 검증:
+```
+[Legato] Lv1:0, Lv2:0, Lv3:1, Lv4:1, Lv5:2 - 전부 OK (계단식 지급 정확)
+[Legato] Lv5 이후 추가 획득 시도해도 레벨 캡 유지: True
+Sforzando dmg mult=1.5, Vivace move mult=1.4, Resonance pickup mult=2.25,
+Tuning dmg reduction=0.25, Tuning maxHP bonus=0.5,
+Allegro cooldown reduction=0.3(미사용), Crescendo range mult=1.5(미사용), Fermata duration mult=1.75(미사용)
+ALL_MATCH=True
+```
+
+### 🔴 발견된 문제 (Critical, 수정 완료) — **`PassiveStatManager`가 씬에 없어서 패시브 시스템이 실플레이에서 완전히 비활성 상태**
+
+**증상**: Play Mode 진입 직후 `PassiveStatManager.Instance`가 계속 `null`.
+```
+PlayerController.Instance=True
+PassiveStatManager.Instance=False   // ← 다른 매니저와 다르게 존재하지 않음
+InstrumentManager.Instance=True
+LevelUpUI.Instance=True
+```
+`find_gameobjects`로 씬 전체를 찾아봐도 `PassiveStatManager` 컴포넌트를 가진 GameObject가 **하나도 없음**
+(이름에 "Manager" 들어간 오브젝트 자체가 0개 — `InstrumentManager`/`EnemySpawner`/`RhythmManager` 등 기존
+매니저들도 전부 씬에 미리 배치된 GameObject 방식이라, 이번 패시브 매니저만 씬 배치가 누락된 것으로 보임).
+
+**실측 영향 — 레벨업 카드풀이 의도보다 훨씬 빈약해짐**:
+```
+[PassiveStatManager 없는 현재 씬 상태] Lv1→2 레벨업 카드 수=1, 패시브 후보=0, 악기 후보=1
+                                        (드럼 업그레이드 카드 1장만 뜸)
+```
+**대조 실험** (같은 Play 세션에 `PassiveStatManager`를 임시로 추가하고 동일 시점에 재호출):
+```
+[PassiveStatManager 존재 시] 카드 수=3, 패시브 후보=2, 악기 후보=1  (의도된 정상 동작)
+```
+즉 코드 로직 자체(카드 후보 셔플, `AcquireOrUpgrade` 등)는 문제 없고, **씬에 매니저 오브젝트를 추가하는
+작업만 누락**된 상태입니다. 이 상태로 빌드하면:
+- 저레벨 구간(Lv1~4, 악기 슬롯이 꽉 찬 상태)에서 레벨업 카드가 1장(악기 업그레이드)만 뜨거나 극단적으로는
+  0장이 뜰 수도 있음 (모든 장착 악기가 Lv5 만렙이고 슬롯도 가득 찬 경우).
+- 패시브 8종을 플레이어가 절대 획득할 수 없으므로, `RhythmAttackManager`/`PlayerController`/`ExpGem`에
+  이미 잘 연결해둔 시포르찬도/비바체/레가토/공명패널/악보튜닝 효과가 **게임에서 영원히 발동하지 않음**.
+
+### 🔧 수정 작업 (Unity MCP로 직접 처리)
+
+1. `manage_scene(get_hierarchy)`로 씬 구조 확인 → 모든 매니저가 `_Managers`(instanceID 74756) 오브젝트
+   하위에 "컴포넌트명과 동일한 이름의 자식 GameObject" 패턴(`RhythmManager`, `EnemySpawner`,
+   `RhythmAttackManager`, `AudioLayerManager`, `InstrumentManager`)으로 배치되어 있음을 확인.
+2. `manage_gameobject(action="create", name="PassiveStatManager", parent=74756, components_to_add=["PassiveStatManager"])`
+   로 동일한 패턴의 자식 GameObject를 생성 — 기존 매니저들과 이름/배치 방식 일치.
+3. `manage_scene(get_hierarchy, parent=74756)`로 정상 생성 확인 (`Transform` + `ConductorSymphony.Passive.PassiveStatManager`
+   컴포넌트만 붙은 깨끗한 오브젝트).
+4. `manage_scene(action="save")`로 `Assets/Scenes/Gameplay.unity`에 저장 (`git status` 기준
+   `M Assets/Scenes/Gameplay.unity`로 변경사항 반영 확인).
+
+### ✅ 수정 후 재검증 — RESOLVED
+
+Play Mode 재진입 직후:
+```
+PassiveStatManager.Instance exists at Play start: True   // 수정 전에는 False였음
+```
+`LevelUpUI.ShowLevelUpSelection()`도 재호출해 확인:
+```
+수정 후 씬 상태 -> 카드 수=3, 패시브 후보=3, 악기 후보=0
+```
+(이번엔 셔플 결과 패시브만 3장 뽑혔음 — 총 후보 풀이 악기 1 + 패시브 8 = 9개이므로 매번 랜덤 조합이
+나오는 게 정상 동작. 중요한 건 이제 패시브 후보가 풀에 실제로 섞여 들어간다는 점.)
+
+씬에 **영구적으로** 배치된(임시 오브젝트가 아닌) 실제 `PassiveStatManager` 인스턴스로 Tuning 효과도
+재확인:
+```
+[씬에 영구 배치된 실제 매니저로 재확인] MaxHealth 100->150 (expected 150) OK
+```
+콘솔 에러 없음. `manage_editor(stop)`으로 Play Mode 정상 종료 확인.
+
+**결론**: `_Managers` 하위에 `PassiveStatManager` GameObject를 추가하는 것만으로 문제가 완전히
+해결되었습니다. 코드 변경은 전혀 없었고 순수하게 씬 자산에 누락된 배치를 보완한 것입니다.
+
+### ✅ Play Mode 통합 검증 (임시로 씬에 매니저를 추가한 상태에서 진행) — PASS
+위 버그로 인해 정상 씬 상태에서는 패시브를 하나도 얻을 수 없어, `PassiveStatManager`를 Play 세션에
+임시로 추가한 뒤 각 연결 지점을 실측:
+
+| 패시브 | 검증 방법 | 결과 |
+|---|---|---|
+| Tuning(최대HP) | Lv5까지 획득 → `PlayerController.MaxHealth` 100→150 확인 (늘어난 만큼 CurrentHealth도 동시 회복) | PASS |
+| Tuning(피해감소) | `TakeDamage(100)` 실손실 75(=100×(1-0.25)) 확인 | PASS |
+| Vivace(이동속도) | `GetMoveSpeedMultiplier()`가 `PlayerController.FixedUpdate()`와 동일 소스를 참조함을 코드/값으로 재확인 | PASS |
+| Resonance(자석범위) | 거리 6.0 지점에 EXP 젬 스폰 → Resonance Lv5(사거리 x2.25=7.875) 상태에서는 자동 흡수됨, **대조군**(Resonance Lv0, 사거리 3.5)에서는 흡수 안 되고 그대로 남음 | PASS |
+| Sforzando(데미지) | 리듬 성공률 100% 고정(`mRhythm=2.0`) + Sforzando Lv5(`mStat=1.5`) 상태에서 `RhythmAttackManager.HandleRhythmHit(Perfect)` 실행 → 더미 타겟 실제 데미지 6 (= base2×2.0×1.5) 확인 | PASS |
+| Legato(투사체) | Edit Mode에서 계단식 지급 검증 완료 (`RhythmAttackManager`가 `GetExtraProjectiles()`를 그대로 더해 씀을 코드로 확인) | PASS |
+
+> 참고: `TakeDamage` 첫 시도에서 실손실이 0으로 나온 적이 있었는데, 이는 코드 버그가 아니라 씬에서 실제
+> 몬스터에게 방금 맞아 무적프레임(`invulnerabilityDuration=0.5s`)이 남아있던 테스트 타이밍 문제였음.
+> `invulnerableTimer`를 리플렉션으로 0으로 만든 뒤 재시도해 정상 확인.
+
+### ✅ 미연결 3종(Allegro/Crescendo/Fermata) — 가이드 설명과 일치 확인
+`GetCooldownReductionFraction`/`GetRangeMultiplier`/`GetDurationMultiplier`를 프로젝트 전체에서 검색한
+결과, `PassiveStatManager.cs` 자기 자신 외에는 **어디에서도 호출되지 않음** — 가이드 문서에 적힌 "값 계산은
+정상이지만 소비하는 대상이 아직 없다"는 설명과 정확히 일치. 버그 아님, 의도된 상태.
 
 ---
 
@@ -230,7 +342,7 @@ Play Mode 진입 직후 Unity 에디터 창이 포커스를 잃은 상태(`edito
 
 ---
 
-## 종합 결론 (1차 기준 — 2차 검증 결과는 최상단 참고)
+## 종합 결론 (1~2차 기준 — 3차 패시브 검증 결과는 별도 표)
 
 | 항목 | 1차 결과 | 2차 결과 |
 |---|---|---|
@@ -248,3 +360,24 @@ Play Mode 진입 직후 Unity 에디터 창이 포커스를 잃은 상태(`edito
 
 **결론**: 1차 검증에서 발견된 유일한 Critical 버그가 수정 후 해결 확인되었고, 사이드 이펙트도 없습니다.
 문서 1~3번(딜량 공식 / 레벨링·EXP / 몬스터 스폰·보스전) 구현은 **전부 PASS**로 판단합니다.
+
+---
+
+## 종합 결론 — 3차 검증 (패시브 스탯, 문서 4번)
+
+| 항목 | 결과 |
+|---|---|
+| 컴파일 | PASS |
+| 8종 getter 수치 계산 (만렙값, Legato 계단식, 레벨 캡) | PASS |
+| **`PassiveStatManager` 씬 배치 여부** | **최초 FAIL(Critical) → 수정 완료, 재검증 PASS** |
+| 레벨업 카드풀에 패시브 혼합 (수정 후 실제 씬 상태로 재확인) | PASS |
+| Tuning → 최대HP/피해감소 실제 연동 (수정 후 영구 매니저로 재확인) | PASS |
+| Vivace → 이동속도 실제 연동 | PASS |
+| Resonance → EXP 자석범위 실제 연동 (대조군 포함) | PASS |
+| Sforzando → 실제 데미지 공식 반영 | PASS |
+| Legato → 투사체 수 계단식 지급 반영 | PASS |
+| Allegro/Crescendo/Fermata 미연결 상태 확인 | PASS (의도된 상태, 버그 아님) |
+
+**결론**: 8종 패시브의 **계산 로직·연동 코드는 전부 정확**했고, 유일한 문제였던 `PassiveStatManager`
+씬 배치 누락은 Unity MCP로 `_Managers` 하위에 GameObject를 추가하고 씬을 저장하는 방식으로 **직접
+수정 완료**했습니다. 수정 후 재검증까지 마쳐 문서 4번(패시브 스탯) 항목도 **전부 PASS**로 최종 판단합니다.

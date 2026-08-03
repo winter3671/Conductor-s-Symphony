@@ -125,8 +125,11 @@ Debug.Log($"SuccessRate={rm.RhythmSuccessRate01}, Multiplier={rm.GetRhythmDamage
 
 ## 4. 알아두어야 할 가정/후속 작업 (설계자 확인 필요)
 
-- **M_stat=1.0 고정**: 패시브 스탯 강화 시스템(장신구 8종, 문서 4번)은 이번 범위에서 구현하지 않음. 나중에
-  `RhythmAttackManager.cs`의 `const float mStat = 1.0f;` 자리에 실제 강화도(0~100%)를 꽂아넣기만 하면 됨.
+- **(구현 완료) M_stat = 시포르찬도 패시브 배율**: 문서 4번(패시브 8종)을 구현하면서 `RhythmAttackManager.cs`의
+  `const float mStat = 1.0f;` 자리를 `PassiveStatManager.Instance.GetDamageMultiplier()`(시포르찬도 레벨 기반,
+  1.0~1.5배)로 교체함. 나머지 7종 패시브(알레그로/크레센도/비바체/레가토/페르마타/공명패널/악보튜닝)는 서로
+  다른 종류의 스탯이라 하나의 M_stat 숫자로 합쳐지지 않으며, 각자 별도 시스템(이동속도/투사체수/EXP획득범위/
+  방어)에 개별 연결됨. 아래 "5. 패시브 스탯 시스템(문서 4번) 검증" 섹션 참고.
 - **리듬 성공률 = 최근 20개 판정 롤링 윈도우**: 문서엔 "콤보 성공률"이라고만 되어 있어 정확한 창(window) 크기가
   명시되어 있지 않음. 미스 1번에 곧바로 0%로 떨어지는 극단적 스트릭 방식 대신, 최근 20개 기준 완만한 방식을
   채택함 — 실제 플레이 느낌 보고 창 크기(20)를 조정할 수 있음.
@@ -149,3 +152,62 @@ Debug.Log($"SuccessRate={rm.RhythmSuccessRate01}, Multiplier={rm.GetRhythmDamage
 - **데미지 반올림 규칙**: `Mathf.RoundToInt`가 `.5`를 짝수로 반올림(banker's rounding)하는 특성 때문에
   `base=2 × mRhythm=1.25 = 2.5` 같은 케이스가 3이 아닌 2로 계산됨. 문서에 반올림 규칙이 명시되어 있지 않아
   버그는 아니지만, 체감 딜량 손실이 있다면 `Mathf.CeilToInt`로 교체할지 설계자가 검토 가능.
+
+---
+
+## 5. 패시브 스탯 시스템 (문서 4번) 검증
+
+### 무엇이 새로 생겼나
+- `Assets/Scripts/Passive/PassiveStatData.cs`: `PassiveStatType`(8종 enum) + `PassiveStatDatabase`(이름/설명/테마컬러) + `PassiveStatInfo`(레벨 데이터)
+- `Assets/Scripts/Passive/PassiveStatManager.cs`: 획득/레벨업 관리 + 각 패시브 효과 getter
+- `LevelUpUI.cs`: 3장 카드 풀에 "레벨 5 미만 패시브"도 기존 악기 업그레이드/신규 악기와 함께 섞여서 등장
+- **즉시 연결된 5종**: 시포르찬도(`RhythmAttackManager`의 `mStat`), 비바체(`PlayerController.moveSpeed`),
+  레가토(`RhythmAttackManager`의 `extraProj` 합산), 공명 패널(`ExpGem`의 `magnetDistance`),
+  악보 튜닝(`PlayerController`의 피해감소/최대HP)
+- **데이터/카드만 있고 효과 미연결 3종**: 알레그로(`GetCooldownReductionFraction()`), 크레센도(`GetRangeMultiplier()`),
+  페르마타(`GetDurationMultiplier()`) — 전부 `PassiveStatManager`에 getter로 준비돼 있지만, 소비할 대상(악기별
+  쿨타임/범위/장판 지속시간)이 아직 코드에 없음(`10종 악기별 공격 메커니즘 기획서.docx` 구현 이후 연결 예정).
+  레벨업 카드는 정상적으로 뜨고 레벨도 오르지만, 체감상 아무 효과가 없는 게 **의도된 동작**이니 버그로 오인하지 말 것.
+
+### execute_code로 각 getter 값 검증 (Edit Mode)
+```csharp
+// PassiveStatManager는 MonoSingleton이라 Edit Mode에서 AddComponent만으로는 Instance가 안 채워짐
+// (balance_1to3_test_result.md의 "MonoSingleton Awake 미호출" 노트와 동일한 함정) — 리플렉션으로 직접 주입.
+var psm = new GameObject("TestPSM").AddComponent<ConductorSymphony.Passive.PassiveStatManager>();
+var instanceProp = typeof(ConductorSymphony.Passive.PassiveStatManager).BaseType.GetProperty("Instance",
+    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+instanceProp.SetValue(null, psm);
+
+foreach (ConductorSymphony.Passive.PassiveStatType t in ConductorSymphony.Passive.PassiveStatDatabase.AllTypes)
+{
+    for (int i = 0; i < 5; i++) psm.AcquireOrUpgrade(t); // Lv5(만렙)까지 채움
+}
+
+Debug.Log($"Sforzando dmg mult = {psm.GetDamageMultiplier()} (expected 1.5)");
+Debug.Log($"Vivace move mult = {psm.GetMoveSpeedMultiplier()} (expected 1.4)");
+Debug.Log($"Legato extra proj = {psm.GetExtraProjectiles()} (expected 2)");
+Debug.Log($"Resonance pickup mult = {psm.GetPickupRangeMultiplier()} (expected 2.25)");
+Debug.Log($"Tuning dmg reduction = {psm.GetDamageReductionFraction()} (expected 0.25)");
+Debug.Log($"Tuning maxHP bonus = {psm.GetMaxHealthBonusFraction()} (expected 0.5)");
+Debug.Log($"Allegro cooldown reduction = {psm.GetCooldownReductionFraction()} (expected 0.3, 아직 미사용)");
+Debug.Log($"Crescendo range mult = {psm.GetRangeMultiplier()} (expected 1.5, 아직 미사용)");
+Debug.Log($"Fermata duration mult = {psm.GetDurationMultiplier()} (expected 1.75, 아직 미사용)");
+
+GameObject.DestroyImmediate(psm.gameObject);
+```
+
+### Play Mode 확인 포인트
+- [ ] 레벨업 카드 3장 풀에 악기와 패시브가 섞여서 나오는지 (매번 다른 조합)
+- [ ] 패시브 카드를 선택하면 레벨이 오르고, 같은 패시브를 다시 뽑으면 `[Lv.2]`처럼 배지가 올라가는지
+- [ ] 패시브가 Lv5(만렙)에 도달하면 이후 카드 풀에서 더 이상 등장하지 않는지
+- [ ] 시포르찬도 레벨업 후 리듬 히트 데미지가 실제로 커지는지 (`read_console`로 `damage=` 로그 확인)
+- [ ] 비바체 레벨업 후 실제 이동 속도가 빨라지는지 (체감 또는 `rb.linearVelocity.magnitude` 로그)
+- [ ] 악보 튜닝 레벨업 시 최대 HP가 늘어나면서 현재 HP도 그만큼 함께 차오르는지 (`OnHealthChangedEvent` 로그)
+- [ ] 공명 패널 레벨업 후 먼 거리의 EXP 구슬도 끌려오는지
+
+### ⚠️ (수정 완료) 신규 MonoSingleton 매니저는 씬 배치까지 확인해야 함
+3차 실측에서 발견된 Critical 이슈: `PassiveStatManager`를 코드로만 만들고 `Gameplay.unity` 씬의 `_Managers`
+오브젝트 하위에 GameObject로 배치하는 걸 빠뜨려서, Play Mode에서 `Instance`가 계속 `null`인 채로
+패시브 시스템 전체가 죽어있었음(카드 풀에도 안 뜸). 다른 매니저들(`InstrumentManager`, `EnemySpawner` 등)과
+동일한 패턴으로 `_Managers` 하위에 GameObject를 추가하고 씬을 저장하는 것으로 해결. **새 MonoSingleton
+매니저 클래스를 추가할 때는 코드 작성만으로 끝난 게 아니라, 반드시 씬에 실제 배치했는지까지 확인할 것.**
