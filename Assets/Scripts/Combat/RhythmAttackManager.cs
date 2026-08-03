@@ -49,12 +49,13 @@ namespace ConductorSymphony.Combat
             Vector3 spawnPos = player != null ? player.transform.position : Vector3.zero;
 
             int slotIdx = RhythmManager.GetSlotForLane(lane);
+            Instrument.InstrumentInfo hitInstrument = null;
             if (Instrument.InstrumentManager.Instance != null && slotIdx < Instrument.InstrumentManager.Instance.AcquiredInstruments.Count)
             {
-                var inst = Instrument.InstrumentManager.Instance.AcquiredInstruments[slotIdx];
+                hitInstrument = Instrument.InstrumentManager.Instance.AcquiredInstruments[slotIdx];
                 if (Audio.AudioLayerManager.Instance != null)
                 {
-                    Audio.AudioLayerManager.Instance.PlayInstrumentKeySound(inst.type, rating == HitRating.Perfect);
+                    Audio.AudioLayerManager.Instance.PlayInstrumentKeySound(hitInstrument.type, rating == HitRating.Perfect);
                 }
             }
 
@@ -74,6 +75,15 @@ namespace ConductorSymphony.Combat
             float mStat = Passive.PassiveStatManager.Instance != null ? Passive.PassiveStatManager.Instance.GetDamageMultiplier() : 1.0f;
             int damage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * mRhythm * mStat));
             int projCount = 1 + extraProj;
+
+            // 10종 악기별 공격 메커니즘 기획서: 1단계(피아노/벨/마림바/글록켄슈필)는 각자 고유 로직으로 처리하고,
+            // 아직 이관되지 않은 나머지 악기는 아래의 기존 범용 투사체 로직으로 계속 폴백한다.
+            if (hitInstrument != null && InstrumentAttacks.InstrumentAttackDispatcher.IsImplemented(hitInstrument.type))
+            {
+                int comboCount = RhythmManager.Instance != null ? RhythmManager.Instance.CurrentCombo : 0;
+                InstrumentAttacks.InstrumentAttackDispatcher.Execute(hitInstrument.type, hitInstrument.level, damage, comboCount, spawnPos, projColor);
+                return;
+            }
 
             // Collect all potential target components (regular trash mobs + boss)
             List<Component> potentialTargets = new List<Component>();
