@@ -15,7 +15,7 @@
 
 각 단계의 실측 검증 과정과 발견된 버그는 `archive/instrument_mechanics_phase1_test_result.md` /
 `archive/..._phase2_test_result.md` / `archive/..._phase3_test_result.md`(과거 테스트 가이드/결과 모음
-`Docs/archive/` 폴더로 이동됨) / `instrument_mechanics_phase4_test_result.md`에 남아있습니다. 4단계도
+`Docs/archive/` 폴더로 이동됨) / `archive/instrument_mechanics_phase4_test_result.md`에 남아있습니다. 4단계도
 **Unity MCP 실측 검증까지 전부 PASS로 완료**됐습니다 — 6번 섹션 참고. 이 문서는 "최종적으로 무엇이
 어떻게 구현되었는가"만 정리한 요약본입니다.
 
@@ -193,7 +193,7 @@
 
 각 항목의 판정 기준: **일치** = 방향/구조가 doc과 부합, **부분일치** = 같은 스탯을 다루지만 수치 곡선이나
 적용 레벨이 다름, **미구현** = 해당 레벨에 대응하는 효과가 코드에 아예 없음. 아래 판정은 4단계 Unity MCP
-실측 검증(전부 PASS)까지 반영된 최종 상태입니다 — 상세 로그는 `instrument_mechanics_phase4_test_result.md`
+실측 검증(전부 PASS)까지 반영된 최종 상태입니다 — 상세 로그는 `archive/instrument_mechanics_phase4_test_result.md`
 참고(6번 섹션).
 
 ### 드럼 (Target DPS 60→75→130→180→300)
@@ -327,7 +327,7 @@
 인프라(`EnemyMonster`) 전부 PASS, 치명적 버그 없음.** 우려했던 명명 인자+위치 인자 혼용 문법도 실제
 컴파일로 문제없음이 확인됐습니다(C# 7.2 "non-trailing named arguments" 규칙 — 명명 인자가 자신의 실제
 선언 위치와 일치하면 그 뒤에 위치 인자가 와도 합법). 상세 로그는
-`Docs/instrument_mechanics_phase4_test_result.md` 참고. 이번 라운드에서 4번 섹션 표의 "부분일치/미구현"
+`Docs/archive/instrument_mechanics_phase4_test_result.md` 참고. 이번 라운드에서 4번 섹션 표의 "부분일치/미구현"
 항목 대부분이 "일치"로 갱신됐고, 위 드럼 Lv4 오라처럼 문서 초안이 실제 코드 상태를 잘못 반영했던 항목도
 실측 과정에서 바로잡았습니다.
 
