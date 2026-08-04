@@ -99,7 +99,11 @@ namespace ConductorSymphony.Combat
             // 밸런스 doc 5번 항목 Lv4 "패시브 비트 오라 지속 피해량 +50%" 반영.
             float mStat = Passive.PassiveStatManager.Instance != null ? Passive.PassiveStatManager.Instance.GetDamageMultiplier() : 1.0f;
             float auraLevelMultiplier = (drumLevel >= 4) ? 1.5f : 1f;
-            int auraDamage = Mathf.Max(1, Mathf.RoundToInt(1 * mStat * auraLevelMultiplier));
+            // 드럼 Target DPS 보정 배율(Docs/dps_balance_gap_analysis.md 참고)도 오라에 함께 적용한다 -
+            // 이 배율은 "비트 뱅 + 오라" 합산치를 목표 DPS로 역산한 값이라, 비트 뱅에만 적용하면 오라 몫만큼
+            // 여전히 목표에 못 미치게 된다.
+            float instrumentDpsMultiplier = Instrument.InstrumentDamageTable.GetDamageMultiplier(Instrument.InstrumentType.Drums, drumLevel);
+            int auraDamage = Mathf.Max(1, Mathf.RoundToInt(1 * mStat * auraLevelMultiplier * instrumentDpsMultiplier));
             float radius = DrumAuraBaseRadius + 0.1f * Mathf.Max(0, drumLevel - 1);
 
             EnemyMonster[] enemies = FindObjectsByType<EnemyMonster>();
@@ -189,7 +193,15 @@ namespace ConductorSymphony.Combat
             // M_stat = 시포르찬도(Sforzando) 패시브 배율(1.0~1.5). 나머지 7종 패시브는 서로 다른 종류의
             // 스탯(공속/범위/이속/투사체/지속시간/자석범위/방어)이라 하나의 M_stat 숫자로 합쳐지지 않는다.
             float mStat = Passive.PassiveStatManager.Instance != null ? Passive.PassiveStatManager.Instance.GetDamageMultiplier() : 1.0f;
-            int damage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * mRhythm * mStat));
+
+            // 밸런스 doc 5번 항목의 악기별 Target DPS 보정 (Docs/dps_balance_gap_analysis.md 참고): 위
+            // baseDamage(레벨 무관 2~4)만으로는 악기별 실제 타격 빈도를 감안했을 때 목표 DPS의 1~20%에
+            // 불과했다. 각 악기 디스패처 내부의 기존 레벨별 비율(관통/범위/발사수 등)은 그대로 두고,
+            // 여기서 전체 스케일만 악기·레벨별 배율로 보정한다.
+            float instrumentDpsMultiplier = hitInstrument != null
+                ? Instrument.InstrumentDamageTable.GetDamageMultiplier(hitInstrument.type, hitInstrument.level)
+                : 1f;
+            int damage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * mRhythm * mStat * instrumentDpsMultiplier));
             int projCount = 1 + extraProj;
 
             // 10종 악기별 공격 메커니즘 기획서: 탭+오토타겟 5종(피아노/벨/마림바/글록켄슈필/드럼)은 여기서,
