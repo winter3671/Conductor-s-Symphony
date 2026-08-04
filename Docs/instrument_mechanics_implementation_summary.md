@@ -11,9 +11,10 @@
 못한 채 별도로 임의 수치를 사용했습니다. 이번에 두 문서를 함께 재검토하면서 발견된 차이점은 4번 섹션에
 정리했습니다.
 
-각 단계의 실측 검증 과정과 발견된 버그는 `instrument_mechanics_phase1_test_result.md` /
-`..._phase2_test_result.md` / `..._phase3_test_result.md`에 별도로 남아있습니다. 이 문서는 "최종적으로
-무엇이 어떻게 구현되었는가"만 정리한 요약본입니다.
+각 단계의 실측 검증 과정과 발견된 버그는 `archive/instrument_mechanics_phase1_test_result.md` /
+`archive/..._phase2_test_result.md` / `archive/..._phase3_test_result.md`(과거 테스트 가이드/결과 모음
+`Docs/archive/` 폴더로 이동됨)에 별도로 남아있습니다. 이 문서는 "최종적으로 무엇이 어떻게
+구현되었는가"만 정리한 요약본입니다.
 
 ---
 
@@ -283,7 +284,7 @@
 
 10종 전체가 1~3단계에 걸쳐 Unity MCP 실측 검증을 통과했습니다. 발견된 유일한 치명적 버그(바이올린
 `TickDamage()`의 딕셔너리 순회 중 수정 크래시)는 2단계 2차 검증에서 수정 확인되었고, 그 외에는 버그 없이
-전부 PASS로 종료되었습니다. 상세 로그는 `Docs/instrument_mechanics_phase1_test_result.md` /
+전부 PASS로 종료되었습니다. 상세 로그는 `Docs/archive/instrument_mechanics_phase1_test_result.md` /
 `..._phase2_test_result.md` / `..._phase3_test_result.md`를 참고하세요.
 
 다만 이 검증은 "코드가 의도한 대로 동작하는가"만 확인한 것이고, "밸런스 doc이 요구한 수치·Target DPS와
