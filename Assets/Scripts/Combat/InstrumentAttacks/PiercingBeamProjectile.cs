@@ -84,8 +84,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
         private void CheckHits()
         {
-            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>();
-            foreach (var enemy in enemies)
+            foreach (var enemy in CombatTargetingUtility.GetActiveEnemies())
             {
                 if (enemy == null || hitEnemies.Contains(enemy)) continue;
 

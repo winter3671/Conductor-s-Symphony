@@ -59,8 +59,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         private void TickFieldLogic(float deltaTime)
         {
             HashSet<EnemyMonster> currentlyInRange = new HashSet<EnemyMonster>();
-            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>();
-            foreach (var enemy in enemies)
+            foreach (var enemy in CombatTargetingUtility.GetActiveEnemies())
             {
                 if (enemy == null) continue;
                 float dist = Vector3.Distance(transform.position, enemy.transform.position);

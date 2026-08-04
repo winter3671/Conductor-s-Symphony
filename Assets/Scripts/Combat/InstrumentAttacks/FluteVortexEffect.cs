@@ -58,8 +58,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 return;
             }
 
-            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>();
-            foreach (var enemy in enemies)
+            foreach (var enemy in CombatTargetingUtility.GetActiveEnemies())
             {
                 if (enemy == null) continue;
 
@@ -76,8 +75,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         // 그대로 유지해 피해는 주지 않는다.
         private void ExplodeWindShard()
         {
-            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>();
-            foreach (var enemy in enemies)
+            foreach (var enemy in CombatTargetingUtility.GetActiveEnemies())
             {
                 if (enemy == null) continue;
 

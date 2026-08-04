@@ -56,8 +56,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         {
             hasImpacted = true;
 
-            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>();
-            foreach (var enemy in enemies)
+            foreach (var enemy in CombatTargetingUtility.GetActiveEnemies())
             {
                 if (enemy == null) continue;
                 if (Vector3.Distance(transform.position, enemy.transform.position) <= radius)

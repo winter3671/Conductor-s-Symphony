@@ -62,8 +62,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             Vector3 playerPos = playerTransform.position;
             HashSet<EnemyMonster> currentlyInCone = new HashSet<EnemyMonster>();
 
-            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>();
-            foreach (var enemy in enemies)
+            foreach (var enemy in CombatTargetingUtility.GetActiveEnemies())
             {
                 if (enemy == null) continue;
 

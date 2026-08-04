@@ -45,8 +45,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             if (tickTimer < tickInterval) return;
             tickTimer = 0f;
 
-            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>();
-            foreach (var enemy in enemies)
+            foreach (var enemy in CombatTargetingUtility.GetActiveEnemies())
             {
                 if (enemy == null) continue;
                 if (Vector3.Distance(transform.position, enemy.transform.position) <= radius)
