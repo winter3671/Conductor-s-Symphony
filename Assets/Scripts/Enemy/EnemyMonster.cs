@@ -17,13 +17,48 @@ namespace ConductorSymphony.Enemy
         // 첼로(중력의 구속) 등 이속 감소 효과용. 1.0 = 정상 속도. 필드를 벗어나면 다시 1.0으로 복원되어야 한다.
         private float speedMultiplier = 1f;
 
+        // 팀파니 Lv4(기절)/글록켄슈필 Lv5(유도 파편 기절) 공용. 0보다 크면 이동이 완전히 멈춘다.
+        // speedMultiplier와 별개 필드로 관리 - 기절이 풀리면 원래 감속 상태(있었다면)로 자연히 복귀해야 하기 때문.
+        private float stunTimer = 0f;
+
+        // 프렌치호른 Lv4(피해 증폭 디버프) 등 "받는 피해량 배율" 효과용. 1.0 = 정상.
+        private float damageAmpMultiplier = 1f;
+
+        // 드럼 Lv3(0.5초 둔화)/마림바 Lv5(피격 시 이속 30% 감소) 등 - SetSpeedMultiplier(지속형, 예: 첼로
+        // 중력장)와 달리 "일정 시간 뒤 자동으로 풀리는" 한시적 감속. speedMultiplier와는 별개로 관리하고,
+        // 매 프레임 둘 중 더 강한(낮은) 배율을 적용한다.
+        private float tempSlowTimer = 0f;
+        private float tempSlowMultiplier = 1f;
+
         public int DamageToPlayer => damageToPlayer;
         public int CurrentHealth => currentHealth;
         public int MaxHealth => maxHealth;
+        public bool IsStunned => stunTimer > 0f;
 
         public void SetSpeedMultiplier(float multiplier)
         {
             speedMultiplier = multiplier;
+        }
+
+        // duration(초) 동안 이동을 완전히 정지시킨다. 이미 더 긴 기절이 걸려있으면 짧은 것으로 덮어쓰지 않는다.
+        public void ApplyStun(float duration)
+        {
+            stunTimer = Mathf.Max(stunTimer, duration);
+        }
+
+        // multiplier(예: 0.7 = 30% 감속) 배율로 duration(초) 동안만 한시적으로 감속시킨다.
+        public void ApplyTemporarySlow(float multiplier, float duration)
+        {
+            if (tempSlowTimer <= 0f || multiplier < tempSlowMultiplier)
+            {
+                tempSlowMultiplier = multiplier;
+            }
+            tempSlowTimer = Mathf.Max(tempSlowTimer, duration);
+        }
+
+        public void SetDamageAmpMultiplier(float multiplier)
+        {
+            damageAmpMultiplier = multiplier;
         }
 
         private void Awake()
@@ -52,11 +87,20 @@ namespace ConductorSymphony.Enemy
 
         private void Update()
         {
+            if (stunTimer > 0f) stunTimer -= Time.deltaTime;
+            if (tempSlowTimer > 0f) tempSlowTimer -= Time.deltaTime;
+
             if (playerTransform == null) return;
+
+            // 기절 중에는 이속 배율과 무관하게 완전히 정지 (speedMultiplier는 그대로 유지되어, 기절이
+            // 풀리면 감속 등 기존 상태로 자연히 복귀한다). 한시적 감속(tempSlowTimer)이 걸려있으면
+            // 지속형 speedMultiplier와 비교해 더 강한(낮은) 쪽을 적용한다.
+            float baseMultiplier = (tempSlowTimer > 0f) ? Mathf.Min(speedMultiplier, tempSlowMultiplier) : speedMultiplier;
+            float effectiveSpeedMultiplier = (stunTimer > 0f) ? 0f : baseMultiplier;
 
             // Move towards player
             Vector3 direction = (playerTransform.position - transform.position).normalized;
-            transform.position += direction * moveSpeed * speedMultiplier * Time.deltaTime;
+            transform.position += direction * moveSpeed * effectiveSpeedMultiplier * Time.deltaTime;
 
             // Apply mutual separation force from neighboring enemies to prevent stacking into a single point
             ApplySeparation();
@@ -94,7 +138,9 @@ namespace ConductorSymphony.Enemy
 
         public void TakeDamage(int damage)
         {
-            currentHealth -= damage;
+            // 프렌치호른 Lv4 "범위 내 적 피해량 +15% 증폭 디버프" 등 - 이 적이 받는 모든 피해에 곱연산 적용
+            int amplifiedDamage = Mathf.Max(1, Mathf.RoundToInt(damage * damageAmpMultiplier));
+            currentHealth -= amplifiedDamage;
 
             // Flash red on hit
             if (spriteRenderer != null)

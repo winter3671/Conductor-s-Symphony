@@ -8,8 +8,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 {
     // 바이올린: 홀드("13칸 롱노트") 중 플레이어 둘레를 회전하는 활(String) 칼날로 지속 타격하고,
     // 릴리즈하는 순간 이동 방향으로 부채꼴 참격(Melodic Arc Slash)을 날린다.
-    // 기획서 3번(회전 활 칼날 & 이동 방향 참격) 참고. 정성적 설명만 있는 수치(칼날 수/반경/참격 발수 등)는
-    // 1단계(피아노/벨/마림바/글록켄슈필)와 같은 관례로 임의로 정했다 - 플레이테스트 후 조정 필요.
+    // 기획서 3번(회전 활 칼날 & 이동 방향 참격) 참고. 레벨별 수치는 밸런스 doc(game_balance_design.docx)
+    // 5번 항목을 반영: Lv2 칼날 범위+20%·회전속도 증가 / Lv3 칼날+1개 / Lv4 참격 "크기"+50%(발수 아님) /
+    // Lv5 참격이 지난 자리에 2초간 검기 잔향.
     public class ViolinOrbitEffect : MonoBehaviour, IHoldAttackEffect
     {
         private int level;
@@ -19,7 +20,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
         private int bladeCount;
         private float radius;
-        private const float SpinSpeedDegPerSec = 260f;
+        private float spinSpeedDegPerSec;
+        private const float BaseSpinSpeedDegPerSec = 260f;
         private const float HitCooldown = 0.35f; // 칼날이 같은 적을 매 프레임 때리지 않도록 하는 히트당 쿨다운
 
         private readonly List<Transform> blades = new List<Transform>();
@@ -38,8 +40,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
             EnsureSprites();
 
-            bladeCount = (level >= 3) ? 3 : 2;               // Lv3+: 회전 칼날 1개 추가
-            radius = 1.4f + 0.15f * Mathf.Max(0, level - 1); // 레벨당 회전 반경 소폭 증가
+            bladeCount = (level >= 3) ? 3 : 2;                             // Lv3+: 회전 칼날 1개 추가
+            radius = 1.4f * (level >= 2 ? 1.2f : 1f);                       // Lv2+: 회전 반경 +20%
+            spinSpeedDegPerSec = BaseSpinSpeedDegPerSec * (level >= 2 ? 1.3f : 1f); // Lv2+: 회전 속도 증가
 
             for (int i = 0; i < bladeCount; i++)
             {
@@ -59,7 +62,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         {
             if (playerTransform != null) transform.position = playerTransform.position;
 
-            currentAngleDeg += SpinSpeedDegPerSec * deltaTime;
+            currentAngleDeg += spinSpeedDegPerSec * deltaTime;
 
             for (int i = 0; i < blades.Count; i++)
             {
@@ -111,9 +114,11 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 ? PlayerController.Instance.GetFacingDirectionVector()
                 : Vector2.down;
 
-            int slashCount = (level >= 4) ? 5 : 3; // Lv4+: 부채꼴 참격 2발 추가
+            const int slashCount = 3; // 밸런스 doc은 발수 변화를 언급하지 않아 고정 - Lv4는 대신 "크기" 증가
             int pierce = 3 + (level >= 3 ? 2 : 0);
+            float sizeMultiplier = (level >= 4) ? 1.5f : 1f; // Lv4+: 참격 크기 +50%
             const float spreadDeg = 14f;
+            const float range = 6f;
 
             Vector3 origin = transform.position;
             float startAngle = -(slashCount - 1) / 2f * spreadDeg;
@@ -122,10 +127,28 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 Vector3 dir = Quaternion.Euler(0f, 0f, startAngle + i * spreadDeg) * (Vector3)facing;
                 GameObject beamObj = new GameObject("ViolinSlash");
                 PiercingBeamProjectile beam = beamObj.AddComponent<PiercingBeamProjectile>();
-                beam.Initialize(origin, dir, speed: 16f, damage, pierce, maxRange: 6f, bounceOnMaxRange: false, slashSprite, color);
+                beam.Initialize(origin, dir, speed: 16f, damage, pierce, maxRange: range, bounceOnMaxRange: false, slashSprite, color, visualLength: 1.1f, sizeMultiplier: sizeMultiplier);
+
+                if (level >= 5)
+                {
+                    SpawnAfterglow(origin, dir, range);
+                }
             }
 
             Destroy(gameObject);
+        }
+
+        // Lv5: "참격이 지난 자리에 2초간 검기 잔향" - 참격 경로를 따라 몇 개 지점에 잔향 장판을 남긴다.
+        private void SpawnAfterglow(Vector3 origin, Vector3 dir, float range)
+        {
+            const int sampleCount = 3;
+            for (int i = 1; i <= sampleCount; i++)
+            {
+                Vector3 pos = origin + dir.normalized * (range * i / (sampleCount + 1));
+                GameObject glowObj = new GameObject("ViolinAfterglow");
+                LingeringZoneEffect glow = glowObj.AddComponent<LingeringZoneEffect>();
+                glow.Initialize(pos, radius: 0.6f, tickDamage: Mathf.Max(1, damage / 2), tickInterval: 0.4f, duration: 2f, color);
+            }
         }
 
         private static void EnsureSprites()

@@ -96,8 +96,10 @@ namespace ConductorSymphony.Combat
             // 오라는 판정 성공 여부와 무관한 baseline 효과라 M_rhythm(리듬 정확도 배율)은 의도적으로
             // 적용하지 않는다 - 시포르찬도(M_stat) 패시브만 반영한다. (판정 성공 시의 "비트 뱅" 폭발딜은
             // ExecuteDrums()에서 기존 공식(baseDamage*mRhythm*mStat) 그대로 적용됨 - 이 오라와는 별개)
+            // 밸런스 doc 5번 항목 Lv4 "패시브 비트 오라 지속 피해량 +50%" 반영.
             float mStat = Passive.PassiveStatManager.Instance != null ? Passive.PassiveStatManager.Instance.GetDamageMultiplier() : 1.0f;
-            int auraDamage = Mathf.Max(1, Mathf.RoundToInt(1 * mStat));
+            float auraLevelMultiplier = (drumLevel >= 4) ? 1.5f : 1f;
+            int auraDamage = Mathf.Max(1, Mathf.RoundToInt(1 * mStat * auraLevelMultiplier));
             float radius = DrumAuraBaseRadius + 0.1f * Mathf.Max(0, drumLevel - 1);
 
             EnemyMonster[] enemies = FindObjectsByType<EnemyMonster>();
