@@ -78,10 +78,5 @@ namespace ConductorSymphony.Instrument
             // Smooth pet follow movement (Lerp)
             transform.position = Vector3.Lerp(transform.position, desiredPos, followSpeed * Time.deltaTime);
         }
-
-        public void SetAngle(float angle)
-        {
-            // Backward compatibility
-        }
     }
 }

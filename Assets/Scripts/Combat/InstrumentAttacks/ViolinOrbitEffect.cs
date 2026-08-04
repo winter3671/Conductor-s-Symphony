@@ -94,8 +94,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 }
             }
 
-            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>();
-            foreach (var enemy in enemies)
+            foreach (var enemy in CombatTargetingUtility.GetActiveEnemies())
             {
                 if (enemy == null || hitCooldowns.ContainsKey(enemy)) continue;
 
