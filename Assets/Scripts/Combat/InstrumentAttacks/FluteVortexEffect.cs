@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using ConductorSymphony.Enemy;
 using ConductorSymphony.Utility;
@@ -7,25 +8,44 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
     // 플루트의 실제 소용돌이 본체. FluteVortexHoldEffect가 릴리즈 시점에 스폰하며, 그 이후로는
     // 홀드 코디네이터와 무관하게 독립적으로 살아있다가 지속시간이 끝나면 스스로 파괴된다.
     // 기획서 4번(바람 와류): 순수 CC(군집)용 - 직접 피해는 주지 않고 범위 내 적을 중앙으로 끌어당기기만 한다.
+    // 레벨별 수치는 밸런스 doc(game_balance_design.docx) 5번 항목 반영: Lv2 유지시간+40% / Lv3 흡입범위·
+    // 당기는힘+50% / Lv4 동시 유지 가능 소용돌이 +1개(총 2개) / Lv5 소멸 시 바람 파편(피해 없는 외곽 넉백) 폭발.
     public class FluteVortexEffect : MonoBehaviour
     {
         private float radius;
         private float pullStrength;
         private float duration;
         private float elapsed;
+        private bool explodeOnExpire;
+
+        // Lv4("동시 유지 가능 소용돌이 개수 +1") - 이 캡을 넘기면 가장 오래된 소용돌이를 강제 정리한다.
+        private static readonly List<FluteVortexEffect> activeVortices = new List<FluteVortexEffect>();
 
         public void Initialize(Vector3 pos, int level)
         {
             transform.position = pos;
-            radius = 2.0f + 0.2f * Mathf.Max(0, level - 1);       // 레벨당 범위 소폭 증가
-            pullStrength = 2.5f;
-            duration = 1.5f + 0.2f * Mathf.Max(0, level - 1);      // 레벨당 유지시간 소폭 증가
+            radius = 2.0f * (level >= 3 ? 1.5f : 1f);          // Lv3+: 흡입 범위 +50%
+            pullStrength = 2.5f * (level >= 3 ? 1.5f : 1f);    // Lv3+: 당기는 힘 +50%
+            duration = 1.5f * (level >= 2 ? 1.4f : 1f);        // Lv2+: 유지시간 +40%
+            explodeOnExpire = level >= 5;                       // Lv5: 소멸 시 바람 파편 폭발
 
             SpriteRenderer sr = gameObject.AddComponent<SpriteRenderer>();
             Color vortexColor = new Color(0.2f, 0.9f, 0.5f, 0.4f); // 문서: 초록빛 바람 장판
             sr.sprite = ProceduralSpriteFactory.CreateFilledCircle(28, 13f, vortexColor);
             sr.sortingOrder = 3;
             transform.localScale = Vector3.one * (radius * 0.9f);
+
+            int maxConcurrent = (level >= 4) ? 2 : 1; // Lv4+: 동시 2개까지 유지 가능
+            activeVortices.Add(this);
+            while (activeVortices.Count > maxConcurrent)
+            {
+                FluteVortexEffect oldest = activeVortices[0];
+                activeVortices.RemoveAt(0);
+                if (oldest != null && oldest != this)
+                {
+                    Destroy(oldest.gameObject);
+                }
+            }
         }
 
         private void Update()
@@ -33,6 +53,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             elapsed += Time.deltaTime;
             if (elapsed >= duration)
             {
+                if (explodeOnExpire) ExplodeWindShard();
                 Destroy(gameObject);
                 return;
             }
@@ -49,6 +70,29 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                     enemy.transform.position += toCenter.normalized * pullStrength * Time.deltaTime;
                 }
             }
+        }
+
+        // Lv5: 소멸 순간 범위 내 적을 바깥으로 밀어내는 "바람 파편" 연출. 기존 플루트 설계(무피해 CC)를
+        // 그대로 유지해 피해는 주지 않는다.
+        private void ExplodeWindShard()
+        {
+            EnemyMonster[] enemies = Object.FindObjectsByType<EnemyMonster>();
+            foreach (var enemy in enemies)
+            {
+                if (enemy == null) continue;
+
+                Vector3 away = enemy.transform.position - transform.position;
+                float dist = away.magnitude;
+                if (dist <= radius * 1.2f && dist > 0.05f)
+                {
+                    enemy.transform.position += away.normalized * 0.8f;
+                }
+            }
+        }
+
+        private void OnDestroy()
+        {
+            activeVortices.Remove(this);
         }
     }
 }

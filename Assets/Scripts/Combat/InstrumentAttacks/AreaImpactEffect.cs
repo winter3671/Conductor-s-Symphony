@@ -14,13 +14,20 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         private bool hasImpacted = false;
         private SpriteRenderer spriteRenderer;
 
-        public void Initialize(Vector3 pos, float delaySeconds, float impactRadius, int damageAmount, Sprite sprite, Color color)
+        // 팀파니 Lv4(1초 기절) 등 - 착탄으로 맞은 개별 적에 대한 추가 처리를 호출자에게 위임.
+        private System.Action<EnemyMonster> onHitEnemy;
+        // 팀파니 Lv5(착탄 지점 3초 지진지대 잔류) 등 - 실제로 착탄이 발생한(딜레이가 끝난) 정확한 시점/위치를 알려준다.
+        private System.Action<Vector3> onImpact;
+
+        public void Initialize(Vector3 pos, float delaySeconds, float impactRadius, int damageAmount, Sprite sprite, Color color, System.Action<EnemyMonster> onHitEnemy = null, System.Action<Vector3> onImpact = null)
         {
             transform.position = pos;
             remainingDelay = Mathf.Max(0.01f, delaySeconds);
             initialDelay = remainingDelay;
             radius = impactRadius;
             damage = damageAmount;
+            this.onHitEnemy = onHitEnemy;
+            this.onImpact = onImpact;
 
             spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
             spriteRenderer.sprite = sprite;
@@ -56,6 +63,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 if (Vector3.Distance(transform.position, enemy.transform.position) <= radius)
                 {
                     enemy.TakeDamage(damage);
+                    onHitEnemy?.Invoke(enemy);
                 }
             }
 
@@ -63,6 +71,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             {
                 BossMonster.Instance.TakeDamage(damage);
             }
+
+            onImpact?.Invoke(transform.position);
 
             Destroy(gameObject, 0.12f); // 착탄 플래시가 잠깐 보이도록 약간의 딜레이 후 정리
         }
