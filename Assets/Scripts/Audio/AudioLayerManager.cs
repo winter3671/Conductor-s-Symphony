@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using ConductorSymphony.Instrument;
 using ConductorSymphony.Utility;
+using ConductorSymphony.Settings;
 
 namespace ConductorSymphony.Audio
 {
@@ -185,7 +186,7 @@ namespace ConductorSymphony.Audio
                 if (sfxSource != null)
                 {
                     sfxSource.pitch = isPerfect ? 1.05f : 1.0f;
-                    sfxSource.PlayOneShot(clip, 1.0f);
+                    sfxSource.PlayOneShot(clip, GameSettings.SfxVolume01);
                 }
             }
         }
@@ -208,7 +209,7 @@ namespace ConductorSymphony.Audio
                 source = gameObject.AddComponent<AudioSource>();
                 source.loop = true; // Continuous seamless looping!
                 source.playOnAwake = false;
-                source.volume = 0.85f;
+                source.volume = 0.85f * GameSettings.InstrumentVolume01;
                 source.pitch = 1.0f; // Fixed speed!
                 activeInstrumentSources[type] = source;
             }
@@ -369,7 +370,7 @@ namespace ConductorSymphony.Audio
 
             bgmSource.clip = bossBgm;
             bgmSource.loop = true;
-            bgmSource.volume = 0.75f;
+            bgmSource.volume = 0.75f * GameSettings.BgmVolume01;
 
             AudioSource referenceSource = GetAnyActiveInstrumentSource();
             if (referenceSource != null && (referenceSource.isPlaying || referenceSource.timeSamples > 0))
