@@ -578,14 +578,14 @@ MonoBehaviour:
     m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
-    m_MaxSize: 40
+    m_MaxSize: 48
     m_Alignment: 4
     m_AlignByGeometry: 0
     m_RichText: 1
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\uC9C0\uD718\uC790\uC758 \uAD50\uD5A5\uACE1"
+  m_Text: "\uC2EC\uD3EC\uB2C8 \uC11C\uBC14\uC774\uBC84"
 --- !u!222 &805131725
 CanvasRenderer:
   m_ObjectHideFlags: 0
