@@ -23,7 +23,8 @@ namespace ConductorSymphony.UI
         [SerializeField] private Button closeButton;
         [SerializeField] private RectTransform beatPulseIcon;
 
-        private AudioSource tickSource;
+        private AudioSource[] tickSources;
+        private AudioClip tickClip;
         private double[] beatTargetDspTimes;
         private bool[] beatCaptured;
         private readonly List<double> offsetSamplesSeconds = new List<double>();
@@ -32,9 +33,7 @@ namespace ConductorSymphony.UI
 
         private void Awake()
         {
-            tickSource = gameObject.AddComponent<AudioSource>();
-            tickSource.playOnAwake = false;
-            tickSource.clip = CreateTickClip();
+            tickClip = CreateTickClip();
 
             applyButton.onClick.AddListener(ApplyResult);
             retryButton.onClick.AddListener(StartMeasurement);
@@ -76,13 +75,26 @@ namespace ConductorSymphony.UI
             beatTargetDspTimes = new double[totalBeats];
             beatCaptured = new bool[totalBeats];
 
+            if (tickSources == null || tickSources.Length != totalBeats)
+            {
+                tickSources = new AudioSource[totalBeats];
+                for (int i = 0; i < totalBeats; i++)
+                {
+                    AudioSource src = gameObject.AddComponent<AudioSource>();
+                    src.playOnAwake = false;
+                    src.clip = tickClip;
+                    tickSources[i] = src;
+                }
+            }
+
             double beatInterval = 60.0 / RhythmManager.Bpm;
             double startDsp = AudioSettings.dspTime + CountdownSeconds;
 
             for (int i = 0; i < totalBeats; i++)
             {
                 beatTargetDspTimes[i] = startDsp + i * beatInterval;
-                tickSource.PlayScheduled(beatTargetDspTimes[i]);
+                tickSources[i].Stop();
+                tickSources[i].PlayScheduled(beatTargetDspTimes[i]);
             }
         }
 
