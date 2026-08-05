@@ -6,6 +6,7 @@ using ConductorSymphony.Enemy;
 using ConductorSymphony.Passive;
 using ConductorSymphony.Rhythm;
 using ConductorSymphony.Utility;
+using ConductorSymphony.Settings;
 
 namespace ConductorSymphony.Player
 {
@@ -211,10 +212,10 @@ namespace ConductorSymphony.Player
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                if (keyboard.rightArrowKey.isPressed) moveX += 1f;
-                if (keyboard.leftArrowKey.isPressed) moveX -= 1f;
-                if (keyboard.upArrowKey.isPressed) moveY += 1f;
-                if (keyboard.downArrowKey.isPressed) moveY -= 1f;
+                if (keyboard[GameSettings.GetBinding(GameAction.MoveRight)].isPressed) moveX += 1f;
+                if (keyboard[GameSettings.GetBinding(GameAction.MoveLeft)].isPressed) moveX -= 1f;
+                if (keyboard[GameSettings.GetBinding(GameAction.MoveUp)].isPressed) moveY += 1f;
+                if (keyboard[GameSettings.GetBinding(GameAction.MoveDown)].isPressed) moveY -= 1f;
             }
 
             moveInput = new Vector2(moveX, moveY).normalized;

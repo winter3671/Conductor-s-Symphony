@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 using ConductorSymphony.Instrument;
 using ConductorSymphony.Player;
 using ConductorSymphony.Utility;
+using ConductorSymphony.Settings;
 
 namespace ConductorSymphony.Rhythm
 {
@@ -16,8 +17,11 @@ namespace ConductorSymphony.Rhythm
         public static event System.Action<RhythmLane> OnHoldTickEvent; // 홀드 유지 중 매 프레임 (지속 피해 등에 사용)
         public static event System.Action<RhythmLane, float, bool> OnHoldReleasedEvent; // lane, progress01, completedFully(끝까지 채웠는지)
 
+        // Single source of truth for the game's fixed tempo — SyncCalibrationController references
+        // this directly so the calibration metronome can never drift from actual gameplay BPM.
+        public const float Bpm = 97f;
+
         [Header("Rhythm Sequencer Settings")]
-        [SerializeField] private float bpm = 97f;
         [SerializeField] private float spawnDistance = 4.0f;
         [SerializeField] private float noteTravelDuration = 2.474f; // Exactly 4 beats (1 bar) at 97 BPM for smooth readable travel speed
 
@@ -60,7 +64,7 @@ namespace ConductorSymphony.Rhythm
             if (Instance != this) return;
 
             // 97 BPM: 32-step cycle over 2 bars (16 beats) => 0.309278s per 16th-note step
-            stepDuration = (60f / bpm) / 2f;
+            stepDuration = (60f / Bpm) / 2f;
 
             defaultNoteSprite = ProceduralSpriteFactory.CreateFilledCircle(32, 14f, Color.cyan);
         }
@@ -112,10 +116,10 @@ namespace ConductorSymphony.Rhythm
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                if (keyboard.qKey.wasPressedThisFrame) CheckHit(RhythmLane.Left);    // Slot 0 (Q = Left)
-                if (keyboard.wKey.wasPressedThisFrame) CheckHit(RhythmLane.UpLeft);  // Slot 1 (W = Upper-Left)
-                if (keyboard.eKey.wasPressedThisFrame) CheckHit(RhythmLane.UpRight); // Slot 2 (E = Upper-Right)
-                if (keyboard.rKey.wasPressedThisFrame) CheckHit(RhythmLane.Right);   // Slot 3 (R = Right)
+                if (keyboard[GameSettings.GetBinding(GameAction.HitLeft)].wasPressedThisFrame) CheckHit(RhythmLane.Left);
+                if (keyboard[GameSettings.GetBinding(GameAction.HitUpLeft)].wasPressedThisFrame) CheckHit(RhythmLane.UpLeft);
+                if (keyboard[GameSettings.GetBinding(GameAction.HitUpRight)].wasPressedThisFrame) CheckHit(RhythmLane.UpRight);
+                if (keyboard[GameSettings.GetBinding(GameAction.HitRight)].wasPressedThisFrame) CheckHit(RhythmLane.Right);
             }
 
             UpdateActiveHolds(keyboard);
@@ -158,10 +162,10 @@ namespace ConductorSymphony.Rhythm
             if (keyboard == null) return false;
             switch (lane)
             {
-                case RhythmLane.Left:    return keyboard.qKey.isPressed;
-                case RhythmLane.UpLeft:  return keyboard.wKey.isPressed;
-                case RhythmLane.UpRight: return keyboard.eKey.isPressed;
-                case RhythmLane.Right:   return keyboard.rKey.isPressed;
+                case RhythmLane.Left:    return keyboard[GameSettings.GetBinding(GameAction.HitLeft)].isPressed;
+                case RhythmLane.UpLeft:  return keyboard[GameSettings.GetBinding(GameAction.HitUpLeft)].isPressed;
+                case RhythmLane.UpRight: return keyboard[GameSettings.GetBinding(GameAction.HitUpRight)].isPressed;
+                case RhythmLane.Right:   return keyboard[GameSettings.GetBinding(GameAction.HitRight)].isPressed;
                 default: return false;
             }
         }
@@ -280,7 +284,9 @@ namespace ConductorSymphony.Rhythm
         {
             RhythmNote targetNote = null;
             float closestDiff = float.MaxValue;
-            float currentTime = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongTime : 0f;
+            float currentTime = Audio.AudioLayerManager.Instance != null
+                ? Audio.AudioLayerManager.Instance.SongTime + GameSettings.RhythmSyncOffsetSeconds
+                : 0f;
 
             for (int i = activeNotes.Count - 1; i >= 0; i--)
             {
