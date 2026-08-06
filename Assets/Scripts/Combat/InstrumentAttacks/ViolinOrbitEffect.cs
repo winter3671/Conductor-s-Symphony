@@ -41,7 +41,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             EnsureSprites();
 
             bladeCount = (level >= 3) ? 3 : 2;                             // Lv3+: 회전 칼날 1개 추가
-            radius = 1.4f * (level >= 2 ? 1.2f : 1f);                       // Lv2+: 회전 반경 +20%
+            // Lv2+: 회전 반경 +20% × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
+            radius = 1.4f * (level >= 2 ? 1.2f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
             spinSpeedDegPerSec = BaseSpinSpeedDegPerSec * (level >= 2 ? 1.3f : 1f); // Lv2+: 회전 속도 증가
 
             for (int i = 0; i < bladeCount; i++)
@@ -117,7 +118,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             int pierce = 3 + (level >= 3 ? 2 : 0);
             float sizeMultiplier = (level >= 4) ? 1.5f : 1f; // Lv4+: 참격 크기 +50%
             const float spreadDeg = 14f;
-            const float range = 6f;
+            // 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv" 반영.
+            float range = 6f * CombatTargetingUtility.GetRangeMultiplier();
 
             Vector3 origin = transform.position;
             float startAngle = -(slashCount - 1) / 2f * spreadDeg;
@@ -146,7 +148,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 Vector3 pos = origin + dir.normalized * (range * i / (sampleCount + 1));
                 GameObject glowObj = new GameObject("ViolinAfterglow");
                 LingeringZoneEffect glow = glowObj.AddComponent<LingeringZoneEffect>();
-                glow.Initialize(pos, radius: 0.6f, tickDamage: Mathf.Max(1, damage / 2), tickInterval: 0.4f, duration: 2f, color);
+                // Lv5 잔향도 "참격의 연장선"이라 범위 패시브 적용 대상에 포함하기로 결정함(2026-08-06).
+                glow.Initialize(pos, radius: 0.6f * CombatTargetingUtility.GetRangeMultiplier(), tickDamage: Mathf.Max(1, damage / 2), tickInterval: 0.4f, duration: 2f, color);
             }
         }
 

@@ -24,7 +24,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         public void Initialize(Vector3 pos, int level)
         {
             transform.position = pos;
-            radius = 2.0f * (level >= 3 ? 1.5f : 1f);          // Lv3+: 흡입 범위 +50%
+            // Lv3+: 흡입 범위 +50% × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
+            radius = 2.0f * (level >= 3 ? 1.5f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
             pullStrength = 2.5f * (level >= 3 ? 1.5f : 1f);    // Lv3+: 당기는 힘 +50%
             duration = 1.5f * (level >= 2 ? 1.4f : 1f);        // Lv2+: 유지시간 +40%
             explodeOnExpire = level >= 5;                       // Lv5: 소멸 시 바람 파편 폭발

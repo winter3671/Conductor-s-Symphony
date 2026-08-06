@@ -43,18 +43,23 @@ namespace ConductorSymphony.Combat
             if (player == null) player = PlayerController.Instance;
             if (player == null) return;
 
+            int drumLevel = Instrument.InstrumentManager.Instance != null
+                ? Instrument.InstrumentManager.Instance.GetInstrumentLevel(Instrument.InstrumentType.Drums)
+                : 1;
+            float radius = (BaseRadius + 0.1f * Mathf.Max(0, drumLevel - 1)) * CombatTargetingUtility.GetRangeMultiplier();
+
             if (auraVisual != null)
             {
                 auraVisual.transform.position = player.transform.position;
+                // 실제 판정 반경(레벨업/범위 패시브 반영)에 맞춰 매 프레임 갱신 - 이전엔 최초 생성 시
+                // BaseRadius 기준 고정 크기로만 그려서, 레벨이 오르거나 범위 패시브를 먹어도 오라가
+                // 실제로 얼마나 넓어졌는지 화면으로는 전혀 알 수 없었다.
+                auraVisual.transform.localScale = Vector3.one * radius;
             }
 
             tickTimer += Time.deltaTime;
             if (tickTimer < TickInterval) return;
             tickTimer = 0f;
-
-            int drumLevel = Instrument.InstrumentManager.Instance != null
-                ? Instrument.InstrumentManager.Instance.GetInstrumentLevel(Instrument.InstrumentType.Drums)
-                : 1;
 
             // 오라는 판정 성공 여부와 무관한 baseline 효과라 M_rhythm(리듬 정확도 배율)은 의도적으로
             // 적용하지 않는다(DamageFormula에 mRhythm=1f 고정으로 전달) - 시포르찬도(M_stat) 패시브만
@@ -65,7 +70,6 @@ namespace ConductorSymphony.Combat
             float auraLevelMultiplier = (drumLevel >= 4) ? 1.5f : 1f;
             float instrumentDpsMultiplier = Instrument.InstrumentDamageTable.GetDamageMultiplier(Instrument.InstrumentType.Drums, drumLevel);
             int auraDamage = DamageFormula.ComputeFinalDamage(1, 1f, mStat * auraLevelMultiplier, instrumentDpsMultiplier);
-            float radius = BaseRadius + 0.1f * Mathf.Max(0, drumLevel - 1);
 
             foreach (var enemy in CombatTargetingUtility.GetActiveEnemies())
             {
@@ -99,9 +103,11 @@ namespace ConductorSymphony.Combat
                 {
                     auraVisual = new GameObject("DrumBeatAura");
                     SpriteRenderer sr = auraVisual.AddComponent<SpriteRenderer>();
-                    sr.sprite = ProceduralSpriteFactory.CreateRingWithCore(28, 11f, 13f, new Color(0.9f, 0.3f, 0.3f, 0.35f), Color.clear);
+                    // CreateUnitRing: scale=1일 때 링 바깥쪽 끝이 정확히 반지름 1 유닛이 되므로,
+                    // localScale = Vector3.one * 실제판정반경만 하면 항상 정확히 일치한다(매 프레임
+                    // Update()에서 갱신 - 최초 생성 시점의 크기는 다음 프레임에 바로 덮어써진다).
+                    sr.sprite = ProceduralSpriteFactory.CreateUnitRing(0.985f, 1f, new Color(0.9f, 0.3f, 0.3f, 0.6f));
                     sr.sortingOrder = 2;
-                    auraVisual.transform.localScale = Vector3.one * (BaseRadius * 0.95f);
                 }
                 auraVisual.SetActive(true);
             }

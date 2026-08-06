@@ -13,7 +13,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             EnemyMonster nearest = CombatTargetingUtility.GetNearestEnemy(origin);
             Vector3 center = nearest != null ? nearest.transform.position : origin;
 
-            float range = 2.5f * (level >= 2 ? 1.3f : 1f); // Lv2+: 사거리 +30% (1회성 적용)
+            // Lv2+: 사거리 +30% (1회성 적용) × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
+            float range = 2.5f * (level >= 2 ? 1.3f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
             int pierce = 3 + (level >= 3 ? 2 : 0);
             int bursts = (level >= 4) ? 2 : 1; // Lv4+: 8방향 섬광 2연속 발사
 

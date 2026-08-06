@@ -34,7 +34,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 };
             }
 
-            TapAttackHelpers.SpawnBeam(origin, facing, damage, pierce, maxRange: 10f, bounce, color, sizeMultiplier, onHit);
+            // 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv" 반영.
+            float maxRange = 10f * CombatTargetingUtility.GetRangeMultiplier();
+            TapAttackHelpers.SpawnBeam(origin, facing, damage, pierce, maxRange, bounce, color, sizeMultiplier, onHit);
         }
     }
 }

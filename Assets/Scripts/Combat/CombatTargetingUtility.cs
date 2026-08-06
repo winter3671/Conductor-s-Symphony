@@ -21,6 +21,15 @@ namespace ConductorSymphony.Combat
             return EnemySpawner.Instance != null ? EnemySpawner.Instance.ActiveEnemies : EmptyEnemies;
         }
 
+        // 크레센도(Crescendo) 패시브의 "모든 공격 범위 +10%/Lv" - 예전엔 계산 함수만 있고 소비하는
+        // 곳이 없어 죽은 스탯이었다(드럼에서 처음 실제로 연결함, Docs/drum_range_visualization_test_guide.md
+        // 참고). 이후 악기들도 각자 반복해서 null 체크하지 않도록 여기 하나로 모은다 - 각 이펙트의
+        // "사거리/반경" 필드를 계산하는 지점에서 이 값을 곱해 쓰면 된다.
+        public static float GetRangeMultiplier()
+        {
+            return Passive.PassiveStatManager.Instance != null ? Passive.PassiveStatManager.Instance.GetRangeMultiplier() : 1f;
+        }
+
         public static EnemyMonster GetNearestEnemy(Vector3 origin)
         {
             EnemyMonster nearest = null;
