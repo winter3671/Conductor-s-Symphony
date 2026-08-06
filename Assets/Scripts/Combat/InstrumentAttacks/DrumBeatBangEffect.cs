@@ -11,7 +11,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
     {
         public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color)
         {
-            float radius = 2.0f * (level >= 2 ? 1.2f : 1f);                                       // Lv2+: 범위 +20%
+            float radius = 2.0f * (level >= 2 ? 1.2f : 1f) * CombatTargetingUtility.GetRangeMultiplier(); // Lv2+: 범위 +20%
             int shockwaveDamage = Mathf.Max(1, Mathf.RoundToInt(damage * (level >= 2 ? 1.2f : 1f))); // Lv2+: 피해량 +20%
             float knockbackImpulse = 0.6f * (level >= 3 ? 2f : 1f);                                // Lv3+: 넉백 거리 2배
             bool applySlow = level >= 3;                                                            // Lv3+: 0.5초 둔화

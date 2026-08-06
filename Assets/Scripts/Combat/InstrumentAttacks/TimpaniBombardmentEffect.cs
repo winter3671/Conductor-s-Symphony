@@ -36,7 +36,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             applyStun = level >= 4;                                  // Lv4+: 착탄 시 1초 기절
             lingeringZone = level >= 5;                              // Lv5: 착탄 지점 3초 지진지대 잔류
 
-            float initialRadius = 1.0f * (level >= 2 ? 1.25f : 1f); // Lv2+: 범위 +25%
+            // Lv2+: 범위 +25% × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
+            float initialRadius = 1.0f * (level >= 2 ? 1.25f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
 
             // 즉발 "팀파니 캐논" - 홀드 시작 즉시 1회 착탄
             SpawnImpact(targetPos, 0.05f, initialRadius, damage, color);
@@ -48,9 +49,14 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             if (tickTimer < bombardInterval) return;
             tickTimer = 0f;
 
-            // "지진 융단폭격": 지정 구역 주변에 소형 착탄을 랜덤 오프셋으로 추가
-            Vector3 offset = new Vector3(Random.Range(-1.0f, 1.0f), Random.Range(-1.0f, 1.0f), 0f);
-            SpawnImpact(targetPos + offset, 0.1f, 0.7f, Mathf.Max(1, damage / 2), color);
+            // "지진 융단폭격": 지정 구역 주변에 소형 착탄을 랜덤 오프셋으로 추가. 오프셋 산포 범위와
+            // 착탄 스플래시 반경에 크레센도(Crescendo) 범위 배율을 "동일하게" 곱한다 - 표적 하나 기준
+            // 명중 확률(원 넓이/사각형 넓이 비율)이 배율과 무관하게 그대로 유지되도록 하는 결정임
+            // (2026-08-06, 스플래시만 늘리면 명중률이 크게 오르고 오프셋만 늘리면 크게 떨어짐 - 이미
+            // 튜닝된 DPS/명중률 밸런스를 건드리지 않기 위해 "같은 배율"로 결정).
+            float rangeMultiplier = CombatTargetingUtility.GetRangeMultiplier();
+            Vector3 offset = new Vector3(Random.Range(-1.0f, 1.0f), Random.Range(-1.0f, 1.0f), 0f) * rangeMultiplier;
+            SpawnImpact(targetPos + offset, 0.1f, 0.7f * rangeMultiplier, Mathf.Max(1, damage / 2), color);
         }
 
         public void OnHoldReleased(bool completedFully)
@@ -74,7 +80,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         {
             GameObject zoneObj = new GameObject("TimpaniSeismicZone");
             LingeringZoneEffect zone = zoneObj.AddComponent<LingeringZoneEffect>();
-            zone.Initialize(pos, radius: 1.0f, tickDamage: Mathf.Max(1, damage / 3), tickInterval: 0.5f, duration: 3f, color);
+            // 바이올린 Lv5 잔향과 같은 이유로 범위 패시브 적용 대상에 포함(2026-08-06 결정).
+            zone.Initialize(pos, radius: 1.0f * CombatTargetingUtility.GetRangeMultiplier(), tickDamage: Mathf.Max(1, damage / 3), tickInterval: 0.5f, duration: 3f, color);
         }
 
         private static void EnsureSprite()

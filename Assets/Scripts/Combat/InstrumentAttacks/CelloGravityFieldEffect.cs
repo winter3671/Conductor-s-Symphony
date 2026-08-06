@@ -36,7 +36,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         {
             this.level = level;
             this.damage = damage;
-            radius = 1.8f * (level >= 2 ? 1.2f : 1f);         // Lv2+: 범위 +20%
+            // Lv2+: 범위 +20% × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
+            radius = 1.8f * (level >= 2 ? 1.2f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
             slowFraction = (level >= 3) ? 0.6f : 0.4f;         // Lv1: 40%, Lv3+: 60%
 
             EnemyMonster nearest = CombatTargetingUtility.GetNearestEnemy(origin);

@@ -14,7 +14,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             Vector3 pos = target != null ? target.transform.position : origin;
 
             int scaledDamage = Mathf.Max(1, Mathf.RoundToInt(damage * (level >= 2 ? 1.3f : 1f))); // Lv2+: 피해량 +30%
-            float splashRadius = 0.6f + (level >= 3 ? 0.5f : 0f);
+            // Lv3+: 스플래시 추가 × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
+            float splashRadius = (0.6f + (level >= 3 ? 0.5f : 0f)) * CombatTargetingUtility.GetRangeMultiplier();
             TapAttackHelpers.SpawnImpact(pos, 0.15f, splashRadius, scaledDamage, color);
 
             bool burstReady = level >= 4 && currentCombo > 0 && currentCombo % 4 == 0;

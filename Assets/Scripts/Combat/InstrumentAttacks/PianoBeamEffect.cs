@@ -15,10 +15,12 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             int scaledDamage = Mathf.Max(1, Mathf.RoundToInt(damage * (level >= 2 ? 1.25f : 1f))); // Lv2+: 피해량 +25%
             int pierce = 2 + (level >= 3 ? 2 : 0); // Lv1~2: 2관통, Lv3+: 4관통
             int shots = 1 + (level >= 4 ? 1 : 0);  // Lv1~3: 1발, Lv4+: 2발
+            // 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv" 반영.
+            float maxRange = 9f * CombatTargetingUtility.GetRangeMultiplier();
 
             for (int i = 0; i < shots; i++)
             {
-                TapAttackHelpers.SpawnBeam(origin, dir, scaledDamage, pierce, maxRange: 9f, bounce: false, color);
+                TapAttackHelpers.SpawnBeam(origin, dir, scaledDamage, pierce, maxRange, bounce: false, color);
             }
 
             // Lv5: 6연타 성공마다("건반 폭포") 부채꼴로 3발 추가 발사
@@ -27,7 +29,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 for (int i = -1; i <= 1; i++)
                 {
                     Vector3 spreadDir = Quaternion.Euler(0f, 0f, i * 12f) * dir;
-                    TapAttackHelpers.SpawnBeam(origin, spreadDir, scaledDamage, pierce, 9f, false, color);
+                    TapAttackHelpers.SpawnBeam(origin, spreadDir, scaledDamage, pierce, maxRange, false, color);
                 }
             }
         }
