@@ -57,8 +57,10 @@ namespace ConductorSymphony.Combat
                 auraVisual.transform.localScale = Vector3.one * radius;
             }
 
+            // 알레그로(Allegro) 패시브 "쿨타임 감축" 반영 - 값이 작을수록(배율<1) 더 자주 틱.
+            float tickInterval = TickInterval * CombatTargetingUtility.GetCooldownMultiplier();
             tickTimer += Time.deltaTime;
-            if (tickTimer < TickInterval) return;
+            if (tickTimer < tickInterval) return;
             tickTimer = 0f;
 
             // 오라는 판정 성공 여부와 무관한 baseline 효과라 M_rhythm(리듬 정확도 배율)은 의도적으로

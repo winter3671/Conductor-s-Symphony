@@ -32,7 +32,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 int tickDamage = Mathf.Max(1, damage / 2);
                 GameObject glowObj = new GameObject("BellAfterglow");
                 LingeringZoneEffect glow = glowObj.AddComponent<LingeringZoneEffect>();
-                glow.Initialize(center, radius: 1.0f, tickDamage, tickInterval: 0.3f, duration: 1.5f, color);
+                // 알레그로(쿨타임 감축)는 tickInterval에, 페르마타(지속시간 증가)는 duration에 반영(2026-08-06).
+                glow.Initialize(center, radius: 1.0f, tickDamage,
+                    tickInterval: 0.3f * CombatTargetingUtility.GetCooldownMultiplier(), duration: 1.5f * CombatTargetingUtility.GetDurationMultiplier(), color);
             }
         }
     }

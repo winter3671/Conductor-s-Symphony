@@ -93,8 +93,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             affectedEnemies.Clear();
             foreach (var e in currentlyInRange) affectedEnemies.Add(e);
 
+            // 알레그로(Allegro) 패시브 "쿨타임 감축" 반영 - 값이 작을수록(배율<1) 더 자주 틱.
             tickTimer += deltaTime;
-            if (tickTimer < TickInterval) return;
+            if (tickTimer < TickInterval * CombatTargetingUtility.GetCooldownMultiplier()) return;
             tickTimer = 0f;
 
             foreach (var enemy in currentlyInRange)
@@ -106,8 +107,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         public void OnHoldReleased(bool completedFully)
         {
             // Lv4: 즉시 파괴하지 않고 잔류시간(+30%) 동안 필드를 유지한다. 자체 Update()가 이어받는다.
+            // 페르마타(Fermata) 패시브 "지속시간 증가"도 함께 반영.
             isLingering = true;
-            lingerTimer = BaseLingerDuration * (level >= 4 ? 1.3f : 1f);
+            lingerTimer = BaseLingerDuration * (level >= 4 ? 1.3f : 1f) * CombatTargetingUtility.GetDurationMultiplier();
         }
 
         private void Update()

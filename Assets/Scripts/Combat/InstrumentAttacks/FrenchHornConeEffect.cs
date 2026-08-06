@@ -56,8 +56,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             Vector3 forwardOffset = (Vector3)facing * (range * 0.4f);
             transform.position = playerTransform.position + forwardOffset;
 
+            // 알레그로(Allegro) 패시브 "쿨타임 감축" 반영 - 값이 작을수록(배율<1) 더 자주 틱.
             tickTimer += deltaTime;
-            if (tickTimer < TickInterval) return;
+            if (tickTimer < TickInterval * CombatTargetingUtility.GetCooldownMultiplier()) return;
             tickTimer = 0f;
 
             Vector3 playerPos = playerTransform.position;
