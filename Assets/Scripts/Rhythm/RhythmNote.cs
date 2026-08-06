@@ -140,6 +140,11 @@ namespace ConductorSymphony.Rhythm
 
             if (isHolding)
             {
+                // 홀드 중에는 BeginHold()가 호출된 그 순간의 위치에 고정된 채 멈춰있었다 - 판정 링
+                // 자체는 플레이어를 따라다니는데(JudgmentRing.Update) 홀드 노트만 그 자리에 남아있어서,
+                // 홀드 도중 화살표 키로 이동하면 노트가 판정 링에서 눈에 띄게 벗어나 보이는 버그였다.
+                // 매 프레임 다시 판정 반경 위치로 갱신해서 플레이어(=흰색 판정 링)를 계속 따라가게 한다.
+                UpdatePosition(1f);
                 UpdateTailVisual();
                 return;
             }
