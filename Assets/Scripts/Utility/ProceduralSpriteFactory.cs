@@ -36,7 +36,17 @@ namespace ConductorSymphony.Utility
             });
         }
 
-        private static Sprite BuildSprite(int size, System.Func<int, int, Color> pixelFunc)
+        // 홀드(롱노트) 꼬리 바(RhythmNote)처럼, transform.localScale만으로 원하는 길이/두께를 직접
+        // 지정하고 싶은 막대형 스프라이트. pixelsPerUnit을 텍스처 크기와 동일하게 맞춰서 scale=1일 때
+        // 정확히 1x1 월드 유닛이 되도록 한다 - 이후 localScale = new Vector3(원하는 길이, 원하는 두께, 1)
+        // 로 바로 늘려 쓸 수 있다.
+        public static Sprite CreateUnitSquare(Color color)
+        {
+            const int size = 4;
+            return BuildSprite(size, (x, y) => color, size);
+        }
+
+        private static Sprite BuildSprite(int size, System.Func<int, int, Color> pixelFunc, float pixelsPerUnit = 100f)
         {
             Texture2D tex = new Texture2D(size, size);
             Color[] pixels = new Color[size * size];
@@ -51,7 +61,7 @@ namespace ConductorSymphony.Utility
 
             tex.SetPixels(pixels);
             tex.Apply();
-            return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), pixelsPerUnit);
         }
     }
 }

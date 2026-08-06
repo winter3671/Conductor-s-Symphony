@@ -1,4 +1,5 @@
 using UnityEngine;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Rhythm
 {
@@ -45,6 +46,19 @@ namespace ConductorSymphony.Rhythm
         private bool isInitialized = false;
         private bool isHolding = false; // true가 되는 순간부터는 RhythmManager가 생명주기를 직접 관리(자체 travel/miss 로직 정지)
 
+        // ---- 롱노트(Hold) 전용 "머리+꼬리 바" 비주얼 ----
+        // 기존에는 Tap/Hold 구분 없이 항상 같은 원형 스프라이트 하나만 그려서, 플레이어가 "이 노트는
+        // 계속 눌러야 한다"는 걸 화면만 보고는 알 수 없었다(실제 홀드 판정/공격 로직은 정상 동작).
+        // 이 꼬리 바는 머리(기존 원형 노트)에서 laneDirection(바깥쪽) 방향으로 뻗어나가며, 길이는
+        // 홀드 지속시간을 접근 구간의 이동 속도로 환산한 값(단, 화면 밖으로 과하게 튀어나가지 않도록
+        // 스폰~판정선 거리로 상한선을 둠)이다. 홀드 판정에 성공해 실제로 누르고 있는 동안에는
+        // HoldProgress01에 맞춰 꼬리가 점점 줄어들어(판정선 쪽부터 "먹히는" 형태) 남은 유지 시간을
+        // 계속 보여준다.
+        private static Sprite tailSprite;
+        private const float TailThickness = 0.16f;
+        private Transform tailTransform;
+        private float tailFullLength;
+
         public void Initialize(RhythmLane lane, Transform target, Vector3 direction, float initialDistance, float targetTime, float travelDuration, float judgmentRadius, float missWindow, NoteKind kind = NoteKind.Tap, float holdDurationSeconds = 0f)
         {
             Lane = lane;
@@ -60,12 +74,75 @@ namespace ConductorSymphony.Rhythm
             spawnTime = targetTime - travelDuration;
             isInitialized = true;
 
+            if (kind == NoteKind.Hold && holdDurationSeconds > 0f)
+            {
+                SetUpTailVisual();
+            }
+
             UpdatePosition(0f);
+            UpdateTailVisual();
+        }
+
+        private void SetUpTailVisual()
+        {
+            if (tailSprite == null) tailSprite = ProceduralSpriteFactory.CreateUnitSquare(Color.white);
+
+            // 접근 구간(스폰 -> 판정선)의 초당 이동 속도로 홀드 지속시간을 길이로 환산 - 탭 노트와
+            // 같은 시각적 척도를 써서 "얼마나 길게 눌러야 하는지"가 직관적으로 보이게 한다. 다만 팀파니
+            // Lv5(16스텝, 약 5초) 같은 경우 원 환산 길이가 스폰~판정선 거리보다 길어질 수 있어, 화면
+            // 밖으로 과하게 튀어나가지 않도록 그 거리로 상한을 둔다.
+            float travelSpeed = (initialDistance - judgmentRadius) / Mathf.Max(0.0001f, travelDuration);
+            tailFullLength = Mathf.Min(HoldDurationSeconds * travelSpeed, initialDistance - judgmentRadius);
+            if (tailFullLength <= 0.001f) return;
+
+            GameObject tailObj = new GameObject("HoldTail");
+            tailObj.transform.SetParent(transform, false);
+
+            SpriteRenderer headSr = GetComponent<SpriteRenderer>();
+            Color tailColor = headSr != null ? headSr.color : Color.white;
+            tailColor.a *= 0.55f; // 머리보다 옅게 - "지금 눌러야 할 지점"인 머리와 시각적으로 구분
+
+            SpriteRenderer tailSr = tailObj.AddComponent<SpriteRenderer>();
+            tailSr.sprite = tailSprite;
+            tailSr.color = tailColor;
+            tailSr.sortingOrder = 8; // 노트 머리(10)/판정 링(9)보다 뒤에 그려짐
+
+            float angleDeg = Mathf.Atan2(laneDirection.y, laneDirection.x) * Mathf.Rad2Deg;
+            tailObj.transform.localRotation = Quaternion.Euler(0f, 0f, angleDeg);
+
+            tailTransform = tailObj.transform;
+        }
+
+        // 꼬리 바는 항상 "머리(=이 오브젝트 원점)에서 laneDirection 바깥쪽으로" 뻗어나가는 상대 위치이므로,
+        // 접근 구간에서는 머리가 매 프레임 이동해도 로컬 좌표 기준 꼬리 길이는 그대로다(부모를 따라 함께
+        // 이동). 홀드 중에만 HoldProgress01에 맞춰 길이가 줄어들도록 매 프레임 갱신한다.
+        private void UpdateTailVisual()
+        {
+            if (tailTransform == null) return;
+
+            float remaining01 = isHolding ? Mathf.Clamp01(1f - HoldProgress01) : 1f;
+            float currentLength = tailFullLength * remaining01;
+
+            if (currentLength <= 0.001f)
+            {
+                tailTransform.gameObject.SetActive(false);
+                return;
+            }
+
+            tailTransform.gameObject.SetActive(true);
+            tailTransform.localPosition = laneDirection * (currentLength / 2f);
+            tailTransform.localScale = new Vector3(currentLength, TailThickness, 1f);
         }
 
         private void Update()
         {
-            if (!isInitialized || isHolding) return;
+            if (!isInitialized) return;
+
+            if (isHolding)
+            {
+                UpdateTailVisual();
+                return;
+            }
 
             float currentTime = Audio.AudioLayerManager.Instance != null ? Audio.AudioLayerManager.Instance.SongTime : 0f;
             float elapsed = currentTime - spawnTime;
@@ -98,6 +175,7 @@ namespace ConductorSymphony.Rhythm
             isHolding = true;
             HoldElapsedSeconds = 0f;
             UpdatePosition(1f);
+            UpdateTailVisual();
         }
 
         // 매 프레임 RhythmManager가 호출. 아직 지속시간이 안 찼으면 true, 이번 호출로 다 채웠으면 false를 반환.
