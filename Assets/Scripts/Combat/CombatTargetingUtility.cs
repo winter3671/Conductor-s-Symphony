@@ -30,6 +30,23 @@ namespace ConductorSymphony.Combat
             return Passive.PassiveStatManager.Instance != null ? Passive.PassiveStatManager.Instance.GetRangeMultiplier() : 1f;
         }
 
+        // 알레그로(Allegro) 패시브의 "쿨타임 감축" - 크레센도와 같은 이유로 죽어있던 스탯이었다
+        // (Docs/allegro_fermata_passive_test_guide.md 참고). tickInterval/bombardInterval처럼
+        // "일정 주기로 반복 발동"하는 값에 곱하면 그만큼 더 자주 발동한다. 반환값은 0~1 사이 배율
+        // (감축률 자체가 아니라 "얼마나 남았는지")이라 곱하기만 하면 됨 - 예: interval *= 이 값.
+        public static float GetCooldownMultiplier()
+        {
+            return Passive.PassiveStatManager.Instance != null ? 1f - Passive.PassiveStatManager.Instance.GetCooldownReductionFraction() : 1f;
+        }
+
+        // 페르마타(Fermata) 패시브의 "지속시간 증가" - 위와 같은 이유로 죽어있던 스탯. 잔류 장판/
+        // 필드의 duration 값에 곱하면 더 오래 유지된다. 리듬 노트 자체의 홀드 길이(HoldDurationSeconds)는
+        // "얼마나 오래 유지해야 하는가"라 늘어나면 오히려 플레이어에게 불리해지므로 절대 곱하지 않는다.
+        public static float GetDurationMultiplier()
+        {
+            return Passive.PassiveStatManager.Instance != null ? Passive.PassiveStatManager.Instance.GetDurationMultiplier() : 1f;
+        }
+
         public static EnemyMonster GetNearestEnemy(Vector3 origin)
         {
             EnemyMonster nearest = null;

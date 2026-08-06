@@ -32,7 +32,8 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             EnemyMonster nearest = CombatTargetingUtility.GetNearestEnemy(origin);
             targetPos = nearest != null ? nearest.transform.position : origin;
 
-            bombardInterval = (level >= 3) ? (0.65f / 1.5f) : 0.65f; // Lv3+: 폭격 빈도 +50%
+            // Lv3+: 폭격 빈도 +50% × 알레그로(Allegro) 패시브 "쿨타임 감축"(값이 작을수록 더 자주 발동)
+            bombardInterval = ((level >= 3) ? (0.65f / 1.5f) : 0.65f) * CombatTargetingUtility.GetCooldownMultiplier();
             applyStun = level >= 4;                                  // Lv4+: 착탄 시 1초 기절
             lingeringZone = level >= 5;                              // Lv5: 착탄 지점 3초 지진지대 잔류
 
@@ -81,7 +82,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             GameObject zoneObj = new GameObject("TimpaniSeismicZone");
             LingeringZoneEffect zone = zoneObj.AddComponent<LingeringZoneEffect>();
             // 바이올린 Lv5 잔향과 같은 이유로 범위 패시브 적용 대상에 포함(2026-08-06 결정).
-            zone.Initialize(pos, radius: 1.0f * CombatTargetingUtility.GetRangeMultiplier(), tickDamage: Mathf.Max(1, damage / 3), tickInterval: 0.5f, duration: 3f, color);
+            // 알레그로(쿨타임 감축)는 tickInterval에, 페르마타(지속시간 증가)는 duration에 반영.
+            zone.Initialize(pos, radius: 1.0f * CombatTargetingUtility.GetRangeMultiplier(), tickDamage: Mathf.Max(1, damage / 3),
+                tickInterval: 0.5f * CombatTargetingUtility.GetCooldownMultiplier(), duration: 3f * CombatTargetingUtility.GetDurationMultiplier(), color);
         }
 
         private static void EnsureSprite()

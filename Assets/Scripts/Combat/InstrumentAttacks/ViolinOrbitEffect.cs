@@ -103,7 +103,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 if (dist <= radius + 0.4f) // 칼날 두께만큼의 약간의 여유
                 {
                     enemy.TakeDamage(damage);
-                    hitCooldowns[enemy] = HitCooldown;
+                    // 알레그로(Allegro) 패시브 "쿨타임 감축" 반영 - 재타격 쿨다운이 짧아질수록 같은
+                    // 적을 더 자주 다시 때릴 수 있음(2026-08-06, 사용자 결정으로 포함).
+                    hitCooldowns[enemy] = HitCooldown * CombatTargetingUtility.GetCooldownMultiplier();
                 }
             }
         }
@@ -149,7 +151,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 GameObject glowObj = new GameObject("ViolinAfterglow");
                 LingeringZoneEffect glow = glowObj.AddComponent<LingeringZoneEffect>();
                 // Lv5 잔향도 "참격의 연장선"이라 범위 패시브 적용 대상에 포함하기로 결정함(2026-08-06).
-                glow.Initialize(pos, radius: 0.6f * CombatTargetingUtility.GetRangeMultiplier(), tickDamage: Mathf.Max(1, damage / 2), tickInterval: 0.4f, duration: 2f, color);
+                // 알레그로(쿨타임 감축)는 tickInterval에, 페르마타(지속시간 증가)는 duration에 반영.
+                glow.Initialize(pos, radius: 0.6f * CombatTargetingUtility.GetRangeMultiplier(), tickDamage: Mathf.Max(1, damage / 2),
+                    tickInterval: 0.4f * CombatTargetingUtility.GetCooldownMultiplier(), duration: 2f * CombatTargetingUtility.GetDurationMultiplier(), color);
             }
         }
 
