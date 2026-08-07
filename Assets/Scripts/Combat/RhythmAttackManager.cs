@@ -88,7 +88,10 @@ namespace ConductorSymphony.Combat
 
             int extraDamage = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraDamage() : 0;
             int extraProj = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraProjectiles() : 0;
-            // 레가토(Legato) 패시브: 투사체 수 +1(Lv3), +1(Lv5) 추가 지급
+            // 레가토(Legato) 패시브: 투사체 수 +1(Lv3), +1(Lv5) 추가 지급. 2026-08-07부터 아래
+            // IsImplemented/IsHoldImplemented 두 경로 모두에 실제로 전달되어 소비된다(6종 악기 - 3절
+            // 참고). 4종(드럼/프렌치호른/첼로/플루트)은 "낱개로 셀 수 있는 투사체" 개념이 없어 각자의
+            // Execute()/Init()에서 파라미터를 받되 그냥 무시한다.
             extraProj += Passive.PassiveStatManager.Instance != null ? Passive.PassiveStatManager.Instance.GetExtraProjectiles() : 0;
 
             // 최종 딜량 공식 (game_balance_design.docx section 1: 기본 DPS × M_rhythm × M_stat) +
@@ -108,7 +111,7 @@ namespace ConductorSymphony.Combat
             if (hitInstrument != null && InstrumentAttacks.InstrumentAttackDispatcher.IsImplemented(hitInstrument.type))
             {
                 int comboCount = RhythmManager.Instance != null ? RhythmManager.Instance.CurrentCombo : 0;
-                InstrumentAttacks.InstrumentAttackDispatcher.Execute(hitInstrument.type, hitInstrument.level, damage, comboCount, spawnPos, projColor);
+                InstrumentAttacks.InstrumentAttackDispatcher.Execute(hitInstrument.type, hitInstrument.level, damage, comboCount, spawnPos, projColor, extraProj);
                 return;
             }
 
@@ -117,17 +120,16 @@ namespace ConductorSymphony.Combat
             // 구독(HandleHoldTick/HandleHoldReleased)에서 계속 처리한다.
             if (hitInstrument != null && InstrumentAttacks.InstrumentAttackDispatcher.IsHoldImplemented(hitInstrument.type))
             {
-                InstrumentAttacks.HoldEffectCoordinator.BeginHold(lane, hitInstrument.type, hitInstrument.level, damage, spawnPos, projColor);
+                InstrumentAttacks.HoldEffectCoordinator.BeginHold(lane, hitInstrument.type, hitInstrument.level, damage, spawnPos, projColor, extraProj);
                 return;
             }
 
             // 아래는 10종 악기별 전용 디스패처가 생기기 전부터 있던 범용 투사체 폴백 로직이다.
             // 현재는 위 두 분기(IsImplemented/IsHoldImplemented)가 10종 전체를 커버하므로 실질적으로
-            // 도달하지 않지만(신규 악기 추가 시를 대비한 안전장치), 레가토(Legato) 패시브의 "투사체 수 +1/+2"와
-            // 악기 Lv4의 extraProjectiles("Multi +1")를 실제로 소비하는 유일한 코드이기도 하다 - 즉 지금
-            // 이 두 스탯은 사실상 여기서만 의미를 가지며, 개별 악기 디스패처들은 이 값을 받지 않는다.
-            // (설계자 확인/문서화 예정 - Docs/team_review_needed.md 1-1 참고. 이 로직을 삭제할지는 그
-            // 항목이 정리된 뒤에 다시 판단하기로 함 - 리팩토링 대상에서 의도적으로 제외)
+            // 도달하지 않는다(신규 악기 추가 시를 대비한 안전장치로 의도적으로 유지 - 리팩토링 대상에서
+            // 제외). 레가토(Legato) 패시브·Multi+1 스탯(extraProj)은 2026-08-07부터 위 두 분기가 실제
+            // 소비하므로(6종 악기 - game_systems_reference.md §4 참고), 더 이상 이 폴백 로직만의
+            // 전유물이 아니다 - 아래 projCount 계산은 이 폴백 경로가 실행될 경우를 위해 남아있다.
 
             // Collect all potential target components (regular trash mobs + boss)
             List<Component> potentialTargets = new List<Component>();

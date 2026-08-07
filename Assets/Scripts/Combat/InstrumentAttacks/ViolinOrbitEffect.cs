@@ -31,7 +31,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         private static Sprite bladeSprite;
         private static Sprite slashSprite;
 
-        public void Init(int level, int damage, Vector3 origin, Color color)
+        public void Init(int level, int damage, Vector3 origin, Color color, int extraProjectiles)
         {
             this.level = level;
             this.damage = damage;
@@ -40,7 +40,10 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
             EnsureSprites();
 
-            bladeCount = (level >= 3) ? 3 : 2;                             // Lv3+: 회전 칼날 1개 추가
+            // Lv3+: 회전 칼날 1개 추가 + 레가토(Legato) 패시브/악기 Lv4 Multi+1(extraProjectiles)만큼
+            // 칼날을 더 추가한다 - 기존 "칼날 개수 늘리기" 스탯과 완전히 같은 파라미터를 공유.
+            bladeCount = (level >= 3) ? 3 : 2;
+            bladeCount += extraProjectiles;
             // Lv2+: 회전 반경 +20% × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
             radius = 1.4f * (level >= 2 ? 1.2f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
             spinSpeedDegPerSec = BaseSpinSpeedDegPerSec * (level >= 2 ? 1.3f : 1f); // Lv2+: 회전 속도 증가

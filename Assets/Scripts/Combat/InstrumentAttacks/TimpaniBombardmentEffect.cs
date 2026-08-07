@@ -23,7 +23,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
         private static Sprite impactSprite;
 
-        public void Init(int level, int damage, Vector3 origin, Color color)
+        public void Init(int level, int damage, Vector3 origin, Color color, int extraProjectiles)
         {
             this.damage = damage;
             this.color = color;
@@ -42,6 +42,15 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
             // 즉발 "팀파니 캐논" - 홀드 시작 즉시 1회 착탄
             SpawnImpact(targetPos, 0.05f, initialRadius, damage, color);
+
+            // 레가토(Legato) 패시브/악기 Lv4 Multi+1(extraProjectiles): 홀드 시작 시점에 캐논 포탄을
+            // 추가로 더 발사한다 - 융단폭격과 같은 랜덤 오프셋 방식으로 착탄 지점을 흩뿌린다.
+            for (int e = 0; e < extraProjectiles; e++)
+            {
+                Vector3 legatoOffset = new Vector3(Random.Range(-1.0f, 1.0f), Random.Range(-1.0f, 1.0f), 0f)
+                    * CombatTargetingUtility.GetRangeMultiplier();
+                SpawnImpact(targetPos + legatoOffset, 0.05f, initialRadius, damage, color);
+            }
         }
 
         public void OnHoldTick(float deltaTime)

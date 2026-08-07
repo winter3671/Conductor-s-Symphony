@@ -27,7 +27,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
         private readonly HashSet<EnemyMonster> ampedEnemies = new HashSet<EnemyMonster>();
 
-        public void Init(int level, int damage, Vector3 origin, Color color)
+        // extraProjectiles(레가토/Multi+1)는 사용하지 않는다 - 지속 부채꼴 판정이라 "낱개로 셀 수 있는
+        // 투사체" 개념이 없음(2026-08-07, 사용자 결정으로 4종 제외 대상에 포함).
+        public void Init(int level, int damage, Vector3 origin, Color color, int extraProjectiles)
         {
             this.damage = damage;
             playerTransform = PlayerController.Instance != null ? PlayerController.Instance.transform : null;

@@ -8,7 +8,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
     // 2연속 발사 / Lv5 "지나간 자리가 1.5초간 빛나며 경로상 적 지속 타격" → 중심점에 잔향 장판 추가.
     public class BellStarburstEffect : ITapAttackEffect
     {
-        public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color)
+        public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color, int extraProjectiles)
         {
             EnemyMonster nearest = CombatTargetingUtility.GetNearestEnemy(origin);
             Vector3 center = nearest != null ? nearest.transform.position : origin;
@@ -25,6 +25,14 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                     Vector3 dir = Quaternion.Euler(0f, 0f, i * 45f) * Vector3.right;
                     TapAttackHelpers.SpawnBeam(center, dir, damage, pierce, range, false, color);
                 }
+            }
+
+            // 레가토(Legato) 패시브/악기 Lv4 Multi+1(extraProjectiles): 기존 8방향 사이 빈 각도(22.5°
+            // 간격)를 채우는 추가 성광으로 구현 - 기존 8방향과 겹치지 않게 자연스럽게 화력이 늘어난다.
+            for (int e = 0; e < extraProjectiles; e++)
+            {
+                Vector3 extraDir = Quaternion.Euler(0f, 0f, 22.5f + e * 45f) * Vector3.right;
+                TapAttackHelpers.SpawnBeam(center, extraDir, damage, pierce, range, false, color);
             }
 
             if (level >= 5)

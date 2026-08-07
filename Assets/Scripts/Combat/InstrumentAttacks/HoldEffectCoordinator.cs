@@ -12,7 +12,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
     {
         private static readonly Dictionary<RhythmLane, IHoldAttackEffect> activeEffects = new Dictionary<RhythmLane, IHoldAttackEffect>();
 
-        public static void BeginHold(RhythmLane lane, InstrumentType type, int level, int damage, Vector3 origin, Color color)
+        public static void BeginHold(RhythmLane lane, InstrumentType type, int level, int damage, Vector3 origin, Color color, int extraProjectiles)
         {
             if (!InstrumentAttackDispatcher.IsHoldImplemented(type)) return;
 
@@ -26,7 +26,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             IHoldAttackEffect effect = InstrumentAttackDispatcher.CreateHoldEffect(type);
             if (effect == null) return;
 
-            effect.Init(level, damage, origin, color);
+            effect.Init(level, damage, origin, color, extraProjectiles);
             activeEffects[lane] = effect;
         }
 
