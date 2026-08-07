@@ -117,6 +117,20 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 ampedEnemies.Clear();
                 foreach (var e in currentlyInCone) ampedEnemies.Add(e);
             }
+
+            // 2026-08-08 버그 수정: 위 루프가 CombatTargetingUtility.GetActiveEnemies()(EnemyMonster)만
+            // 순회해서 보스는 부채꼴 안에 있어도 전혀 피해를 못 받고 있었다. 보스는 SetDamageAmpMultiplier/
+            // 넉백용 EnemyMonster 전용 API가 없으므로(다른 곳의 보스 처리와 동일한 관례 - AreaImpactEffect,
+            // TimpaniBombardmentEffect 등도 보스에게는 부가 효과 없이 피해만 적용) 피해만 적용한다.
+            if (BossMonster.Instance != null)
+            {
+                Vector3 toBoss = BossMonster.Instance.transform.position - playerPos;
+                float bossDist = toBoss.magnitude;
+                if (bossDist <= range && bossDist > 0.01f && Vector2.Angle(facing, toBoss) <= halfAngleDeg)
+                {
+                    BossMonster.Instance.TakeDamage(damage);
+                }
+            }
         }
 
         public void OnHoldReleased(bool completedFully)

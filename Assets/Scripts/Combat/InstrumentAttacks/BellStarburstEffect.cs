@@ -1,5 +1,4 @@
 using UnityEngine;
-using ConductorSymphony.Enemy;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
 {
@@ -10,8 +9,11 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
     {
         public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color, int extraProjectiles)
         {
-            EnemyMonster nearest = CombatTargetingUtility.GetNearestEnemy(origin);
-            Vector3 center = nearest != null ? nearest.transform.position : origin;
+            // 2026-08-08 버그 수정: 잡몹 없이 보스만 남았을 때도(예: 최종보스 단독 페이즈) 보스 위치를
+            // 중심으로 쓰도록 GetNearestTargetPosition으로 교체 - 기존 GetNearestEnemy는 EnemyMonster만
+            // 봐서 이 경우 null을 반환, center가 플레이어 위치(origin)로 새서 보스전에 저조하게 만들던
+            // 원인이었다(game_systems_reference.md §7-2 "벨 보스전" 항목 참고).
+            Vector3 center = CombatTargetingUtility.GetNearestTargetPosition(origin, origin);
 
             // Lv2+: 사거리 +30% (1회성 적용) × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
             float range = 2.5f * (level >= 2 ? 1.3f : 1f) * CombatTargetingUtility.GetRangeMultiplier();

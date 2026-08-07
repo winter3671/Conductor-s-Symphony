@@ -11,7 +11,12 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color, int extraProjectiles)
         {
             EnemyMonster target = CombatTargetingUtility.GetHighestHpEnemy(origin);
-            Vector3 pos = target != null ? target.transform.position : origin;
+            // 2026-08-08 버그 수정: 잡몹 없이 보스만 남았을 때도 낙하 지점이 보스 위치를 노리도록
+            // GetHighestHpTargetPosition으로 폴백(기존엔 origin=플레이어 위치에 계속 떨어지던 버그).
+            // target(EnemyMonster) 자체는 null로 남겨둔다 - 아래 2차 유도 파편의 "1차 타겟 제외" 비교에서
+            // 보스는 애초에 GetActiveEnemies() 루프에 안 들어오니 null이어도 자연스럽게 아무것도
+            // 제외하지 않을 뿐, 별도 처리가 필요 없다.
+            Vector3 pos = CombatTargetingUtility.GetHighestHpTargetPosition(origin, origin);
 
             int scaledDamage = Mathf.Max(1, Mathf.RoundToInt(damage * (level >= 2 ? 1.3f : 1f))); // Lv2+: 피해량 +30%
             // Lv3+: 스플래시 추가 × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
