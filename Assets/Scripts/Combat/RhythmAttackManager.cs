@@ -86,8 +86,12 @@ namespace ConductorSymphony.Combat
             Sprite projSprite = projectileSprite;
             Color projColor = (rating == HitRating.Perfect) ? Color.yellow : Color.cyan;
 
-            int extraDamage = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraDamage() : 0;
-            int extraProj = Instrument.InstrumentManager.Instance != null ? Instrument.InstrumentManager.Instance.GetTotalExtraProjectiles() : 0;
+            // extraDamage/extraProjectiles는 "지금 판정된 그 악기"만의 값을 쓴다(2026-08-07 수정 -
+            // 이전엔 InstrumentManager.GetTotalExtraDamage()/GetTotalExtraProjectiles()로 장착된 4슬롯
+            // 전체를 합산했는데, 문서/커밋 이력 어디에도 그게 의도된 "장착 시너지" 설계라는 근거가 없어
+            // 정정함. 다른 악기를 키워도 방금 장착한 Lv1 악기의 히트가 그만큼 세지던 부작용이 사라진다).
+            int extraDamage = hitInstrument != null ? hitInstrument.extraDamage : 0;
+            int extraProj = hitInstrument != null ? hitInstrument.extraProjectiles : 0;
             // 레가토(Legato) 패시브: 투사체 수 +1(Lv3), +1(Lv5) 추가 지급. 2026-08-07부터 아래
             // IsImplemented/IsHoldImplemented 두 경로 모두에 실제로 전달되어 소비된다(6종 악기 - 3절
             // 참고). 4종(드럼/프렌치호른/첼로/플루트)은 "낱개로 셀 수 있는 투사체" 개념이 없어 각자의
