@@ -225,6 +225,16 @@ M_rhythm은 의도적으로 미반영(시포르찬도 M_stat만 반영). 오라�
 정확히 일치함을 확인했고(`archive/range_ring_precision_test_guide.md`), 자식 오브젝트라 부모가
 `Destroy()`될 때 별도 처리 없이 함께 정리됩니다.
 
+**바이올린·팀파니 확장(2026-08-07)**: 이 둘은 기존에 채워진 원조차 없었습니다. 바이올린은
+`transform.localScale`이 항상 1로 고정된 구조(칼날이 각도만 바뀌며 배치됨)라 부모 스케일 상쇄 계산
+없이 `radius`를 링의 `localScale`에 그대로 곱하면 됐습니다. 팀파니는 "융단폭격" 착탄 오프셋
+(±1.0×크레센도 배율의 **정사각형** 범위)을 프렌치호른의 부채꼴 근사와 같은 방식으로 반지름
+1.0×배율의 원으로 근사 표시했고, 이 컴포넌트의 GameObject transform은 다른 용도로 쓰이지 않아
+자식 링의 월드 위치를 `targetPos`(홀드 시작 시점 고정 위치)로 직접 지정했습니다. 실측으로 반경
+정확도·추종/고정 위치·크레센도 스케일링·레가토(추가 칼날/캐논)와의 무간섭까지 전부 확인했습니다
+(`archive/violin_timpani_range_ring_test_guide.md`). 이로써 지속 유지형 악기 6종(드럼/프렌치호른/
+첼로/플루트/바이올린/팀파니) 전부에 정확한 범위 인디케이터가 생겼습니다.
+
 ### 4-2. `CombatTargetingUtility`의 패시브 배율 헬퍼 3종
 
 ```csharp
@@ -293,23 +303,24 @@ public static float GetDurationMultiplier()   // 페르마타: duration에 곱�
 ### 4-5. 검증 완료
 
 크레센도(2라운드), 알레그로/페르마타(1라운드, private 필드 리플렉션 + tickTimer 리셋 경계 탐지 방식),
-프렌치호른·첼로·플루트 범위 링 정확도(1라운드, 리플렉션으로 `Init`/`Initialize`/`OnHoldTick` 직접
-호출), 레가토(1라운드, 리플렉션으로 `Execute`/`Init` 직접 호출해 생성 오브젝트 수 델타 측정) 모두
-Unity MCP 실측 PASS. 상세 수치는 `archive/drum_range_visualization_test_guide.md`,
+프렌치호른·첼로·플루트 범위 링 정확도(1라운드), 레가토(1라운드, 리플렉션으로 `Execute`/`Init` 직접
+호출해 생성 오브젝트 수 델타 측정), 바이올린·팀파니 범위 링(1라운드) 모두 Unity MCP 실측 PASS.
+상세 수치는 `archive/drum_range_visualization_test_guide.md`,
 `archive/instrument_range_passive_test_guide.md`, `archive/allegro_fermata_passive_test_guide.md`,
-`archive/range_ring_precision_test_guide.md`, `archive/legato_extra_projectile_test_guide.md` 참고.
+`archive/range_ring_precision_test_guide.md`, `archive/legato_extra_projectile_test_guide.md`,
+`archive/violin_timpani_range_ring_test_guide.md` 참고.
 
 **남은 고려 사항**: DPS 밸런스(5절)는 "크레센도/알레그로/페르마타/레가토 전부 미보유" 기준으로만
 검증되어 있습니다. 네 패시브를 적극적으로 찍는 빌드의 종합 밸런스(사거리 확장으로 인한 다중 명중
 증가, 발동 빈도 증가, 잔류시간 증가, 발사체 개수 증가로 인한 총 딜량 변화)는 별도 확인이 필요할 수
-있습니다. 상시 범위 인디케이터는 현재 드럼(오라)·프렌치호른(부채꼴 근사)·첼로(중력장)·플루트(소용돌이)
-4종에 있고, 나머지 6종(피아노/벨/마림바/글록켄슈필/바이올린/팀파니)은 아직 없습니다 — 이 6종은
-일회성 투사체/파동이라 발사 궤적 자체가 사거리를 보여주므로 상대적으로 우선순위가 낮다고 판단해
-이번 라운드 범위에서 제외했습니다(바이올린 궤도·팀파니 융단폭격 존은 지속 유지형이라 추가할 가치가
-있다고 판단됐던 항목으로, 다음 라운드 후보로 남아있습니다).
+있습니다. 상시 범위 인디케이터는 이제 지속 유지형 악기 6종(드럼/프렌치호른/첼로/플루트/바이올린/
+팀파니) 전부에 있습니다. 나머지 4종(피아노/벨/마림바/글록켄슈필)은 일회성 투사체/파동이라 발사
+궤적 자체가 사거리를 보여주므로 상대적으로 우선순위가 낮다고 판단해 대상에서 제외했습니다 —
+필요하면 다음 라운드 후보로 남아있습니다.
 
 *(원본: `range_passive_implementation_summary.md`, `archive/allegro_fermata_passive_test_guide.md`,
-`archive/range_ring_precision_test_guide.md`, `archive/legato_extra_projectile_test_guide.md`)*
+`archive/range_ring_precision_test_guide.md`, `archive/legato_extra_projectile_test_guide.md`,
+`archive/violin_timpani_range_ring_test_guide.md`)*
 
 ---
 
@@ -520,5 +531,6 @@ Lv4/Lv5 주석("8-accent"/"9-accent")이 실제 문자열(6개/7개)과 다릅�
 | 알레그로/페르마타 연동 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/allegro_fermata_passive_test_guide.md` |
 | 프렌치호른/첼로/플루트 범위 링 정확도 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/range_ring_precision_test_guide.md` |
 | 레가토(투사체 수 증가) 6종 연동 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/legato_extra_projectile_test_guide.md` |
+| 바이올린/팀파니 범위 링 추가 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/violin_timpani_range_ring_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*

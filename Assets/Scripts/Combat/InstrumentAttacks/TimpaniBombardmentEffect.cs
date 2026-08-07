@@ -51,6 +51,19 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                     * CombatTargetingUtility.GetRangeMultiplier();
                 SpawnImpact(targetPos + legatoOffset, 0.05f, initialRadius, damage, color);
             }
+
+            // 융단폭격이 착탄할 수 있는 구역(오프셋 ±1.0×크레센도 배율의 정사각형 범위, OnHoldTick 참고)을
+            // 표시하는 얇은 테두리 링 - 프렌치호른의 부채꼴 근사와 같은 방식으로, 실제 정사각형 범위를
+            // 반지름 1.0×배율의 원으로 근사 표시한다(2026-08-07). targetPos는 홀드 내내 고정이므로 링도
+            // 그 자리에 고정. 이 컴포넌트의 GameObject transform은 위치/스케일을 따로 쓰지 않으므로, 자식
+            // 오브젝트의 월드 위치를 targetPos로 직접 지정하면 된다.
+            GameObject zoneRingObj = new GameObject("TimpaniZoneRing");
+            zoneRingObj.transform.SetParent(transform);
+            zoneRingObj.transform.position = targetPos;
+            SpriteRenderer zoneRingSr = zoneRingObj.AddComponent<SpriteRenderer>();
+            zoneRingSr.sprite = ProceduralSpriteFactory.CreateUnitRing(0.985f, 1f, new Color(color.r, color.g, color.b, 0.8f));
+            zoneRingSr.sortingOrder = 4;
+            zoneRingObj.transform.localScale = Vector3.one * (1.0f * CombatTargetingUtility.GetRangeMultiplier());
         }
 
         public void OnHoldTick(float deltaTime)
