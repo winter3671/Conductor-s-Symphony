@@ -188,6 +188,28 @@ M_rhythm은 의도적으로 미반영(시포르찬도 M_stat만 반영). 오라�
    로직은 신규 악기 추가 대비 안전장치로 코드에 의도적으로 남아있음 — 6절 "완료 항목" 참고), 이제
    6종 악기의 실제 디스패처가 이 값을 직접 소비합니다. 상세 내용은 4-5절 참고. 8종 패시브 전부
    해결 완료.
+10. **팀파니 홀드 겹침 방지로 레벨별 패턴 밀도가 사실상 무효화 — 2026-08-08 발견 및 수정.**
+    `RhythmManager.ProcessSequencerStep`은 같은 레인에 홀드가 이미 진행 중이면 새 온셋을 조용히
+    무시합니다(정상적인 방어 로직). 문제는 팀파니의 홀드 길이(`holdLengthSteps`)가 기존 16스텝 =
+    32스텝 사이클의 정확히 절반이었고, Lv1~5 패턴 전부에 스텝0/16 온셋이 공통으로 있어서, **레벨과
+    무관하게 항상 정확히 2회/사이클만 실제 홀드가 발동**했습니다(Lv3~5가 추가한 "격렬해지는" 온셋들은
+    전부 겹쳐서 스킵됨 - 패턴 주석의 "8 hits"/"12 hits" 같은 문구는 처음부터 실제 발동 횟수와 무관한
+    수치였습니다). 결과적으로 팀파니는 항상(모든 레벨) 한 치의 쉬는 구간도 없이 홀드가 바로 이어
+    붙는 구조였고, 사용자의 실측 리포트("고레벨일수록 키다운이 끝나자마자 바로 다음 키다운이 옴")로
+    발견됐습니다. 사용자 결정(2026-08-08)에 따라 `holdLengthSteps[Timpani]`를 16→10으로 줄여서
+    32스텝 사이클마다 "홀드 10칸 + 휴식 6칸"이 2회 반복되도록 했습니다 — 레벨별 강도 차이는 패턴
+    밀도가 아니라 `TimpaniBombardmentEffect` 자체의 레벨별 수치(범위/빈도/기절/지진지대)로 이미
+    표현되고 있어 그대로 둡니다. 패턴 문자열과 주석은 그대로 두되(장식성 참고 자료), 주석의 실제
+    발동 횟수만 정정했습니다.
+11. **바이올린/첼로도 같은 홀드 과밀 버그 확인, 수정 — 2026-08-08.** 팀파니 수정 직후 사용자 요청으로
+    홀드 4종(바이올린/프렌치호른/첼로/플루트) 전체를 시뮬레이션 재점검한 결과, 바이올린/첼로가 팀파니와
+    완전히 같은 원인(홀드 길이가 온셋 간격보다 넓어 레벨과 무관하게 항상 2회/사이클·휴식 3스텝 고정)을
+    갖고 있음을 확인했습니다. `holdLengthSteps`를 13→11로 축소 - Lv1~3은 휴식 3→5스텝, Lv4~5는 온셋
+    간격(4스텝)이 새 홀드 길이보다 좁아지며 평균 2.7회/사이클(휴식 1스텝)까지 자연스럽게 늘어나
+    레벨업 밀도 상승이 처음으로 작동합니다. 프렌치호른/플루트는 반대로 이미 레벨이 오를수록 실제
+    발동 횟수도 늘어나고 있어(온셋 간격이 홀드 길이보다 좁음) 버그가 아니라고 판단해 그대로 뒀습니다.
+    Unity MCP 실측 PASS(`archive/violin_cello_hold_density_fix_test_guide.md`) - Lv1~3 휴식 3→5스텝,
+    Lv4~5 평균 2.75회/사이클(예측 2.7과 사실상 일치)까지 실측으로 확인됨.
 
 *(원본: `instrument_mechanics_implementation_summary.md` §3)*
 
@@ -465,17 +487,15 @@ public static float GetDurationMultiplier()   // 페르마타: duration에 곱�
 **2-4. 플루트 "지나간 자리" 근사** — 실제 이동 궤적 대신 고정 오프셋(3절 5항). 실제 궤적 추적이
 필요하면 트레일 버퍼 구현 필요.
 
-**2-5. 벨의 8방향 발사가 "가장 가까운 적" 1명에게 항상 전부 명중 — 보스전 영향은 재조사 결과 기존
-우려와 반대 방향(2026-08-07)**: `center`(발사 원점)는 `CombatTargetingUtility.GetNearestEnemy()`가
-찾은 위치인데, 이 함수는 `EnemySpawner.ActiveEnemies`(일반 `EnemyMonster`)만 검색하고 보스/엘리트는
-별개 클래스(`BossMonster`, 싱글톤)라 애초에 이 풀에 들어가지 않습니다 — 즉 **보스가 `center`가 되는
-경우 자체가 코드 구조상 불가능**해서, "보스전이 벨 때문에 쉬워진다"는 원래 우려는 실제로 일어나지
-않습니다. 다만 `PiercingBeamProjectile`은 빔이 날아가는 동안 `BossMonster.Instance`를 경로 근접
-여부로 별도 체크하므로(`hitRadius` 약 0.5유닛), 8방향 중 우연히 경로가 스치는 몇 발만 개별적으로
-보스를 맞힐 수는 있습니다 — 잡몹처럼 항상 전탄 명중하는 구조가 아니라서, **오히려 보스전에서 벨의
-화력이 상대적으로 약하게 느껴질 가능성**이 있습니다(실측/플레이 확인 안 됨). 지금 당장 수정하지
-않고, 다음에 실제로 보스전에서 써보고 화력 부족이 체감되면 그때 타겟팅 로직(보스를 `center` 후보에
-포함하는 등)을 손보기로 함 — **의도적으로 미해결 상태 유지**.
+**2-5. 벨의 8방향 발사가 "가장 가까운 적" 1명에게 항상 전부 명중 — 보스 단독 페이즈 화력 저하 문제,
+2026-08-08 수정 완료.** 2026-08-07 재조사에서 예상했던 대로, 잡몹이 있을 때 벨은 보스를 `center`
+후보로 아예 고려하지 못해(`GetNearestEnemy`가 `EnemyMonster`만 검색) 보스 단독 페이즈에서 8방향
+성광이 플레이어 위치를 중심으로 발사되는 실제 버그로 확인됐습니다(사용자 실측 리포트). `CombatTargetingUtility.
+GetNearestTargetPosition`(잡몹 0마리일 때만 보스로 폴백)으로 교체해 해결 — Unity MCP 실측 PASS
+(`archive/bugfix_burst_scale_and_boss_targeting_test_guide.md`). 같은 조사에서 피아노/첼로/팀파니/
+글록켄슈필도 동일한 구조적 문제가 있었음이 드러나 함께 수정했고(4-1절 신설 예정 없이 이 표 및 §3
+10항 참고), 추가로 프렌치호른/첼로/바이올린의 지속 틱 데미지가 보스에게 아예 안 들어가던(0딜) 별개
+버그도 같은 조사에서 발견해 수정했습니다.
 
 ### 7-3. DPS·밸런스 — 실제 플레이 감각으로 판단 필요
 
@@ -489,6 +509,14 @@ public static float GetDurationMultiplier()   // 페르마타: duration에 곱�
 
 **3-3. Target DPS 자체가 "단일 고정 표적" 기준으로만 검증됨** — 광역 스킬은 실전에서 더 높은 총딜량을,
 단일 표적형은 표적이 움직이면 명중률이 낮아질 수 있습니다. 실전 밸런스 패스는 별도로 필요.
+
+**3-4. 팀파니 Lv5 "지진지대 잔류"가 체감상 안 보인다는 리포트 — 사용자 확인 결과 저레벨 오인,
+코드 버그 아님(2026-08-08).** 처음엔 팀파니 Lv5 + 페르마타 장착 상태에서 홀드 종료 후 잔여 장판이
+안 남는다는 리포트였으나, 조사 결과 `TimpaniSeismicZone` 메커니즘 자체는 이미 `allegro_fermata_
+passive_test_guide.md`(2026-08-06, PASS)에서 리플렉션으로 duration 3.0→5.25(Lv5 배율) 확인까지
+끝난 상태라 코드상 문제를 찾지 못했습니다. 사용자가 재확인한 결과 "아마 저레벨 때 보고 착각한 것
+같다"로 정리 — Lv5 미만이면 애초에 `lingeringZone` 자체가 꺼져있어(`level >= 5`) 잔류 장판이 생기지
+않는 게 정상 동작입니다. 코드 변경 없음, 종결.
 
 ### 7-4. 문서·스코프 정합성
 
@@ -556,9 +584,21 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
 함께 옮겨서 참조 자체가 없는 상태라 안전하며, 별도 코드 변경도 필요 없습니다. 다음 Unity 에디터
 세션에서 한 번 Refresh해서 정상 인식되는지만 확인하면 됩니다.
 
-몬스터/보스/이펙트(VFX) 픽셀아트는 아직 미착수 상태이며 사용자가 의도적으로 나중으로 미룸.
+몬스터/보스 픽셀아트는 아직 미착수 상태이며 사용자가 의도적으로 나중으로 미룸.
 
-*(관련 검증: `archive/instrument_sprite_import_test_guide.md`)*
+**이펙트(VFX) 픽셀아트 - 착수함(2026-08-08).** 절차적 이펙트를 역할별로 나눠 접근하기로 함(§2 각
+악기 절 + 코드 조사 기준): 범위 링(현행 유지, 손그림 불필요) / 임팩트·버스트(다이아몬드) / 빔·투사체
+(늘어난 원) / 필드·존(채워진 원) / 바이올린 칼날·참격(전용). 제작 파이프라인은 나노바나나로 흑백
+베이스 이미지 생성 → 이미지→영상 변환 → 프레임 추출 → 배경제거, 캐릭터/악기 아이콘과 동일 방식.
+
+- **임팩트·버스트 9프레임 애니메이션 완료**: `Assets/Resources/Sprites/Effects/ImpactBurst/spark1~9.png`
+  (작게 시작 → spark5 최대 만개 → 다시 작아지며 소멸, 무채색이라 `SpriteRenderer.color`로 악기별 틴트
+  적용됨). `AreaImpactEffect.cs`에 로딩+2단계 매핑(예고 1→5, 착탄 후 플래시 5→9) 로직 추가 - 실제
+  사용처는 글록켄슈필(별빛 낙하)과 팀파니(캐논/융단폭격) 2곳뿐(피아노/벨/마림바는 빔 방식이라 무관).
+  프레임 로딩 실패 시 기존 다이아몬드로 자동 폴백, 호출부 코드는 변경 없음.
+- **남은 항목**: 빔/투사체, 필드/존(4종), 바이올린 칼날·참격 — 아직 미착수.
+
+*(관련 검증: `archive/instrument_sprite_import_test_guide.md`, `archive/impact_burst_sprite_animation_test_guide.md`)*
 
 ---
 
@@ -580,5 +620,8 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
 | 바이올린/팀파니 범위 링 추가 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/violin_timpani_range_ring_test_guide.md` |
 | extraDamage/extraProjectiles 판정 악기 전용 격리 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/per_instrument_extra_stats_test_guide.md` |
 | 신규 악기 이미지 5종(벨/프렌치호른/글록켄슈필/마림바/팀파니) 임포트·연동 | Unity MCP 실측 | PASS | `archive/instrument_sprite_import_test_guide.md` |
+| 임팩트 버스트 9프레임 애니메이션 연동(글록켄슈필/팀파니) | Unity MCP 실측(일부 리플렉션 기반) | PASS | `archive/impact_burst_sprite_animation_test_guide.md` |
+| 임팩트 버스트 크기 정규화 / 보스 단독 페이즈 타겟팅·틱데미지 누락(5+3악기) / 팀파니 홀드 밀도(16→10) | Unity MCP 실측(리플렉션+실스폰) | PASS | `archive/bugfix_burst_scale_and_boss_targeting_test_guide.md` |
+| 바이올린/첼로 홀드 밀도(13→11), 프렌치호른/플루트 무변경 판단 | Unity MCP 실측(시뮬레이션 재현) | PASS | `archive/violin_cello_hold_density_fix_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*

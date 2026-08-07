@@ -6,7 +6,8 @@ using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
 {
-    // 바이올린: 홀드("13칸 롱노트") 중 플레이어 둘레를 회전하는 활(String) 칼날로 지속 타격하고,
+    // 바이올린: 홀드("11칸 롱노트", 2026-08-08부터 - InstrumentPatternDatabase.holdLengthSteps 참고)
+    // 중 플레이어 둘레를 회전하는 활(String) 칼날로 지속 타격하고,
     // 릴리즈하는 순간 이동 방향으로 부채꼴 참격(Melodic Arc Slash)을 날린다.
     // 기획서 3번(회전 활 칼날 & 이동 방향 참격) 참고. 레벨별 수치는 밸런스 doc(game_balance_design.docx)
     // 5번 항목을 반영: Lv2 칼날 범위+20%·회전속도 증가 / Lv3 칼날+1개 / Lv4 참격 "크기"+50%(발수 아님) /
@@ -27,6 +28,13 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         private readonly List<Transform> blades = new List<Transform>();
         private readonly Dictionary<EnemyMonster, float> hitCooldowns = new Dictionary<EnemyMonster, float>();
         private float currentAngleDeg;
+
+        // 2026-08-08 버그 수정: 아래 TickDamage()가 지금까지 CombatTargetingUtility.GetActiveEnemies()
+        // (EnemyMonster)만 순회해서, 회전 칼날이 보스(BossMonster)에게는 전혀 피해를 주지 못하고
+        // 있었다(릴리즈 참격은 PiercingBeamProjectile을 통해서라 보스도 정상적으로 맞았음 - 회전 칼날의
+        // "지속 틱 피해"만 빠져있던 것). BossMonster는 EnemyMonster가 아니라 위 Dictionary 키로 못 써서
+        // 보스 전용 쿨다운을 별도 필드로 둔다(보스는 인스턴스가 항상 최대 1개라 Dictionary가 필요 없음).
+        private float bossHitCooldownRemaining;
 
         private static Sprite bladeSprite;
         private static Sprite slashSprite;
@@ -121,6 +129,21 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                     // 알레그로(Allegro) 패시브 "쿨타임 감축" 반영 - 재타격 쿨다운이 짧아질수록 같은
                     // 적을 더 자주 다시 때릴 수 있음(2026-08-06, 사용자 결정으로 포함).
                     hitCooldowns[enemy] = HitCooldown * CombatTargetingUtility.GetCooldownMultiplier();
+                }
+            }
+
+            // 2026-08-08 버그 수정: 보스도 칼날 범위 안에 있으면 동일하게 틱 피해를 받도록.
+            if (bossHitCooldownRemaining > 0f)
+            {
+                bossHitCooldownRemaining -= deltaTime;
+            }
+            else if (BossMonster.Instance != null)
+            {
+                float bossDist = Vector3.Distance(transform.position, BossMonster.Instance.transform.position);
+                if (bossDist <= radius + 0.4f)
+                {
+                    BossMonster.Instance.TakeDamage(damage);
+                    bossHitCooldownRemaining = HitCooldown * CombatTargetingUtility.GetCooldownMultiplier();
                 }
             }
         }

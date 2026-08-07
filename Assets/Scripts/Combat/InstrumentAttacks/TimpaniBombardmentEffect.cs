@@ -5,7 +5,8 @@ using ConductorSymphony.Utility;
 namespace ConductorSymphony.Combat.InstrumentAttacks
 {
     // 팀파니: 홀드 시작 즉시 가장 가까운 적 위치에 충격파 포탄이 낙하하고(단타 "캐논"),
-    // 이후 홀드를 유지("16마디 롤ing")하는 동안 같은 구역에 주기적으로 소형 융단폭격이 추가된다.
+    // 이후 홀드를 유지("롤ing", 2026-08-08부터 10스텝 - InstrumentPatternDatabase.holdLengthSteps 참고)
+    // 하는 동안 같은 구역에 주기적으로 소형 융단폭격이 추가된다.
     // 기획서 8번(팀파니 캐논 + 지진 융단폭격) 참고. 탭(단타)과 홀드(롤ing) 두 모드가 문서에 함께 설명되어 있으나,
     // 0단계 홀드 인프라는 악기당 1가지 모드만 지원하므로 "홀드 시작 = 즉발 캐논, 유지 중 = 융단폭격"으로 단순화했다.
     // 레벨별 수치는 밸런스 doc(game_balance_design.docx) 5번 항목 반영: Lv2 낙하 범위+25%(이전엔 Lv3에서
@@ -29,8 +30,10 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             this.color = color;
             EnsureSprite();
 
-            EnemyMonster nearest = CombatTargetingUtility.GetNearestEnemy(origin);
-            targetPos = nearest != null ? nearest.transform.position : origin;
+            // 2026-08-08 버그 수정: 잡몹 없이 보스만 남았을 때도 캐논/융단폭격이 보스 위치를 노리도록
+            // GetNearestTargetPosition으로 교체(기존엔 origin=플레이어 위치를 계속 폭격하던 버그 -
+            // "최종보스 단독 페이즈에서 팀파니가 인식을 못 한다"는 실측 리포트로 발견).
+            targetPos = CombatTargetingUtility.GetNearestTargetPosition(origin, origin);
 
             // Lv3+: 폭격 빈도 +50% × 알레그로(Allegro) 패시브 "쿨타임 감축"(값이 작을수록 더 자주 발동)
             bombardInterval = ((level >= 3) ? (0.65f / 1.5f) : 0.65f) * CombatTargetingUtility.GetCooldownMultiplier();

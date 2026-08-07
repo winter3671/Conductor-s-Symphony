@@ -66,6 +66,23 @@ namespace ConductorSymphony.Combat
             return nearest;
         }
 
+        // 2026-08-08 버그 수정: 잡몹(EnemyMonster) 0마리 + 보스(BossMonster)만 있는 상황(최종보스 단독
+        // 페이즈 등)에서, 위 GetNearestEnemy/GetHighestHpEnemy는 EnemySpawner.ActiveEnemies만 보고
+        // BossMonster는 전혀 고려하지 않아 항상 null을 반환했다 - 그 결과 벨/첼로/피아노/팀파니/
+        // 글록켄슈필이 "타겟 없음"으로 처리되어 플레이어 위치(또는 고정 방향)에 공격하는 버그가 있었다
+        // (데미지 판정 자체는 AreaImpactEffect/PiercingBeamProjectile 등이 이미 각자 BossMonster.Instance를
+        // 별도로 체크해서 맞았지만, "어디를 노릴지" 정하는 이 타겟팅 단계에서만 보스가 빠져있었음).
+        // BossMonster는 EnemyMonster를 상속하지 않는 별개 싱글톤이라 기존 GetNearestEnemy/GetHighestHpEnemy
+        // 반환 타입(EnemyMonster)을 그대로 넓힐 수 없어, "위치만 필요한" 호출부를 위한 별도 헬퍼로 추가한다.
+        // 잡몹이 하나라도 있으면 기존과 동일하게 잡몹을 우선하고(보스+잡몹 혼재 상황의 기존 우선순위를
+        // 바꾸지 않기 위한 보수적 선택), 잡몹이 전혀 없을 때만 보스를 폴백으로 사용한다.
+        public static Vector3 GetNearestTargetPosition(Vector3 origin, Vector3 fallback)
+        {
+            EnemyMonster nearest = GetNearestEnemy(origin);
+            if (nearest != null) return nearest.transform.position;
+            return BossMonster.Instance != null ? BossMonster.Instance.transform.position : fallback;
+        }
+
         // 글록켄슈필: "체력이 가장 높은 적" 타겟팅. 동률이면 더 가까운 쪽을 우선한다(플레이어 체감상 자연스러움).
         public static EnemyMonster GetHighestHpEnemy(Vector3 originForTieBreak)
         {
@@ -88,6 +105,15 @@ namespace ConductorSymphony.Combat
             }
 
             return best;
+        }
+
+        // GetNearestTargetPosition과 같은 이유로 추가 - 글록켄슈필(체력 최대 적 타겟)이 잡몹 없이
+        // 보스만 있을 때도 폴백으로 쓸 수 있게 한다.
+        public static Vector3 GetHighestHpTargetPosition(Vector3 originForTieBreak, Vector3 fallback)
+        {
+            EnemyMonster best = GetHighestHpEnemy(originForTieBreak);
+            if (best != null) return best.transform.position;
+            return BossMonster.Instance != null ? BossMonster.Instance.transform.position : fallback;
         }
     }
 }

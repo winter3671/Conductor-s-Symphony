@@ -1,5 +1,4 @@
 using UnityEngine;
-using ConductorSymphony.Enemy;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
 {
@@ -9,8 +8,11 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
     {
         public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color, int extraProjectiles)
         {
-            EnemyMonster nearest = CombatTargetingUtility.GetNearestEnemy(origin);
-            Vector3 dir = nearest != null ? (nearest.transform.position - origin) : Vector3.up;
+            // 2026-08-08 버그 수정: 잡몹 없이 보스만 남았을 때 기존엔 방향을 못 구해 무조건 Vector3.up
+            // (화면 위쪽)으로 쏘던 문제 - GetNearestTargetPosition으로 보스 위치까지 폴백하도록 교체.
+            Vector3 targetPos = CombatTargetingUtility.GetNearestTargetPosition(origin, origin + Vector3.up);
+            Vector3 dir = targetPos - origin;
+            if (dir.sqrMagnitude < 0.0001f) dir = Vector3.up; // 타겟이 origin과 완전히 겹치는 극단 케이스 방어
 
             int scaledDamage = Mathf.Max(1, Mathf.RoundToInt(damage * (level >= 2 ? 1.25f : 1f))); // Lv2+: 피해량 +25%
             int pierce = 2 + (level >= 3 ? 2 : 0); // Lv1~2: 2관통, Lv3+: 4관통

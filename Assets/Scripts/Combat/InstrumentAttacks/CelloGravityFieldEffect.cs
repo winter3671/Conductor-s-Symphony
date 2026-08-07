@@ -5,7 +5,8 @@ using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
 {
-    // 첼로: 홀드("13칸 베이스 롱노트") 시작 시 그 시점의 가장 가까운 적 발밑에 고정된 중력장을 생성한다.
+    // 첼로: 홀드("11칸 베이스 롱노트", 2026-08-08부터 - InstrumentPatternDatabase.holdLengthSteps 참고)
+    // 시작 시 그 시점의 가장 가까운 적 발밑에 고정된 중력장을 생성한다.
     // 필드는 캐스팅 위치에 고정되며 적을 추적하지 않는다(기획서 "고정된 중력장" 문구 그대로 반영).
     // 범위 내 적의 이동 속도를 감소시키고 주기적으로 타격. 기획서 7번(중력의 구속) 참고.
     // 레벨별 수치는 밸런스 doc(game_balance_design.docx) 5번 항목 반영: Lv1 이속감소 40%(기존 50%에서 정정) /
@@ -42,8 +43,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             radius = 1.8f * (level >= 2 ? 1.2f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
             slowFraction = (level >= 3) ? 0.6f : 0.4f;         // Lv1: 40%, Lv3+: 60%
 
-            EnemyMonster nearest = CombatTargetingUtility.GetNearestEnemy(origin);
-            transform.position = nearest != null ? nearest.transform.position : origin;
+            // 2026-08-08 버그 수정: 잡몹 없이 보스만 남았을 때도 필드가 보스 발밑에 생성되도록
+            // GetNearestTargetPosition으로 교체(기존엔 origin=플레이어 위치에 생성되던 버그).
+            transform.position = CombatTargetingUtility.GetNearestTargetPosition(origin, origin);
 
             SpriteRenderer sr = gameObject.AddComponent<SpriteRenderer>();
             Color faded = color;
@@ -114,6 +116,19 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             foreach (var enemy in currentlyInRange)
             {
                 if (enemy != null) enemy.TakeDamage(damage);
+            }
+
+            // 2026-08-08 버그 수정: 위 로직 전체가 CombatTargetingUtility.GetActiveEnemies()(EnemyMonster)만
+            // 다뤄서 보스는 중력장 범위 안에 있어도 감속/끌어당김/틱 피해를 전혀 못 받고 있었다. 감속
+            // (SetSpeedMultiplier)·끌어당김은 EnemyMonster 전용 API라 그대로 두고(다른 곳의 보스 처리와
+            // 동일한 관례 - 보스는 부가 효과 없이 피해만 적용), 틱 피해만 동일한 주기로 함께 적용한다.
+            if (BossMonster.Instance != null)
+            {
+                float bossDist = Vector3.Distance(transform.position, BossMonster.Instance.transform.position);
+                if (bossDist <= radius)
+                {
+                    BossMonster.Instance.TakeDamage(damage);
+                }
             }
         }
 
