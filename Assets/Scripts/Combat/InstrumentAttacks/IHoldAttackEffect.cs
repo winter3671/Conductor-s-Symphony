@@ -7,7 +7,10 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
     public interface IHoldAttackEffect
     {
         // 홀드 시작(=최초 판정 성공) 시점에 1회 호출된다. origin은 시전 시점의 플레이어 위치.
-        void Init(int level, int damage, Vector3 origin, Color color);
+        // extraProjectiles: 레가토(Legato) 패시브 + 악기 Lv4 "Multi+1" 스탯의 합산치(2026-08-07 연동).
+        // "낱개로 셀 수 있는 발사체/낙하체"가 있는 홀드 악기(바이올린/팀파니)만 실제로 소비하고,
+        // 프렌치호른/첼로/플루트는 지속 판정(부채꼴/고정 필드/소용돌이)이라 개념이 안 맞아 무시한다.
+        void Init(int level, int damage, Vector3 origin, Color color, int extraProjectiles);
 
         // 홀드가 유지되는 동안 매 프레임 호출된다 (RhythmManager.OnHoldTickEvent와 동일 주기).
         void OnHoldTick(float deltaTime);

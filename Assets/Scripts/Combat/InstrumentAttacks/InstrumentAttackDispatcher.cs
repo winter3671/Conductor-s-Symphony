@@ -57,13 +57,13 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             }
         }
 
-        public static void Execute(InstrumentType type, int level, int damage, int currentCombo, Vector3 origin, Color color)
+        public static void Execute(InstrumentType type, int level, int damage, int currentCombo, Vector3 origin, Color color, int extraProjectiles)
         {
             TapAttackHelpers.EnsureSprites();
 
             if (tapEffects.TryGetValue(type, out var effect))
             {
-                effect.Execute(level, damage, currentCombo, origin, color);
+                effect.Execute(level, damage, currentCombo, origin, color, extraProjectiles);
             }
         }
     }

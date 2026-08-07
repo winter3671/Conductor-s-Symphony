@@ -27,7 +27,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
         private readonly HashSet<EnemyMonster> ampedEnemies = new HashSet<EnemyMonster>();
 
-        public void Init(int level, int damage, Vector3 origin, Color color)
+        // extraProjectiles(레가토/Multi+1)는 사용하지 않는다 - 지속 부채꼴 판정이라 "낱개로 셀 수 있는
+        // 투사체" 개념이 없음(2026-08-07, 사용자 결정으로 4종 제외 대상에 포함).
+        public void Init(int level, int damage, Vector3 origin, Color color, int extraProjectiles)
         {
             this.damage = damage;
             playerTransform = PlayerController.Instance != null ? PlayerController.Instance.transform : null;
@@ -44,6 +46,19 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             sr.sprite = ProceduralSpriteFactory.CreateFilledCircle(24, 11f, faded); // 정확한 부채꼴 대신 원형으로 범위를 근사 표시(단순화)
             sr.sortingOrder = 3;
             transform.localScale = Vector3.one * (range * 0.8f);
+
+            // 실제 사거리(range)를 정확히 표시하는 얇은 테두리 링 - 위 채워진 원은 부채꼴을 원으로
+            // 근사한 장식이라 반경이 부정확하다(CreateFilledCircle의 픽셀 반경/텍스처 크기 조합이
+            // localScale 계산과 안 맞아 실제로는 range의 약 8.8%로만 그려짐). 자식 오브젝트로 만들어
+            // 부모(이 transform)의 스케일(range*0.8)을 상쇄하는 로컬 스케일(1/0.8=1.25)을 곱하면
+            // 최종 월드 반경이 정확히 range가 된다. 드럼 오라 링과 동일하게 아주 얇게(0.985~1.0) 설정
+            // (2026-08-07, 사용자 결정 - 채워진 원은 유지하고 얇은 테두리만 추가).
+            GameObject rangeRingObj = new GameObject("FrenchHornRangeRing");
+            rangeRingObj.transform.SetParent(transform, false);
+            SpriteRenderer ringSr = rangeRingObj.AddComponent<SpriteRenderer>();
+            ringSr.sprite = ProceduralSpriteFactory.CreateUnitRing(0.985f, 1f, new Color(color.r, color.g, color.b, 0.8f));
+            ringSr.sortingOrder = 4;
+            rangeRingObj.transform.localScale = Vector3.one * (1f / 0.8f);
 
             transform.position = playerTransform != null ? playerTransform.position : origin;
         }

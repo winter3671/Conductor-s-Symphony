@@ -10,7 +10,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
     // Lv5 피격 시 이속 30% 감소 + 밀쳐냄.
     public class MarimbaWaveEffect : ITapAttackEffect
     {
-        public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color)
+        public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color, int extraProjectiles)
         {
             Vector2 facing = PlayerController.Instance != null
                 ? PlayerController.Instance.GetFacingDirectionVector()
@@ -37,6 +37,19 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             // 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv" 반영.
             float maxRange = 10f * CombatTargetingUtility.GetRangeMultiplier();
             TapAttackHelpers.SpawnBeam(origin, facing, damage, pierce, maxRange, bounce, color, sizeMultiplier, onHit);
+
+            // 레가토(Legato) 패시브/악기 Lv4 Multi+1(extraProjectiles): 원본 파동과 평행하게 좌우로
+            // 갈라지는 추가 파동으로 구현(샷건처럼 옆으로 퍼짐). 이동 방향에 수직인 벡터로 오프셋.
+            if (extraProjectiles > 0)
+            {
+                Vector2 perp = new Vector2(-facing.y, facing.x);
+                for (int e = 0; e < extraProjectiles; e++)
+                {
+                    float side = (e % 2 == 0) ? 1f : -1f;
+                    Vector3 offsetOrigin = origin + (Vector3)(perp * side * 0.6f);
+                    TapAttackHelpers.SpawnBeam(offsetOrigin, facing, damage, pierce, maxRange, bounce, color, sizeMultiplier, onHit);
+                }
+            }
         }
     }
 }

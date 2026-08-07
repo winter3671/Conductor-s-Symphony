@@ -179,8 +179,8 @@ namespace ConductorSymphony.Instrument
                     ParsePattern("00001000000000000000100000000000"), // Lv 1 (2 accent beats: Step 4, 20)
                     ParsePattern("00001000000010000000100000001000"), // Lv 2 (4 accent beats: Step 4, 12, 20, 28)
                     ParsePattern("00001000000010000000100000001001"), // Lv 3 (5 accent beats)
-                    ParsePattern("00001000010010000000100001001000"), // Lv 4 (8 accent beats)
-                    ParsePattern("00001000010010000000100001001001")  // Lv 5 MAX (9 accent beats)
+                    ParsePattern("00001000010010000000100001001000"), // Lv 4 (6 accent beats - 실제 문자열 기준, 이전 "8"은 주석 오류였음)
+                    ParsePattern("00001000010010000000100001001001")  // Lv 5 MAX (7 accent beats - 실제 문자열 기준, 이전 "9"는 주석 오류였음)
                 }
             );
         }

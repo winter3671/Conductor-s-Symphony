@@ -37,6 +37,17 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             sr.sortingOrder = 3;
             transform.localScale = Vector3.one * (radius * 0.9f);
 
+            // 실제 흡입 반경(radius)을 정확히 표시하는 얇은 테두리 링 - 첼로와 동일한 이유로 채워진
+            // 원만으로는 실제 반경의 약 11.7%로만 보인다. 부모 스케일(radius*0.9)을 상쇄하는 로컬
+            // 스케일(1/0.9)을 곱해 정확히 맞춘다. 드럼 오라 링과 동일하게 아주 얇게(0.985~1.0) 설정
+            // (2026-08-07, 사용자 결정).
+            GameObject rangeRingObj = new GameObject("FluteRangeRing");
+            rangeRingObj.transform.SetParent(transform, false);
+            SpriteRenderer ringSr = rangeRingObj.AddComponent<SpriteRenderer>();
+            ringSr.sprite = ProceduralSpriteFactory.CreateUnitRing(0.985f, 1f, new Color(0.2f, 0.9f, 0.5f, 0.85f));
+            ringSr.sortingOrder = 4;
+            rangeRingObj.transform.localScale = Vector3.one * (1f / 0.9f);
+
             int maxConcurrent = (level >= 4) ? 2 : 1; // Lv4+: 동시 2개까지 유지 가능
             activeVortices.Add(this);
             while (activeVortices.Count > maxConcurrent)

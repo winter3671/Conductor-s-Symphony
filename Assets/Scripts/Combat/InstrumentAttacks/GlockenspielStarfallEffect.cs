@@ -8,7 +8,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
     // Lv5 2차 유도 파편 폭발 + 0.5초 기절.
     public class GlockenspielStarfallEffect : ITapAttackEffect
     {
-        public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color)
+        public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color, int extraProjectiles)
         {
             EnemyMonster target = CombatTargetingUtility.GetHighestHpEnemy(origin);
             Vector3 pos = target != null ? target.transform.position : origin;
@@ -27,6 +27,15 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                     Vector3 offset = new Vector3(Random.Range(-1.2f, 1.2f), Random.Range(-1.2f, 1.2f), 0f);
                     TapAttackHelpers.SpawnImpact(pos + offset, 0.15f, splashRadius, scaledDamage, color);
                 }
+            }
+
+            // 레가토(Legato) 패시브/악기 Lv4 Multi+1(extraProjectiles): Lv4 버스트(extraStars)와 같은
+            // 랜덤 오프셋 방식으로 낙하 지점을 추가한다. 버스트 조건(전역 콤보 4배수)과 무관하게 매
+            // 타격마다 적용된다.
+            for (int e = 0; e < extraProjectiles; e++)
+            {
+                Vector3 legatoOffset = new Vector3(Random.Range(-1.2f, 1.2f), Random.Range(-1.2f, 1.2f), 0f);
+                TapAttackHelpers.SpawnImpact(pos + legatoOffset, 0.15f, splashRadius, scaledDamage, color);
             }
 
             // Lv5: 2차 유도 파편 - 가장 가까운 "다른" 적을 향해 유도 투사체 발사, 명중 시 피해+0.5초 기절

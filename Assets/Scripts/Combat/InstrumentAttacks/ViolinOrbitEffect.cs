@@ -31,7 +31,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         private static Sprite bladeSprite;
         private static Sprite slashSprite;
 
-        public void Init(int level, int damage, Vector3 origin, Color color)
+        public void Init(int level, int damage, Vector3 origin, Color color, int extraProjectiles)
         {
             this.level = level;
             this.damage = damage;
@@ -40,10 +40,25 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
             EnsureSprites();
 
-            bladeCount = (level >= 3) ? 3 : 2;                             // Lv3+: 회전 칼날 1개 추가
+            // Lv3+: 회전 칼날 1개 추가 + 레가토(Legato) 패시브/악기 Lv4 Multi+1(extraProjectiles)만큼
+            // 칼날을 더 추가한다 - 기존 "칼날 개수 늘리기" 스탯과 완전히 같은 파라미터를 공유.
+            bladeCount = (level >= 3) ? 3 : 2;
+            bladeCount += extraProjectiles;
             // Lv2+: 회전 반경 +20% × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
             radius = 1.4f * (level >= 2 ? 1.2f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
             spinSpeedDegPerSec = BaseSpinSpeedDegPerSec * (level >= 2 ? 1.3f : 1f); // Lv2+: 회전 속도 증가
+
+            // 실제 칼날 궤도 반경(radius)을 표시하는 얇은 테두리 링 - 칼날이 실제로 돌면서 어느 정도
+            // 범위가 체감되긴 하지만, 칼날이 없는 빈 구간에서는 경계가 안 보인다. 프렌치호른/첼로/
+            // 플루트와 동일한 CreateUnitRing 패턴(2026-08-07). 이 컴포넌트의 transform.localScale은
+            // 항상 1로 고정(칼날 스프라이트 자체가 각도만 바꿔 배치되는 구조)이라, 부모 스케일 상쇄
+            // 없이 radius를 그대로 곱하면 정확한 반경이 나온다.
+            GameObject rangeRingObj = new GameObject("ViolinRangeRing");
+            rangeRingObj.transform.SetParent(transform, false);
+            SpriteRenderer ringSr = rangeRingObj.AddComponent<SpriteRenderer>();
+            ringSr.sprite = ProceduralSpriteFactory.CreateUnitRing(0.985f, 1f, new Color(color.r, color.g, color.b, 0.8f));
+            ringSr.sortingOrder = 4;
+            rangeRingObj.transform.localScale = Vector3.one * radius;
 
             for (int i = 0; i < bladeCount; i++)
             {

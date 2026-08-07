@@ -110,24 +110,10 @@ namespace ConductorSymphony.Instrument
             }
         }
 
-        public int GetTotalExtraDamage()
-        {
-            int total = 0;
-            foreach (var inst in acquiredInstruments)
-            {
-                total += inst.extraDamage;
-            }
-            return total;
-        }
-
-        public int GetTotalExtraProjectiles()
-        {
-            int total = 0;
-            foreach (var inst in acquiredInstruments)
-            {
-                total += inst.extraProjectiles;
-            }
-            return total;
-        }
+        // (2026-08-07) 예전엔 여기 GetTotalExtraDamage()/GetTotalExtraProjectiles()가 장착된 4슬롯
+        // 전체를 합산해 RhythmAttackManager.HandleRhythmHit()에 넘겼는데, "판정된 그 악기만의 값을
+        // 써야 한다"고 정정되면서 이 두 메서드는 더 이상 쓰이지 않는다(호출부가 InstrumentInfo.
+        // extraDamage/extraProjectiles를 직접 읽도록 변경됨). 죽은 코드라 삭제함 - game_systems_reference.md
+        // §7-1 참고.
     }
 }

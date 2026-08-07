@@ -32,7 +32,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
         private readonly HashSet<EnemyMonster> affectedEnemies = new HashSet<EnemyMonster>();
 
-        public void Init(int level, int damage, Vector3 origin, Color color)
+        // extraProjectiles(레가토/Multi+1)는 사용하지 않는다 - 고정 위치 필드 판정이라 "낱개로 셀 수
+        // 있는 투사체" 개념이 없음(2026-08-07, 사용자 결정으로 4종 제외 대상에 포함).
+        public void Init(int level, int damage, Vector3 origin, Color color, int extraProjectiles)
         {
             this.level = level;
             this.damage = damage;
@@ -49,6 +51,17 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             sr.sprite = ProceduralSpriteFactory.CreateFilledCircle(28, 13f, faded);
             sr.sortingOrder = 3;
             transform.localScale = Vector3.one * (radius * 0.9f);
+
+            // 실제 판정 반경(radius)을 정확히 표시하는 얇은 테두리 링 - 채워진 원은 근사치라
+            // CreateFilledCircle의 픽셀 반경/텍스처 크기 조합상 실제로는 radius의 약 11.7%로만
+            // 그려진다. 부모 스케일(radius*0.9)을 상쇄하는 로컬 스케일(1/0.9)을 곱해 정확히 맞춘다.
+            // 드럼 오라 링과 동일하게 아주 얇게(0.985~1.0) 설정(2026-08-07, 사용자 결정).
+            GameObject rangeRingObj = new GameObject("CelloRangeRing");
+            rangeRingObj.transform.SetParent(transform, false);
+            SpriteRenderer ringSr = rangeRingObj.AddComponent<SpriteRenderer>();
+            ringSr.sprite = ProceduralSpriteFactory.CreateUnitRing(0.985f, 1f, new Color(color.r, color.g, color.b, 0.8f));
+            ringSr.sortingOrder = 4;
+            rangeRingObj.transform.localScale = Vector3.one * (1f / 0.9f);
         }
 
         public void OnHoldTick(float deltaTime)

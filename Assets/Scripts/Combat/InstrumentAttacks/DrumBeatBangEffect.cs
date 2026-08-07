@@ -9,7 +9,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
     // (Lv4 "비트 오라 지속 피해량 +50%"는 여기가 아니라 RhythmAttackManager.UpdateDrumAura()가 담당)
     public class DrumBeatBangEffect : ITapAttackEffect
     {
-        public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color)
+        // extraProjectiles(레가토/Multi+1)는 사용하지 않는다 - 비트 뱅은 광역 판정이라 "낱개로 셀 수
+        // 있는 투사체" 개념이 없음(2026-08-07, 사용자 결정으로 4종 제외 대상에 포함).
+        public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color, int extraProjectiles)
         {
             float radius = 2.0f * (level >= 2 ? 1.2f : 1f) * CombatTargetingUtility.GetRangeMultiplier(); // Lv2+: 범위 +20%
             int shockwaveDamage = Mathf.Max(1, Mathf.RoundToInt(damage * (level >= 2 ? 1.2f : 1f))); // Lv2+: 피해량 +20%
