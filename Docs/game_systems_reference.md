@@ -214,6 +214,17 @@ M_rhythm은 의도적으로 미반영(시포르찬도 M_stat만 반영). 오라�
 드럼 오라 링(`DrumAuraController`)과 비트 뱅 모션(`ShockwaveVisualEffect`) 둘 다 이 인프라로 다시
 작성해, 매 프레임 실제 판정 반경에 맞춰 갱신됩니다.
 
+**프렌치호른·첼로·플루트 확장(2026-08-07)**: 이 세 악기도 홀드 중 반투명 채워진 원
+(`CreateFilledCircle`)으로 범위를 근사 표시하고 있었는데, 같은 종류의 스케일 버그가 있었습니다 —
+프렌치호른은 실제 사거리의 약 8.8%, 첼로/플루트는 약 11.7% 크기로만 그려지고 있었습니다. 채워진 원
+자체는 유지하고(장식으로서의 가치는 있으므로), 그 위에 드럼과 동일한 `CreateUnitRing(0.985f, 1f,
+...)` 얇은 테두리 링을 **자식 오브젝트**로 추가했습니다. 자식의 `localScale`을 부모의 근사 배율
+(`range × 0.8` 또는 `radius × 0.9`)을 상쇄하는 값(`1 / 0.8 = 1.25`, `1 / 0.9 ≈ 1.111`)으로 고정해,
+부모-자식 스케일이 곱해진 최종 월드 반경이 항상 정확히 실제 판정 반경과 일치하도록 만들었습니다 —
+크레센도 패시브로 반경이 커져도 부모 스케일만 바뀌면 자동으로 같이 커집니다. 실측으로 소수 5자리까지
+정확히 일치함을 확인했고(`archive/range_ring_precision_test_guide.md`), 자식 오브젝트라 부모가
+`Destroy()`될 때 별도 처리 없이 함께 정리됩니다.
+
 ### 4-2. `CombatTargetingUtility`의 패시브 배율 헬퍼 3종
 
 ```csharp
@@ -252,18 +263,23 @@ public static float GetDurationMultiplier()   // 페르마타: duration에 곱�
 
 ### 4-4. 검증 완료
 
-크레센도(2라운드), 알레그로/페르마타(1라운드, private 필드 리플렉션 + tickTimer 리셋 경계 탐지 방식)
-모두 Unity MCP 실측 PASS. 상세 수치는 `archive/drum_range_visualization_test_guide.md`,
-`archive/instrument_range_passive_test_guide.md`, `archive/allegro_fermata_passive_test_guide.md`
-참고.
+크레센도(2라운드), 알레그로/페르마타(1라운드, private 필드 리플렉션 + tickTimer 리셋 경계 탐지 방식),
+프렌치호른·첼로·플루트 범위 링 정확도(1라운드, 리플렉션으로 `Init`/`Initialize`/`OnHoldTick` 직접
+호출) 모두 Unity MCP 실측 PASS. 상세 수치는 `archive/drum_range_visualization_test_guide.md`,
+`archive/instrument_range_passive_test_guide.md`, `archive/allegro_fermata_passive_test_guide.md`,
+`archive/range_ring_precision_test_guide.md` 참고.
 
 **남은 고려 사항**: DPS 밸런스(5절)는 "크레센도/알레그로/페르마타 전부 미보유" 기준으로만 검증되어
 있습니다. 세 패시브를 적극적으로 찍는 빌드의 종합 밸런스(사거리 확장으로 인한 다중 명중 증가, 발동
-빈도 증가, 잔류시간 증가로 인한 총 딜량 변화)는 별도 확인이 필요할 수 있습니다. 드럼 외 9종은 여전히
-상시 범위 인디케이터가 없습니다(투사체/임팩트 이펙트 자체는 발동 지점을 보여주지만, "여기까지가
-사거리다"라는 상시 표시는 드럼에만 있음).
+빈도 증가, 잔류시간 증가로 인한 총 딜량 변화)는 별도 확인이 필요할 수 있습니다. 상시 범위 인디케이터는
+현재 드럼(오라)·프렌치호른(부채꼴 근사)·첼로(중력장)·플루트(소용돌이) 4종에 있고, 나머지 6종(피아노/
+벨/마림바/글록켄슈필/바이올린/팀파니)은 아직 없습니다 — 이 6종은 일회성 투사체/파동이라 발사 궤적
+자체가 사거리를 보여주므로 상대적으로 우선순위가 낮다고 판단해 이번 라운드 범위에서 제외했습니다
+(바이올린 궤도·팀파니 융단폭격 존은 지속 유지형이라 추가할 가치가 있다고 판단됐던 항목으로, 다음
+라운드 후보로 남아있습니다).
 
-*(원본: `range_passive_implementation_summary.md`, `archive/allegro_fermata_passive_test_guide.md`)*
+*(원본: `range_passive_implementation_summary.md`, `archive/allegro_fermata_passive_test_guide.md`,
+`archive/range_ring_precision_test_guide.md`)*
 
 ---
 
@@ -472,5 +488,6 @@ Lv4/Lv5 주석("8-accent"/"9-accent")이 실제 문자열(6개/7개)과 다릅�
 | 나머지 9종 크레센도 연동 | Unity MCP 실측 | PASS | `archive/instrument_range_passive_test_guide.md` |
 | 홀드 노트 이동 추적 버그 수정 | Unity MCP 실측 | PASS | `archive/holdnote_follow_player_fix_test_guide.md` |
 | 알레그로/페르마타 연동 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/allegro_fermata_passive_test_guide.md` |
+| 프렌치호른/첼로/플루트 범위 링 정확도 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/range_ring_precision_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*

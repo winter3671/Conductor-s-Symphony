@@ -45,6 +45,19 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             sr.sortingOrder = 3;
             transform.localScale = Vector3.one * (range * 0.8f);
 
+            // 실제 사거리(range)를 정확히 표시하는 얇은 테두리 링 - 위 채워진 원은 부채꼴을 원으로
+            // 근사한 장식이라 반경이 부정확하다(CreateFilledCircle의 픽셀 반경/텍스처 크기 조합이
+            // localScale 계산과 안 맞아 실제로는 range의 약 8.8%로만 그려짐). 자식 오브젝트로 만들어
+            // 부모(이 transform)의 스케일(range*0.8)을 상쇄하는 로컬 스케일(1/0.8=1.25)을 곱하면
+            // 최종 월드 반경이 정확히 range가 된다. 드럼 오라 링과 동일하게 아주 얇게(0.985~1.0) 설정
+            // (2026-08-07, 사용자 결정 - 채워진 원은 유지하고 얇은 테두리만 추가).
+            GameObject rangeRingObj = new GameObject("FrenchHornRangeRing");
+            rangeRingObj.transform.SetParent(transform, false);
+            SpriteRenderer ringSr = rangeRingObj.AddComponent<SpriteRenderer>();
+            ringSr.sprite = ProceduralSpriteFactory.CreateUnitRing(0.985f, 1f, new Color(color.r, color.g, color.b, 0.8f));
+            ringSr.sortingOrder = 4;
+            rangeRingObj.transform.localScale = Vector3.one * (1f / 0.8f);
+
             transform.position = playerTransform != null ? playerTransform.position : origin;
         }
 
