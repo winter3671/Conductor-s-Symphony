@@ -530,6 +530,38 @@ public static float GetDurationMultiplier()   // 페르마타: duration에 곱�
 
 ---
 
+## 8-1. 아트 에셋(악기 스프라이트) 현황
+
+`Assets/Resources/Sprites/Instruments/`의 스프라이트는 `Resources.Load<Sprite>($"Sprites/Instruments/{type}")`
+(`InstrumentOrbit.cs:27`, `LevelUpUI.cs:308`)로 `InstrumentType` 이름 기준 동적 로딩되며, 파일이 없거나
+임포트 설정이 안 맞으면 자동으로 프로시저럴 도형(원)으로 폴백됩니다.
+
+**2026-08-08 기준: 10종 전부 실제 픽셀아트 연결 완료.**
+
+| 시기 | 대상 |
+|---|---|
+| 기존 | Drums, Piano, Violin, Flute, Cello |
+| 2026-08-08 신규 추가 | Bell, FrenchHorn, Glockenspiel, Marimba, Timpani |
+
+신규 5종은 파일명을 `InstrumentType` enum과 정확히 일치시키고(`Frenchhorn.png`→`FrenchHorn.png` 대소문자
+정정 포함), Sprite(2D and UI)/Single 타입 임포트 + Sprite Editor Trim(투명 여백 제거)까지 적용해 기존
+5종과 동일한 방식으로 `InstrumentOrbit`의 0.68유닛 최대치수 정규화가 일관되게 동작함을 확인했습니다.
+코드 변경은 필요 없었습니다(동적 로딩 구조 덕분).
+
+`Guitar.png`/`Harp.png`/`Saxophone.png`/`Trumpet.png`/`Xylophone.png`는 `InstrumentType` enum(10종:
+Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 대응하는 값이 없어
+코드에서 전혀 참조되지 않는 고아 파일로 확인됨(2026-08-07 조사). `Resources/` 하위에 있으면 코드가
+안 쓰더라도 빌드에 무조건 포함되므로, 2026-08-08에 `Assets/Sprites/UnusedInstruments/`(Resources 밖,
+기존 `Assets/Sprites/Player/`와 같은 상위 `Assets/Sprites/` 컨벤션)로 이동했습니다. `.meta`(GUID)를
+함께 옮겨서 참조 자체가 없는 상태라 안전하며, 별도 코드 변경도 필요 없습니다. 다음 Unity 에디터
+세션에서 한 번 Refresh해서 정상 인식되는지만 확인하면 됩니다.
+
+몬스터/보스/이펙트(VFX) 픽셀아트는 아직 미착수 상태이며 사용자가 의도적으로 나중으로 미룸.
+
+*(관련 검증: `archive/instrument_sprite_import_test_guide.md`)*
+
+---
+
 ## 9. 검증 상태 총괄
 
 | 대상 | 검증 방식 | 결과 | 상세 로그 |
@@ -547,5 +579,6 @@ public static float GetDurationMultiplier()   // 페르마타: duration에 곱�
 | 레가토(투사체 수 증가) 6종 연동 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/legato_extra_projectile_test_guide.md` |
 | 바이올린/팀파니 범위 링 추가 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/violin_timpani_range_ring_test_guide.md` |
 | extraDamage/extraProjectiles 판정 악기 전용 격리 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/per_instrument_extra_stats_test_guide.md` |
+| 신규 악기 이미지 5종(벨/프렌치호른/글록켄슈필/마림바/팀파니) 임포트·연동 | Unity MCP 실측 | PASS | `archive/instrument_sprite_import_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*
