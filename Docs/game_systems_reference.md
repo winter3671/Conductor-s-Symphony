@@ -596,7 +596,14 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
   적용됨). `AreaImpactEffect.cs`에 로딩+2단계 매핑(예고 1→5, 착탄 후 플래시 5→9) 로직 추가 - 실제
   사용처는 글록켄슈필(별빛 낙하)과 팀파니(캐논/융단폭격) 2곳뿐(피아노/벨/마림바는 빔 방식이라 무관).
   프레임 로딩 실패 시 기존 다이아몬드로 자동 폴백, 호출부 코드는 변경 없음.
-- **남은 항목**: 빔/투사체, 필드/존(4종), 바이올린 칼날·참격 — 아직 미착수.
+- **빔/투사체 4프레임 반짝임 애니메이션 완료(2026-08-08)**: `Assets/Resources/Sprites/Effects/Beam/
+  Beam1~4.png`. `PiercingBeamProjectile.cs`(피아노/벨/마림바 공유 + 바이올린 릴리즈 참격도 동일 클래스
+  사용) 한 곳에서만 로딩해 4곳 전부 자동 적용됨, 호출부 코드 변경 없음. 새 아트가 원본부터 길쭉한
+  모양(~7~8:1)이라 기존 정사각형 폴백 원 기준 고정 배율을 그대로 곱하면 이중 확대될 뻔한 것을
+  콘텐츠 크기 역산 정규화로 사전 방지(`ReferenceContentSize` 기준, 폴백 시 수학적으로 이전과 100%
+  동일한 결과 확인됨).
+- **남은 항목**: 필드/존(첼로/플루트/프렌치호른/팀파니 지진지대, 4종), 바이올린 칼날·참격 중 "칼날"
+  부분(참격은 빔 완료로 같이 해결됨) — 아직 미착수.
 
 *(관련 검증: `archive/instrument_sprite_import_test_guide.md`, `archive/impact_burst_sprite_animation_test_guide.md`)*
 
@@ -623,5 +630,6 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
 | 임팩트 버스트 9프레임 애니메이션 연동(글록켄슈필/팀파니) | Unity MCP 실측(일부 리플렉션 기반) | PASS | `archive/impact_burst_sprite_animation_test_guide.md` |
 | 임팩트 버스트 크기 정규화 / 보스 단독 페이즈 타겟팅·틱데미지 누락(5+3악기) / 팀파니 홀드 밀도(16→10) | Unity MCP 실측(리플렉션+실스폰) | PASS | `archive/bugfix_burst_scale_and_boss_targeting_test_guide.md` |
 | 바이올린/첼로 홀드 밀도(13→11), 프렌치호른/플루트 무변경 판단 | Unity MCP 실측(시뮬레이션 재현) | PASS | `archive/violin_cello_hold_density_fix_test_guide.md` |
+| 빔/투사체 4프레임 반짝임 애니메이션 연동(피아노/벨/마림바/바이올린 참격) | Unity MCP 실측(리플렉션 기반) | PASS | `archive/beam_sprite_animation_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*
