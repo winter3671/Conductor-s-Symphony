@@ -5,6 +5,7 @@ using ConductorSymphony.Instrument;
 using ConductorSymphony.Player;
 using ConductorSymphony.Utility;
 using ConductorSymphony.Settings;
+using ConductorSymphony.Combat.InstrumentAttacks;
 
 namespace ConductorSymphony.Rhythm
 {
@@ -67,6 +68,10 @@ namespace ConductorSymphony.Rhythm
             stepDuration = (60f / Bpm) / 2f;
 
             defaultNoteSprite = ProceduralSpriteFactory.CreateFilledCircle(32, 14f, Color.cyan);
+
+            // 이전 Gameplay 세션에서 홀드 도중 씬이 언로드됐다면(승리/패배 후 메인메뉴 복귀 등) static
+            // HoldEffectCoordinator에 죽은 이펙트 참조가 남아있을 수 있으므로 새 세션 시작 시 정리한다.
+            HoldEffectCoordinator.ResetForNewSession();
         }
 
         private void Start()
