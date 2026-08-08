@@ -32,6 +32,7 @@ namespace ConductorSymphony.Player
         private int baseMaxHealth; // maxHealth before Tuning 패시브 보너스 적용 (Awake에서 스냅샷)
         private int currentHealth;
         private float invulnerableTimer = 0f;
+        private bool isDead = false; // 동일 프레임에 여러 콜리전이 겹쳐도 OnPlayerDeathEvent가 한 번만 발동하도록 방지
         private Rigidbody2D rb;
         private CircleCollider2D col;
         private SpriteRenderer spriteRenderer;
@@ -80,6 +81,7 @@ namespace ConductorSymphony.Player
         }
 
         public static event System.Action<int, int> OnHealthChangedEvent;
+        public static event System.Action OnPlayerDeathEvent;
 
         protected override void Awake()
         {
@@ -384,7 +386,11 @@ namespace ConductorSymphony.Player
 
         private void OnPlayerDeath()
         {
+            if (isDead) return;
+            isDead = true;
+
             Debug.Log("Player Died!");
+            OnPlayerDeathEvent?.Invoke();
         }
     }
 }

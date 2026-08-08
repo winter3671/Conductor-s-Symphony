@@ -233,11 +233,8 @@ namespace ConductorSymphony.Enemy
             timeUpTriggered = true;
 
             Debug.Log("[BossMonster] Final boss time limit exceeded - Defeat (Time Over)");
+            // RhythmUI.HandleFinalBossTimeUp()가 이 이벤트를 구독해 패배 화면 표시 + Time.timeScale 정지를 전담한다.
             OnFinalBossTimeUpEvent?.Invoke();
-
-            // Freeze the run on failure, mirroring PlayerController.OnPlayerDeath()'s current stub-level handling.
-            // TODO(follow-up): hook this into a real Game Over screen once one exists.
-            Time.timeScale = 0f;
         }
 
         private void OnTriggerEnter2D(Collider2D other)
