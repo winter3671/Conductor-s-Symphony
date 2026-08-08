@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using ConductorSymphony.Player;
 using ConductorSymphony.Instrument;
 using ConductorSymphony.Enemy;
@@ -19,8 +20,11 @@ namespace ConductorSymphony.Rhythm
         [SerializeField] private Text instrumentSlotText;
         [SerializeField] private Text bossHpText;
         [SerializeField] private Text victoryText;
+        [SerializeField] private Text defeatText;
+        [SerializeField] private Button returnToMenuButton;
 
         private float ratingTimer = 0f;
+        private bool hasEnded = false; // 승리/패배가 이미 한 번 표시되면 이후 이벤트(예: 화면 표시 직후 겹친 콜리전)는 무시
 
         protected override void Awake()
         {
@@ -28,6 +32,7 @@ namespace ConductorSymphony.Rhythm
             if (Instance != this) return;
 
             EnsureBossUIElements();
+            EnsureEndScreenElements();
         }
 
         private void EnsureBossUIElements()
@@ -52,6 +57,18 @@ namespace ConductorSymphony.Rhythm
                 r.sizeDelta = new Vector2(600, 40);
                 bObj.SetActive(false);
             }
+        }
+
+        // 승리/패배 공용 종료 화면 요소. 씬에 EventSystem이 없으면(LevelUpUI가 먼저 만들어주는 게 보통이지만
+        // 실행 순서를 가정하지 않기 위해) 버튼 클릭이 씹히지 않도록 여기서도 방어적으로 보장한다.
+        private void EnsureEndScreenElements()
+        {
+            if (FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
+            {
+                GameObject esObj = new GameObject("EventSystem");
+                esObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                esObj.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+            }
 
             // Create VictoryText if null
             if (victoryText == null)
@@ -72,28 +89,90 @@ namespace ConductorSymphony.Rhythm
                 vr.sizeDelta = new Vector2(800, 160);
                 vObj.SetActive(false);
             }
+
+            // Create DefeatText if null
+            if (defeatText == null)
+            {
+                GameObject dObj = new GameObject("DefeatText");
+                dObj.transform.SetParent(transform, false);
+                defeatText = dObj.AddComponent<Text>();
+                defeatText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                defeatText.fontSize = 42;
+                defeatText.color = new Color(0.85f, 0.25f, 0.25f);
+                defeatText.alignment = TextAnchor.MiddleCenter;
+                defeatText.text = "DEFEAT";
+
+                RectTransform dr = dObj.GetComponent<RectTransform>();
+                dr.anchorMin = new Vector2(0.5f, 0.5f);
+                dr.anchorMax = new Vector2(0.5f, 0.5f);
+                dr.anchoredPosition = Vector2.zero;
+                dr.sizeDelta = new Vector2(800, 160);
+                dObj.SetActive(false);
+            }
+
+            // Create ReturnToMenuButton if null - shared by both Victory and Defeat (only one is ever shown per run).
+            if (returnToMenuButton == null)
+            {
+                GameObject btnObj = new GameObject("ReturnToMenuButton");
+                btnObj.transform.SetParent(transform, false);
+
+                Image img = btnObj.AddComponent<Image>();
+                img.color = new Color(0.12f, 0.12f, 0.22f, 0.95f);
+
+                returnToMenuButton = btnObj.AddComponent<Button>();
+                returnToMenuButton.onClick.AddListener(OnReturnToMenuClicked);
+
+                RectTransform brt = btnObj.GetComponent<RectTransform>();
+                brt.anchorMin = new Vector2(0.5f, 0.5f);
+                brt.anchorMax = new Vector2(0.5f, 0.5f);
+                brt.anchoredPosition = new Vector2(0f, -140f);
+                brt.sizeDelta = new Vector2(280f, 64f);
+
+                GameObject labelObj = new GameObject("Label");
+                labelObj.transform.SetParent(btnObj.transform, false);
+                Text label = labelObj.AddComponent<Text>();
+                label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                label.fontSize = 22;
+                label.color = Color.white;
+                label.alignment = TextAnchor.MiddleCenter;
+                label.text = "메인으로";
+
+                RectTransform lrt = labelObj.GetComponent<RectTransform>();
+                lrt.anchorMin = Vector2.zero;
+                lrt.anchorMax = Vector2.one;
+                lrt.offsetMin = Vector2.zero;
+                lrt.offsetMax = Vector2.zero;
+
+                btnObj.SetActive(false);
+            }
         }
 
         private void OnEnable()
         {
             PlayerController.OnHealthChangedEvent += UpdateHealthUI;
+            PlayerController.OnPlayerDeathEvent += HandlePlayerDied;
             PlayerExperience.OnExpChangedEvent += UpdateExpUI;
             InstrumentManager.OnInstrumentsChangedEvent += UpdateInstrumentUI;
             RhythmManager.OnScoreUpdatedEvent += HandleScoreUpdated;
             BossMonster.OnBossSpawnedEvent += HandleBossSpawned;
             BossMonster.OnBossHpChangedEvent += UpdateBossHp;
             BossMonster.OnBossDefeatedEvent += HandleBossDefeated;
+            BossMonster.OnFinalBossClearedEvent += HandleFinalBossCleared;
+            BossMonster.OnFinalBossTimeUpEvent += HandleFinalBossTimeUp;
         }
 
         private void OnDisable()
         {
             PlayerController.OnHealthChangedEvent -= UpdateHealthUI;
+            PlayerController.OnPlayerDeathEvent -= HandlePlayerDied;
             PlayerExperience.OnExpChangedEvent -= UpdateExpUI;
             InstrumentManager.OnInstrumentsChangedEvent -= UpdateInstrumentUI;
             RhythmManager.OnScoreUpdatedEvent -= HandleScoreUpdated;
             BossMonster.OnBossSpawnedEvent -= HandleBossSpawned;
             BossMonster.OnBossHpChangedEvent -= UpdateBossHp;
             BossMonster.OnBossDefeatedEvent -= HandleBossDefeated;
+            BossMonster.OnFinalBossClearedEvent -= HandleFinalBossCleared;
+            BossMonster.OnFinalBossTimeUpEvent -= HandleFinalBossTimeUp;
         }
 
         private void HandleScoreUpdated(int score, int combo, HitRating rating)
@@ -110,6 +189,21 @@ namespace ConductorSymphony.Rhythm
         private void HandleBossDefeated()
         {
             ShowBossHpBar(false, 0);
+        }
+
+        private void HandleFinalBossCleared()
+        {
+            ShowVictoryScreen();
+        }
+
+        private void HandleFinalBossTimeUp()
+        {
+            ShowDefeatScreen("TIME OVER\nDEFEAT");
+        }
+
+        private void HandlePlayerDied()
+        {
+            ShowDefeatScreen("YOU DIED\nDEFEAT");
         }
 
         private void Update()
@@ -199,11 +293,41 @@ namespace ConductorSymphony.Rhythm
 
         public void ShowVictoryScreen()
         {
+            if (hasEnded) return;
+            hasEnded = true;
+
             if (victoryText != null)
             {
                 victoryText.gameObject.SetActive(true);
             }
+            if (returnToMenuButton != null)
+            {
+                returnToMenuButton.gameObject.SetActive(true);
+            }
             Time.timeScale = 0f; // Pause game on victory
+        }
+
+        public void ShowDefeatScreen(string message)
+        {
+            if (hasEnded) return;
+            hasEnded = true;
+
+            if (defeatText != null)
+            {
+                defeatText.text = message;
+                defeatText.gameObject.SetActive(true);
+            }
+            if (returnToMenuButton != null)
+            {
+                returnToMenuButton.gameObject.SetActive(true);
+            }
+            Time.timeScale = 0f; // Pause game on defeat
+        }
+
+        private void OnReturnToMenuClicked()
+        {
+            Time.timeScale = 1f; // MainMenu(및 이후 재진입할 Gameplay)가 멈춰있지 않도록 반드시 복원
+            SceneManager.LoadScene("MainMenu");
         }
     }
 }
