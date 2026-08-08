@@ -38,6 +38,14 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
         private static Sprite bladeSprite;
         private static Sprite slashSprite;
+        // 기존 CreateDiamond(16,7f,...) 풀캔버스 bounds(16px/100) - 손그림 아트로 교체해도 화면상 크기를
+        // 동일하게 유지하기 위한 기준값(첼로/빔과 동일 패턴).
+        private const float BladeReferenceContentSize = 0.16f;
+        // 2026-08-08: 위 기준값 그대로면(=예전 절차적 다이아몬드 크기) 회전 반경(1.4~1.68) 대비 너무
+        // 작아 "하나도 안 보인다"는 피드백을 받아 순수 시각 배율을 추가. 판정 반경(radius+0.4)과는
+        // 무관해서 밸런스에 영향 없음. 4배 시도 시 지름 약 0.64 - 칼날 5개(레가토+Multi 최대)일 때도
+        // 인접 칼날 간격(약 1.76)보다 충분히 작아 안 겹침. 더 키우고 싶으면 이 값만 올리면 됨.
+        private const float BladeVisualScale = 4f;
 
         public void Init(int level, int damage, Vector3 origin, Color color, int extraProjectiles)
         {
@@ -68,6 +76,13 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             ringSr.sortingOrder = 4;
             rangeRingObj.transform.localScale = Vector3.one * radius;
 
+            // 손그림 아트(Assets/Resources/Sprites/Effects/Blade/Blade.png)는 콘텐츠 크기가 기존
+            // CreateDiamond(16,7f,...)와 전혀 달라서(대략 1682x1718px vs 16x16px), 그대로 뒀으면 100배
+            // 넘게 이중 확대됐을 것 - 기존 기준 크기(BladeReferenceContentSize)로 정규화한 뒤
+            // BladeVisualScale(4배)만큼 더 키워서 실제로 보이게 한다.
+            float bladeMaxDim = Mathf.Max(bladeSprite.bounds.size.x, bladeSprite.bounds.size.y);
+            float bladeScale = (bladeMaxDim > 0.0001f) ? (BladeReferenceContentSize * BladeVisualScale / bladeMaxDim) : BladeVisualScale;
+
             for (int i = 0; i < bladeCount; i++)
             {
                 GameObject bladeObj = new GameObject($"ViolinBlade_{i}");
@@ -76,6 +91,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 sr.sprite = bladeSprite;
                 sr.color = color;
                 sr.sortingOrder = 13;
+                bladeObj.transform.localScale = Vector3.one * bladeScale;
                 blades.Add(bladeObj.transform);
             }
 
@@ -197,7 +213,14 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
         private static void EnsureSprites()
         {
-            if (bladeSprite == null) bladeSprite = ProceduralSpriteFactory.CreateDiamond(16, 7f, Color.white);
+            if (bladeSprite == null)
+            {
+                // 2026-08-08: 손그림 정지 이미지 1장(Assets/Resources/Sprites/Effects/Blade/Blade.png -
+                // 무채색 4방향 별 모양). 기존처럼 무채색 + sr.color 런타임 틴트 방식 그대로라 코드
+                // 흐름은 안 바뀜, 크기 정규화만 추가됨(위 BladeReferenceContentSize).
+                Sprite[] loaded = Resources.LoadAll<Sprite>("Sprites/Effects/Blade");
+                bladeSprite = (loaded != null && loaded.Length > 0) ? loaded[0] : ProceduralSpriteFactory.CreateDiamond(16, 7f, Color.white);
+            }
             if (slashSprite == null) slashSprite = ProceduralSpriteFactory.CreateFilledCircle(16, 7f, Color.white);
         }
     }
