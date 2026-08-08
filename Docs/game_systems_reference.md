@@ -601,9 +601,45 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
   사용) 한 곳에서만 로딩해 4곳 전부 자동 적용됨, 호출부 코드 변경 없음. 새 아트가 원본부터 길쭉한
   모양(~7~8:1)이라 기존 정사각형 폴백 원 기준 고정 배율을 그대로 곱하면 이중 확대될 뻔한 것을
   콘텐츠 크기 역산 정규화로 사전 방지(`ReferenceContentSize` 기준, 폴백 시 수학적으로 이전과 100%
-  동일한 결과 확인됨).
-- **남은 항목**: 필드/존(첼로/플루트/프렌치호른/팀파니 지진지대, 4종), 바이올린 칼날·참격 중 "칼날"
-  부분(참격은 빔 완료로 같이 해결됨) — 아직 미착수.
+  동일한 결과 확인됨). 테스트 PASS 후 실측정으로 화면상 크기가 너무 작다는 사용자 피드백(기존
+  절차적 원 자체가 원래도 작았던 것과 동일 재현)을 받아 `ArtVisualScale`(순수 시각 배율, 판정
+  반경과 무관) 상수를 추가해 3배로 조정 - 추가 플레이테스트 필요 시 이 상수만 조정하면 됨.
+- **필드/존 - 첼로 중력장 11프레임 스월 애니메이션 연동 완료, 테스트 PASS(2026-08-08)**:
+  `Assets/Resources/Sprites/Effects/GravityField/gravity_field1~11.png`(사용자가 회전만으론 밋밋할
+  것 같다며 프레임별로 형태가 변하는 11장을 직접 그림). `CelloGravityFieldEffect.cs`에 로딩+자연
+  정렬+애니메이션 연동. 두 가지를 사전에 방지함: (1) 프레임이 11장(두 자리 번호)이라 기존
+  `string.CompareOrdinal` 정렬을 그대로 썼다면 `1,10,11,2,3...` 순으로 잘못 정렬됐을 것 - 파일명
+  끝 숫자를 정수로 비교하는 자연 정렬로 교체. (2) 손그림 아트(콘텐츠가 캔버스를 거의 꽉 채움)가
+  기존 절차적 원(28px 캔버스)과 bounds 크기가 완전히 달라 기존 매직넘버(`radius*0.9`를 아트 크기와
+  링 보정 양쪽에 재사용)를 그대로 뒀으면 이중 확대됐을 것 - 아트를 별도 자식 오브젝트로 분리해
+  콘텐츠 크기 기반으로 독립 계산하도록 재구성(`ReferenceContentSize`/`ArtVisualScale` 패턴, 빔과
+  동일). 색상은 아트 자체의 보라-파랑 톤을 그대로 쓰기로 결정(첼로 공식색인 갈색은 범위 링에만
+  계속 사용 - 사용자 결정, 코드 버그 아님). **Unity MCP 배치 테스트에서 실제 버그 1건 발견+수정**:
+  Sprite Mode가 Multiple로 임포트되면 Unity가 서브스프라이트 이름 끝에 `_인덱스`를 자동으로 붙여서
+  (예: `gravity_field10` → `gravity_field10_0`) `ExtractTrailingNumber()`가 그 인덱스(항상 "0")를
+  프레임 번호로 착각 - 자연 정렬이 사실상 무력화되어 `field1,field10,field11,field2...` 순으로
+  잘못 재생되고 있었다. 번호 추출 전에 `_<숫자>` 접미사를 먼저 제거하도록 수정, 재검증 결과
+  `field1→2→...→11` 순서로 정확히 재생됨을 확인. 검증 완료(archive 이동).
+- **필드/존 - 플루트 소용돌이 정지 이미지 + 펄스 연동, 테스트 PASS(2026-08-08)**:
+  `Assets/Resources/Sprites/Effects/Vortex/Vortex.png`(동심원 형태). 영상 생성 토큰 소진으로 영상/
+  프레임 추출 없이 정지 이미지 1장만 사용하기로 결정. 동심원이라 회전은 시각적으로 티가 안 나서
+  (완전 대칭) 회전 대신 코드 쪽 스케일 펄스(±6%, `Mathf.Sin`)로 "숨쉬는" 느낌만 보완 - 판정 반경/
+  흡입력에는 영향 없는 순수 시각 효과. 첼로와 동일한 이유로 아트를 별도 자식 오브젝트로 분리해 콘텐츠
+  크기 기반 정규화 적용(이중 확대 버그 사전 방지, 실측으로 기존과 동일한 크기 확인). 코드 변경
+  불필요, 그대로 PASS.
+- **프렌치호른 부채꼴 / 잔류 장판(팀파니·벨·바이올린 Lv5 공유) / 바이올린 칼날 - 정지 이미지 연동,
+  테스트 PASS(2026-08-08)**: `Assets/Resources/Sprites/Effects/HornCone/HornCone.png`,
+  `LingeringZone/LingeringZone.png`, `Blade/Blade.png`. 프렌치호른은 이번에 처음으로 진짜 방향성
+  있는 부채꼴 아트가 생기면서, 기존 "원으로 근사 + 위치를 앞으로 밀어두는 트릭"을 제거하고 실제
+  `transform.rotation`으로 이동 방향을 향하도록 바꿈(아트의 뾰족한 끝을 `sprite.bounds.min.x` 기준으로
+  플레이어 위치에 정확히 앵커링 - 실측으로 회전 중에도 흔들리지 않음 확인). 잔류 장판은 팀파니/벨/
+  바이올린 3개 악기가 색이 다른 채로 클래스 하나를 공유하는데, 기존엔 색을 텍스처에 직접 구웠던 걸
+  무채색 아트 + `SpriteRenderer.color` 런타임 틴트(빔/버스트와 동일 패턴)로 바꿔서 3개 악기 색 전부
+  정확히 반영됨을 실측 확인. 바이올린 칼날은 콘텐츠 크기 정규화만 추가(정규화 없이 그대로 붙였으면
+  100배 넘게 이중 확대됐을 크기 차이, 정규화 후 기존과 동일한 0.16 크기로 확인). 세 곳 다 판정/넉백/
+  디버프/틱데미지/보스 피해 회귀 없음. 코드 변경 불필요, 그대로 PASS.
+- **남은 항목**: 없음 - VFX 픽셀아트 전 항목(범위 링 제외) 코드 연동 + Unity MCP 실측 테스트 전부
+  완료. 몬스터/보스 픽셀아트만 사용자가 의도적으로 나중으로 미룬 상태로 남음.
 
 *(관련 검증: `archive/instrument_sprite_import_test_guide.md`, `archive/impact_burst_sprite_animation_test_guide.md`)*
 
@@ -631,5 +667,8 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
 | 임팩트 버스트 크기 정규화 / 보스 단독 페이즈 타겟팅·틱데미지 누락(5+3악기) / 팀파니 홀드 밀도(16→10) | Unity MCP 실측(리플렉션+실스폰) | PASS | `archive/bugfix_burst_scale_and_boss_targeting_test_guide.md` |
 | 바이올린/첼로 홀드 밀도(13→11), 프렌치호른/플루트 무변경 판단 | Unity MCP 실측(시뮬레이션 재현) | PASS | `archive/violin_cello_hold_density_fix_test_guide.md` |
 | 빔/투사체 4프레임 반짝임 애니메이션 연동(피아노/벨/마림바/바이올린 참격) | Unity MCP 실측(리플렉션 기반) | PASS | `archive/beam_sprite_animation_test_guide.md` |
+| 첼로 중력장 11프레임 스월 애니메이션 연동(자연 정렬 버그 발견+수정 포함) | Unity MCP 실측(리플렉션 기반) | PASS | `archive/cello_gravity_field_animation_test_guide.md` |
+| 플루트 소용돌이 정지 이미지 + 펄스 연동 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/flute_vortex_static_art_test_guide.md` |
+| 프렌치호른 부채꼴 회전+피벗 보정 / 잔류 장판(팀파니·벨·바이올린 Lv5) 색 틴트 / 바이올린 칼날 크기 정규화 | Unity MCP 실측(리플렉션+실스폰) | PASS | `archive/horncone_lingeringzone_blade_art_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*

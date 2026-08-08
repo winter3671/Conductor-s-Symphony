@@ -53,9 +53,11 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         // 2026-08-08: 위 ReferenceContentSize 정규화가 "예전 프로시저럴 원과 완전히 동일한 화면 크기"를
         // 만드는 데는 성공했지만, 그 예전 크기 자체가 (0.176 x 0.045 월드유닛) 너무 작아서 새로 그린
         // 디테일한 아트가 잘 안 보인다는 피드백(2026-08-08, 실제 플레이 확인). 판정 반경(hitRadius)과는
-        // 완전히 무관한 순수 시각 배율이라 여기서만 키우면 밸런스에 영향 없음. 최초 시도값 3배 - 플레이
-        // 테스트 후 필요하면 이 상수만 조정하면 됨.
-        private const float ArtVisualScale = 3f;
+        // 완전히 무관한 순수 시각 배율이라 여기서만 키우면 밸런스에 영향 없음. 최초 시도값 3배로는
+        // 아직도 "하나도 안 보인다"는 재피드백(바이올린 릴리즈 참격 기준, 2026-08-08)을 받아 6배로
+        // 재조정 - 최종 크기는 대략 1.06 x 0.27 월드유닛(hitRadius 지름 1.0과 비슷한 정도). 그래도
+        // 작으면 이 상수만 더 올리면 됨.
+        private const float ArtVisualScale = 6f;
 
         public void Initialize(Vector3 startPos, Vector3 dir, float speed, int damage, int pierceCount, float maxRange, bool bounceOnMaxRange, Sprite sprite, Color color, float visualLength = 1.1f, float sizeMultiplier = 1f, System.Action<EnemyMonster, Vector3> onHitEnemy = null)
         {
