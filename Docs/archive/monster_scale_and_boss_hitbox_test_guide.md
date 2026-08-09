@@ -72,4 +72,16 @@
 
 ## 4. 검증 결과
 
-(검증 완료 후 이 아래에 append)
+**검증 환경**: Unity 6000.5.5f1, `feat/gameplay_core` 브랜치, 커밋 전(작업 트리 상태) `Gameplay.unity` 씬. Unity MCP를 통해 코드 리뷰 + 실제 Play 모드 런타임 검증(리플렉션으로 스폰/씬 오브젝트를 직접 생성·조작, 스크린샷 촬영) 진행.
+
+- [x] **컴파일 에러/경고 0건**: `refresh_unity(force, compile=request)` 이후 `read_console`로 확인, 이후 Play 모드 실행/종료 전 구간에서도 0건 유지.
+- [x] **일반 몬스터 크기**: `EnemySpawner.SpawnEnemy()`와 동일한 방식으로 실제 `QuarterNote` 스프라이트를 넣어 `EnemyMonster.Initialize()` 호출 → `Visual` 자식의 렌더 지름 = 1.5 (= `ReferenceContentSize(0.6) × ArtVisualScale(2.5)`, 정확히 2.5배). 루트 `circleCollider.radius`는 0.4 그대로 유지됨(회귀 없음).
+- [x] **엘리트 크기**: `BossMonster.Initialize(200)` 실행 → 실제 로드된 `Drum_Elite` 스프라이트 기준 렌더 지름 = 3.2 (`EliteReferenceContentSize` 그대로, 기대값 일치). 스크린샷으로 일반 몹보다 뚜렷이 큼을 육안 확인(3종 중 드럼 확인, 로직상 바이올린/피아노도 동일 코드 경로 사용).
+- [x] **최종보스 크기**: `BossMonster.InitializeFinalBoss(180000, 120f)` 실행 → `MusicBox_Boss` 스프라이트 기준 렌더 지름 = 4.8 (`BossReferenceContentSize` 그대로, 기대값 일치). 스크린샷상 엘리트보다 한층 더 크게 보임을 확인.
+- [x] **지휘자 캐릭터 크기**: 씬에 저장된 `PlayerController.targetWorldHeight` 리플렉션 조회 결과 1.08 확인(문서 기재값과 일치). Play 모드 진입 후 실제 `transform.localScale`은 (0.04458, 0.04458, 1) → 스프라이트 bounds.size.y(24.23) × scale = 1.08로 렌더 월드 높이가 정확히 targetWorldHeight와 일치함을 계산 및 스크린샷으로 확인.
+- [x] **엘리트 공격 판정**: `LingeringZoneEffect`(radius=1.0)를 엘리트 중심에서 거리 2.0에 생성 후 실제 프로덕션 `Update()`를 리플렉션으로 구동(에디터 미포커스 상태라 `Time`이 실시간 진행되지 않아 수동 pump로 프레임을 대신 발생시킴) → HP 200→155로 정상 감소(플레인 반경 1.0만으론 원래 미스였어야 할 거리인데, `+HitboxRadius(1.6)` 보정 덕에 명중 확인). 대조군(거리 3.0, 유효범위 2.6 밖)은 HP 불변으로 정상 미스 확인(오탐 아님). `PiercingBeamProjectile`(피아노/벨/마림바 공용)로 최종보스에도 동일 패턴 재검증 - 거리 2.7(플레인 hitRadius 0.5는 벗어나지만 `+HitboxRadius(2.4)`=2.9 이내)에서 HP 180000→179950 정상 감소 확인.
+- [x] **최종보스 공격 판정**: 위 `PiercingBeamProjectile` 테스트로 확인(HitboxRadius=2.4 리플렉션 조회값도 기대값과 일치).
+- [x] **엘리트/보스 몸박(접촉 데미지) 판정**: 리플렉션으로 `circleCollider.radius` 조회 - 엘리트 2.0(하한선 적용, 기존과 동일·회귀 없음), 최종보스 2.4(기대값 일치, 기존 2.0 대비 확대). 최종보스의 `OnTriggerEnter2D`를 플레이어 콜라이더로 직접 구동해 플레이어 HP 100→85(-15)로 접촉 데미지가 실제로 들어감을 확인.
+- [x] **밸런스 회귀 없음**: 7개 공격 이펙트 파일(`AreaImpactEffect`/`CelloGravityFieldEffect`/`DrumBeatBangEffect`/`FrenchHornConeEffect`/`LingeringZoneEffect`/`PiercingBeamProjectile`/`ViolinOrbitEffect`) 코드 리뷰 완료 - 전부 `Vector3.Distance(...) <= radius + BossMonster.Instance.HitboxRadius` 패턴(프렌치호른은 부채꼴 range, 바이올린은 기존 `+0.4f` 유지한 채 추가)으로 일관되게 적용됨을 확인. HP/데미지/이동속도/스폰주기 등 다른 수치는 코드상 손댄 흔적 없음.
+
+**결론**: 문서에 기술된 모든 변경사항이 코드·런타임 양쪽에서 기대값과 정확히 일치. 회귀 없음. 이상 없어 커밋 가능한 상태로 판단됨.

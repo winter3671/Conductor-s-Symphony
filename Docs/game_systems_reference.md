@@ -610,8 +610,8 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
 콘솔 에러 無 - "존재하지만 텅 빈" 스프라이트). 4개 `.meta`의 `spriteImportMode`를 Multiple → Single로
 재임포트해 해결(코드 변경 없음). 상세: `archive/monster_art_integration_test_guide.md` 4절 부록.
 
-**엘리트/보스 시각 크기 2배 확대 + 지휘자 캐릭터 축소 + 엘리트/보스 판정 범위 동기화 - 구현 완료,
-Unity MCP 실측 대기(2026-08-09).** 위 검증이 끝난 뒤 "몬스터가 너무 작아서 안 보인다"는 피드백으로
+**엘리트/보스 시각 크기 2배 확대 + 지휘자 캐릭터 축소 + 엘리트/보스 판정 범위 동기화 - Unity MCP
+실측 PASS, 검증 완료(2026-08-09).** 위 검증이 끝난 뒤 "몬스터가 너무 작아서 안 보인다"는 피드백으로
 `EnemyMonster.ArtVisualScale`(1→2.5)·`BossMonster.EliteReferenceContentSize`(1.6→3.2)·
 `BossReferenceContentSize`(2.4→4.8)를 확대하고, 균형을 맞추려 `PlayerController.targetWorldHeight`를
 1.0→0.5로 축소(코드 기본값, `Gameplay.unity`/`Player.prefab` 직렬화 값도 동기화: 1.8→0.9, 1→0.5).
@@ -625,9 +625,11 @@ Unity MCP 실측 대기(2026-08-09).** 위 검증이 끝난 뒤 "몬스터가 �
 `LingeringZoneEffect`/`PiercingBeamProjectile`/`ViolinOrbitEffect` 7곳의 보스 판정 거리 비교에
 `+ HitboxRadius`를 더해 보정. 몸박(플레이어 접촉 데미지) 콜라이더도 `Mathf.Max(HitboxRadius, 2.0f)`로
 맞춰서 보스(2.4)는 커진 만큼 넓어지고, 엘리트는 새 비주얼 반지름(1.6)이 기존 고정값(2.0)보다 작아
-그대로 뒀다면 오히려 좁아졌을 것을 하한선으로 방지(회귀 없이 기존 2.0 유지). **아직 Unity MCP
-실측 전** - 검증 가이드:
-`monster_scale_and_boss_hitbox_test_guide.md` (검증 후 `archive/`로 이동 예정).
+그대로 뒀다면 오히려 좁아졌을 것을 하한선으로 방지(회귀 없이 기존 2.0 유지). **PASS** - Unity MCP
+세션이 리플렉션으로 값만 확인한 게 아니라 실제로 공격을 명중시켜 `BossMonster.CurrentHp`가
+줄어드는 것까지 실측 확인(엘리트: 순수 반경 밖 거리에서도 `HitboxRadius` 보정으로 명중, 대조군은
+정상 미스 확인 / 최종보스: 몸박 접촉으로 플레이어 HP도 정상 감소 확인). 검증 로그:
+`archive/monster_scale_and_boss_hitbox_test_guide.md`.
 
 **이펙트(VFX) 픽셀아트 - 착수함(2026-08-08).** 절차적 이펙트를 역할별로 나눠 접근하기로 함(§2 각
 악기 절 + 코드 조사 기준): 범위 링(현행 유지, 손그림 불필요) / 임팩트·버스트(다이아몬드) / 빔·투사체
@@ -702,16 +704,22 @@ Background/ParquetFloor.png`에 배치. `CameraController`가 플레이어를 �
    지원하지 않음. `mainTextureOffset` 프로퍼티 값 자체는 정상 설정됐지만(그래서 리플렉션 수치
    검증은 통과) 실제 렌더링엔 전혀 반영 안 됐던 것 - "값이 맞다"와 "화면에 반영된다"를 구분 못한
    검증 함정. **전면 재작성**: 셰이더 트릭을 버리고 실제 타일 스프라이트 여러 장을 격자로 배치해
-   카메라를 따라 재배치하는 순수 Transform 기반 방식으로 교체(`BackgroundTiler.cs`). **구현 완료,
-   Unity MCP 실측 대기 - 이번엔 스크린샷상 특징점의 화면 좌표 이동을 직접 대조하도록 검증 항목에
-   명시.** 검증 가이드: `background_grid_scroll_rewrite_test_guide.md`.
+   카메라를 따라 재배치하는 순수 Transform 기반 방식으로 교체(`BackgroundTiler.cs`). **PASS,
+   재검증 완료(2026-08-09)** - 이번엔 리플렉션 수치만이 아니라 실제 프로덕션 `LateUpdate()`를
+   직접 구동해 스크린샷 픽셀 단위로 무늬 위치가 실제로 이동함을 확인(플레이어 5유닛 이동 시 화면상
+   약 220px 이동, 이론값 216px와 거의 일치), 타일 래핑/왕복 일관성도 전부 확인. 알려진 한계 1건:
+   `BuildGrid()`가 `Awake()` 시점 1회만 격자 크기를 계산해서, 런타임 중 `orthographicSize`/화면
+   비율이 바뀌면 격자가 부족해질 수 있음(현재 게임은 런타임에 이 값이 안 바뀌므로 실무 영향 없음
+   - 버그가 아니라 알려진 제약). 성능(배칭)은 자동화 환경 한계로 수치 미실측, 수동 확인 권장.
+   검증 로그: `archive/background_grid_scroll_rewrite_test_guide.md`.
 
 검증 중 사소한 소동 하나: 처음 전달된 `ParquetFloor.png`가 파일 내용이 전부 0바이트인 빈 파일로
 확인되어(PNG 헤더조차 없음) 한 차례 재저장을 요청했고, 재저장 후 정상 진행됨.
 
-- **남은 항목**: 엘리트/보스 시각 크기 2배 확대·지휘자 축소·판정 범위 동기화, 배경 스크롤 격자
-  재배치 방식 재검증 - 둘 다 Unity MCP 실측 대기. 그 외 VFX +
-  몬스터/보스 픽셀아트 전 항목도 코드 연동 + 실측 테스트 전부 완료.
+- **남은 항목**: 없음 - 인게임 배경(타일링/격자 스크롤/남색 아트), 엘리트/보스 크기·판정 범위
+  동기화 포함 이번 세션에서 진행한 항목 전부 Unity MCP 실측 완료. VFX + 몬스터/보스 픽셀아트도
+  전부 완료. 배경 격자의 "런타임 화면 비율 변경 미대응" 1건만 알려진 제약사항으로 남아있음(필요
+  시 추후 개선).
 
 *(관련 검증: `archive/instrument_sprite_import_test_guide.md`, `archive/impact_burst_sprite_animation_test_guide.md`)*
 
@@ -744,8 +752,10 @@ Background/ParquetFloor.png`에 배치. `CameraController`가 플레이어를 �
 | 프렌치호른 부채꼴 회전+피벗 보정 / 잔류 장판(팀파니·벨·바이올린 Lv5) 색 틴트 / 바이올린 칼날 크기 정규화 | Unity MCP 실측(리플렉션+실스폰) | PASS | `archive/horncone_lingeringzone_blade_art_test_guide.md` |
 | 악기별 레벨 스케일링 수치 데이터화(`InstrumentLevelStats.cs`, 10종 30개 스탯) | Unity MCP 실측(API 직접호출+리플렉션+Play모드) | PASS | `archive/instrument_level_stats_dataification_test_guide.md` |
 | 몬스터/보스 도트 아트 연동(일반 3종/엘리트 3종/보스 1종, content-aware 정규화 + 무틴트 전환 + 피격 플래시 방식 교체) | Unity MCP 실측(리플렉션+Play모드+이벤트 콜백) | PASS | `archive/monster_art_integration_test_guide.md` |
+| 엘리트/보스 시각 크기 2배 확대 + 지휘자 축소 + 판정 범위 동기화(HitboxRadius, 7개 공격 이펙트) | Unity MCP 실측(실제 공격 명중시켜 HP 감소까지 확인, 대조군 미스 확인) | PASS | `archive/monster_scale_and_boss_hitbox_test_guide.md` |
 | 인게임 무한 타일링 배경(BackgroundTiler, 화면 커버리지/카메라 추적/정렬순서) | Unity MCP 실측 | PASS | `archive/background_tiling_test_guide.md` |
 | 남색 헤링본 아트 교체(가독성) | Unity MCP 실측(스크린샷 비교) | PASS | `archive/background_worldlock_scroll_test_guide.md` |
-| ~~배경 월드 고정 스크롤 버그 수정(mainTextureOffset)~~ - **오판으로 정정**: 사용자 실플레이에서 재현 안 됨. 스프라이트 셰이더가 `_MainTex_ST`를 지원 안 해서 값만 맞고 화면엔 반영 안 됐음 | Unity MCP 실측(수치만 검증, 렌더링 결과 미확인 - 검증 함정) | **PASS 취소, 격자 재배치 방식으로 재작성 중** | `archive/background_worldlock_scroll_test_guide.md` (후속: `background_grid_scroll_rewrite_test_guide.md`) |
+| ~~배경 월드 고정 스크롤 버그 수정(mainTextureOffset)~~ - **오판으로 정정**: 사용자 실플레이에서 재현 안 됨. 스프라이트 셰이더가 `_MainTex_ST`를 지원 안 해서 값만 맞고 화면엔 반영 안 됐음 | Unity MCP 실측(수치만 검증, 렌더링 결과 미확인 - 검증 함정) | PASS 취소 → 아래 항목으로 대체 | `archive/background_worldlock_scroll_test_guide.md` |
+| 배경 스크롤 격자 재배치 방식 재작성(BackgroundTiler 전면 재작성, 셰이더 의존 제거) | Unity MCP 실측(리플렉션 아닌 스크린샷 픽셀 단위 대조 + 실제 프로덕션 코드 직접 구동) | PASS (런타임 화면 비율 변경 미대응은 알려진 제약으로 남김) | `archive/background_grid_scroll_rewrite_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*
