@@ -716,10 +716,33 @@ Background/ParquetFloor.png`에 배치. `CameraController`가 플레이어를 �
 검증 중 사소한 소동 하나: 처음 전달된 `ParquetFloor.png`가 파일 내용이 전부 0바이트인 빈 파일로
 확인되어(PNG 헤더조차 없음) 한 차례 재저장을 요청했고, 재저장 후 정상 진행됨.
 
-- **남은 항목**: 없음 - 인게임 배경(타일링/격자 스크롤/남색 아트), 엘리트/보스 크기·판정 범위
-  동기화 포함 이번 세션에서 진행한 항목 전부 Unity MCP 실측 완료. VFX + 몬스터/보스 픽셀아트도
-  전부 완료. 배경 격자의 "런타임 화면 비율 변경 미대응" 1건만 알려진 제약사항으로 남아있음(필요
-  시 추후 개선).
+배경 작업 다음 UI/UX 폴리싱 우선순위를 논의한 뒤, 사용자가 1순위로 **도트 폰트 통일**을 선택.
+게임 전체 UI가 유니티 기본 폰트(Arial 계열)를 쓰고 있어 완성도가 떨어져 보인다는 피드백에서
+시작. 한글 지원 도트 폰트 **갈무리(Galmuri)**의 `Galmuri9`(본문)/`Galmuri11-Bold`(강조) 2종을
+`Assets/Resources/Fonts/`에 배치하고, 신규 정적 헬퍼 `Assets/Scripts/Utility/GameFonts.cs`
+(`GameFonts.Body`/`GameFonts.Headline`, `Resources.Load` 결과 캐싱)를 만들어 코드로 UI를 생성하는
+3개 파일 총 7곳(`LevelUpUI.cs` 카드 제목/설명, `RhythmUI.cs` 보스 HP·승리·패배 문구·메인으로
+버튼, `HitFloatingText.cs` PERFECT!/GREAT!/MISS 판정 팝업)을 전부 교체 완료. 판정 팝업에 걸려있던
+합성 `FontStyle.BoldAndItalic`도 `Normal`로 제거(도트 폰트는 합성 스타일을 걸면 픽셀이 뭉개져
+지저분해짐 - 폰트 자체가 이미 Bold라 불필요).
+
+`Assets/Prefabs/UI/MainMenuCanvas.prefab`(메인 메뉴/설정 화면)은 코드가 아니라 에디터에서 직접
+만든 프리팹이라 폰트 일괄 교체를 Unity MCP 세션에 위임했고, **실측 결과 PASS**
+(`archive/font_unification_test_guide.md`). 실제로는 문서에 적었던 "약 20개" 추정과 달리 `Text`
+컴포넌트가 **50개**였음(키 리바인드 UI가 8행×4텍스트 구조라 예상보다 많았음). Unity MCP 세션이
+전수 조사 후 위계를 직접 판단해 분류: **Headline(7곳)** - 게임 타이틀, 메인 화면 1차 CTA 3개
+(시작/설정/종료), 설정 화면 섹션 소제목 2개, 싱크 캘리브레이션 결과 라벨. **Body(43곳)** - 볼륨
+라벨, 키 리바인드 행 32개, 보조 액션 버튼(재시도/뒤로가기/닫기 등), 안내 문구 - 나머지 전부.
+적용 후 전체 50개 재검사로 Galmuri9=43/Galmuri11-Bold=7/Arial 잔존=0/Null=0 확인. Play 모드
+스크린샷으로 한글 렌더링(글리프 누락 없음), 리치텍스트 색상 태그 정상 동작, 레이아웃 회귀 없음도
+전부 확인. 부수적으로 폰트 교체 전엔 유니티 기본 폰트가 한글을 지원하지 않아 각 글자가 폭 0으로
+계산돼 한 줄에 한 글자씩 세로로 쌓이는 기형적 레이아웃이었던 것도 함께 발견/해결됨.
+
+- **남은 항목**: 없음 - 도트 폰트 통일(코드 7곳 + `MainMenuCanvas.prefab` 50곳) 포함 이번 세션
+  진행 항목 전부 Unity MCP 실측 완료. 인게임 배경(타일링/격자 스크롤/남색 아트), 엘리트/보스
+  크기·판정 범위 동기화, VFX + 몬스터/보스 픽셀아트도 전부 완료. 배경 격자의 "런타임 화면 비율
+  변경 미대응" 1건만 알려진 제약사항으로 남아있음(필요 시 추후 개선). UI 폴리싱 로드맵의 나머지
+  항목(패널/카드 9-slice 배경, HUD 아이콘/바, 애니메이션 연출)은 아직 미착수.
 
 *(관련 검증: `archive/instrument_sprite_import_test_guide.md`, `archive/impact_burst_sprite_animation_test_guide.md`)*
 
@@ -757,5 +780,6 @@ Background/ParquetFloor.png`에 배치. `CameraController`가 플레이어를 �
 | 남색 헤링본 아트 교체(가독성) | Unity MCP 실측(스크린샷 비교) | PASS | `archive/background_worldlock_scroll_test_guide.md` |
 | ~~배경 월드 고정 스크롤 버그 수정(mainTextureOffset)~~ - **오판으로 정정**: 사용자 실플레이에서 재현 안 됨. 스프라이트 셰이더가 `_MainTex_ST`를 지원 안 해서 값만 맞고 화면엔 반영 안 됐음 | Unity MCP 실측(수치만 검증, 렌더링 결과 미확인 - 검증 함정) | PASS 취소 → 아래 항목으로 대체 | `archive/background_worldlock_scroll_test_guide.md` |
 | 배경 스크롤 격자 재배치 방식 재작성(BackgroundTiler 전면 재작성, 셰이더 의존 제거) | Unity MCP 실측(리플렉션 아닌 스크린샷 픽셀 단위 대조 + 실제 프로덕션 코드 직접 구동) | PASS (런타임 화면 비율 변경 미대응은 알려진 제약으로 남김) | `archive/background_grid_scroll_rewrite_test_guide.md` |
+| 도트 폰트(갈무리) 통일 - 코드 생성 UI 7곳 + MainMenuCanvas.prefab 50곳 일괄 교체 | Unity MCP 실측(전수 검사+Play모드 스크린샷) | PASS (Galmuri9=43/Galmuri11-Bold=7/Arial 잔존 0건, 한글 렌더링·리치텍스트·레이아웃 회귀 전부 확인) | `archive/font_unification_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*

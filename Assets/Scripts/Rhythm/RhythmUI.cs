@@ -43,7 +43,7 @@ namespace ConductorSymphony.Rhythm
                 GameObject bObj = new GameObject("BossHpText");
                 bObj.transform.SetParent(transform, false);
                 bossHpText = bObj.AddComponent<Text>();
-                bossHpText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                bossHpText.font = GameFonts.Headline;
                 bossHpText.fontSize = 28;
                 bossHpText.color = new Color(1.0f, 0.2f, 0.2f);
                 bossHpText.alignment = TextAnchor.UpperCenter;
@@ -76,7 +76,7 @@ namespace ConductorSymphony.Rhythm
                 GameObject vObj = new GameObject("VictoryText");
                 vObj.transform.SetParent(transform, false);
                 victoryText = vObj.AddComponent<Text>();
-                victoryText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                victoryText.font = GameFonts.Headline;
                 victoryText.fontSize = 42;
                 victoryText.color = Color.gold;
                 victoryText.alignment = TextAnchor.MiddleCenter;
@@ -96,7 +96,7 @@ namespace ConductorSymphony.Rhythm
                 GameObject dObj = new GameObject("DefeatText");
                 dObj.transform.SetParent(transform, false);
                 defeatText = dObj.AddComponent<Text>();
-                defeatText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                defeatText.font = GameFonts.Headline;
                 defeatText.fontSize = 42;
                 defeatText.color = new Color(0.85f, 0.25f, 0.25f);
                 defeatText.alignment = TextAnchor.MiddleCenter;
@@ -131,7 +131,7 @@ namespace ConductorSymphony.Rhythm
                 GameObject labelObj = new GameObject("Label");
                 labelObj.transform.SetParent(btnObj.transform, false);
                 Text label = labelObj.AddComponent<Text>();
-                label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                label.font = GameFonts.Body;
                 label.fontSize = 22;
                 label.color = Color.white;
                 label.alignment = TextAnchor.MiddleCenter;

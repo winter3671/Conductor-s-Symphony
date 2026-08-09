@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Rhythm
 {
@@ -32,9 +33,12 @@ namespace ConductorSymphony.Rhythm
             textObj.transform.SetParent(transform, false);
 
             textComponent = textObj.AddComponent<Text>();
-            textComponent.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            // 2026-08-10: Galmuri11-Bold(도트 폰트)로 교체하면서 합성 Bold/Italic은 뺐다 - 도트
+            // 폰트에 유니티가 강제로 기울이거나 획을 두껍게 뭉개면(합성 스타일) 픽셀이 안 맞게
+            // 뭉개져서 지저분해 보인다. 폰트 자체가 이미 Bold 굵기라 별도 스타일 없이도 충분히 강조됨.
+            textComponent.font = GameFonts.Headline;
             textComponent.fontSize = 36;
-            textComponent.fontStyle = FontStyle.BoldAndItalic;
+            textComponent.fontStyle = FontStyle.Normal;
             textComponent.alignment = TextAnchor.MiddleCenter;
 
             RectTransform textRt = textObj.GetComponent<RectTransform>();

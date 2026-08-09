@@ -111,7 +111,7 @@ namespace ConductorSymphony.UI
                     GameObject tObj = new GameObject("TitleText");
                     tObj.transform.SetParent(btnObj.transform, false);
                     Text title = tObj.AddComponent<Text>();
-                    title.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    title.font = GameFonts.Headline;
                     title.fontSize = 18;
                     title.color = Color.white;
                     title.alignment = TextAnchor.MiddleCenter;
@@ -142,7 +142,7 @@ namespace ConductorSymphony.UI
                     GameObject dObj = new GameObject("DescText");
                     dObj.transform.SetParent(btnObj.transform, false);
                     Text desc = dObj.AddComponent<Text>();
-                    desc.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    desc.font = GameFonts.Body;
                     desc.fontSize = 13;
                     desc.color = new Color(0.85f, 0.85f, 0.85f);
                     desc.alignment = TextAnchor.MiddleCenter;
