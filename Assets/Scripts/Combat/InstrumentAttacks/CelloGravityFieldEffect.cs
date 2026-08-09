@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using ConductorSymphony.Enemy;
+using ConductorSymphony.Instrument;
 using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
@@ -62,8 +63,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             this.level = level;
             this.damage = damage;
             // Lv2+: 범위 +20% × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
-            radius = 1.8f * (level >= 2 ? 1.2f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
-            slowFraction = (level >= 3) ? 0.6f : 0.4f;         // Lv1: 40%, Lv3+: 60%
+            // 2026-08-09: 레벨별 배율/수치를 InstrumentLevelStats로 데이터화(순수 추출, 값 변경 없음).
+            radius = 1.8f * InstrumentLevelStats.GetRangeMultiplier(InstrumentType.Cello, level) * CombatTargetingUtility.GetRangeMultiplier();
+            slowFraction = InstrumentLevelStats.CelloSlowFraction[InstrumentLevelStats.Idx(level)]; // Lv1: 40%, Lv3+: 60%
 
             // 2026-08-08 버그 수정: 잡몹 없이 보스만 남았을 때도 필드가 보스 발밑에 생성되도록
             // GetNearestTargetPosition으로 교체(기존엔 origin=플레이어 위치에 생성되던 버그).
@@ -214,7 +216,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             if (BossMonster.Instance != null)
             {
                 float bossDist = Vector3.Distance(transform.position, BossMonster.Instance.transform.position);
-                if (bossDist <= radius)
+                if (bossDist <= radius + BossMonster.Instance.HitboxRadius)
                 {
                     BossMonster.Instance.TakeDamage(damage);
                 }
@@ -226,7 +228,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             // Lv4: 즉시 파괴하지 않고 잔류시간(+30%) 동안 필드를 유지한다. 자체 Update()가 이어받는다.
             // 페르마타(Fermata) 패시브 "지속시간 증가"도 함께 반영.
             isLingering = true;
-            lingerTimer = BaseLingerDuration * (level >= 4 ? 1.3f : 1f) * CombatTargetingUtility.GetDurationMultiplier();
+            lingerTimer = BaseLingerDuration * InstrumentLevelStats.GetDurationMultiplier(InstrumentType.Cello, level) * CombatTargetingUtility.GetDurationMultiplier();
         }
 
         private void Update()

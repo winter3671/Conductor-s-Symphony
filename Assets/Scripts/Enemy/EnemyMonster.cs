@@ -13,6 +13,15 @@ namespace ConductorSymphony.Enemy
         private int currentHealth;
         private Transform playerTransform;
         private SpriteRenderer spriteRenderer;
+        private Transform visualTransform;
+
+        // 2026-08-09: 실제 도트 아트(음표 몬스터) 연동. 콜라이더는 이 GameObject(root)에 고정 반경(0.4,
+        // EnemySpawner.SpawnEnemy() 참고)으로 붙어있으므로, root의 transform.localScale은 절대 건드리면
+        // 안 된다(콜라이더 월드 반경까지 같이 줄어들어버림 - Cello/FrenchHorn 등에서 반복된 "content-aware
+        // normalization" 패턴과 동일한 이유). 대신 별도 자식 오브젝트(Visual)에 아트를 그리고, 그 자식의
+        // localScale만 스프라이트 실제 내용물 크기(sprite.bounds) 기준으로 정규화한다.
+        private const float ReferenceContentSize = 0.6f; // 목표 월드 지름
+        private const float ArtVisualScale = 2.5f; // 가독성 조정용 튜너블(첼로/바이올린 등과 동일 관례) - 2026-08-09: 너무 작아 안 보인다는 피드백으로 2배 확대, 이후 2.5배로 추가 조정
 
         // 첼로(중력의 구속) 등 이속 감소 효과용. 1.0 = 정상 속도. 필드를 벗어나면 다시 1.0으로 복원되어야 한다.
         private float speedMultiplier = 1f;
@@ -64,11 +73,13 @@ namespace ConductorSymphony.Enemy
         private void Awake()
         {
             currentHealth = maxHealth;
-            spriteRenderer = GetComponent<SpriteRenderer>();
-            if (spriteRenderer == null)
-            {
-                spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
-            }
+
+            // Visual을 자식 오브젝트로 분리 - 이유는 위 주석 참고(root scale은 콜라이더 반경과 직결).
+            GameObject visualObj = new GameObject("Visual");
+            visualObj.transform.SetParent(transform);
+            visualObj.transform.localPosition = Vector3.zero;
+            visualTransform = visualObj.transform;
+            spriteRenderer = visualObj.AddComponent<SpriteRenderer>();
         }
 
         public void Initialize(Transform targetPlayer, Sprite defaultSprite, Color color, int initialHp = 8)
@@ -82,6 +93,14 @@ namespace ConductorSymphony.Enemy
                 spriteRenderer.sprite = defaultSprite;
                 spriteRenderer.color = color;
                 spriteRenderer.sortingOrder = 5;
+
+                if (defaultSprite != null && visualTransform != null)
+                {
+                    Bounds b = defaultSprite.bounds;
+                    float maxDim = Mathf.Max(b.size.x, b.size.y);
+                    float scale = (maxDim > 0.0001f) ? (ReferenceContentSize * ArtVisualScale / maxDim) : 1f;
+                    visualTransform.localScale = Vector3.one * scale;
+                }
             }
         }
 
@@ -142,7 +161,7 @@ namespace ConductorSymphony.Enemy
             int amplifiedDamage = Mathf.Max(1, Mathf.RoundToInt(damage * damageAmpMultiplier));
             currentHealth -= amplifiedDamage;
 
-            // Flash red on hit
+            // 피격 피드백
             if (spriteRenderer != null)
             {
                 StartCoroutine(FlashRedRoutine());
@@ -154,14 +173,17 @@ namespace ConductorSymphony.Enemy
             }
         }
 
+        // 2026-08-09: 기존엔 tint를 흰색으로 바꾸는 방식이었으나, 실제 도트 아트는 색이 다양해서(특히
+        // 몸통이 검은색인 음표 몬스터는) 곱연산 tint로는 흰색 플래시가 아예 안 보이는 문제가 있었다
+        // (검은 픽셀 × 아무리 밝은 tint를 곱해도 0). 아트 색상에 무관하게 항상 보이도록 짧게
+        // 깜빡이는(비활성화) 방식으로 교체.
         private IEnumerator FlashRedRoutine()
         {
-            Color originalColor = spriteRenderer.color;
-            spriteRenderer.color = Color.white;
+            spriteRenderer.enabled = false;
             yield return new WaitForSeconds(0.08f);
             if (spriteRenderer != null)
             {
-                spriteRenderer.color = originalColor;
+                spriteRenderer.enabled = true;
             }
         }
 

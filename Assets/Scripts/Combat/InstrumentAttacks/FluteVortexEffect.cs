@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using ConductorSymphony.Enemy;
+using ConductorSymphony.Instrument;
 using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
@@ -40,11 +41,12 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         public void Initialize(Vector3 pos, int level)
         {
             transform.position = pos;
+            // 2026-08-09: 레벨별 배율/수치를 InstrumentLevelStats로 데이터화(순수 추출, 값 변경 없음).
             // Lv3+: 흡입 범위 +50% × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
-            radius = 2.0f * (level >= 3 ? 1.5f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
-            pullStrength = 2.5f * (level >= 3 ? 1.5f : 1f);    // Lv3+: 당기는 힘 +50%
+            radius = 2.0f * InstrumentLevelStats.GetRangeMultiplier(InstrumentType.Flute, level) * CombatTargetingUtility.GetRangeMultiplier();
+            pullStrength = 2.5f * InstrumentLevelStats.GetRangeMultiplier(InstrumentType.Flute, level); // Lv3+: 당기는 힘 +50%(범위와 동일 배율표 재사용)
             // Lv2+: 유지시간 +40% × 페르마타(Fermata) 패시브 "지속시간 증가"(2026-08-06)
-            duration = 1.5f * (level >= 2 ? 1.4f : 1f) * CombatTargetingUtility.GetDurationMultiplier();
+            duration = 1.5f * InstrumentLevelStats.GetDurationMultiplier(InstrumentType.Flute, level) * CombatTargetingUtility.GetDurationMultiplier();
             explodeOnExpire = level >= 5;                       // Lv5: 소멸 시 바람 파편 폭발
 
             EnsureVortexSprite();
@@ -69,7 +71,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             ringSr.sortingOrder = 4;
             rangeRingObj.transform.localScale = Vector3.one * radius;
 
-            int maxConcurrent = (level >= 4) ? 2 : 1; // Lv4+: 동시 2개까지 유지 가능
+            int maxConcurrent = InstrumentLevelStats.GetStepCount(InstrumentType.Flute, level); // Lv4+: 동시 2개까지 유지 가능
             activeVortices.Add(this);
             while (activeVortices.Count > maxConcurrent)
             {

@@ -23,7 +23,7 @@ namespace ConductorSymphony.Player
     {
         [Header("Movement Settings")]
         [SerializeField] private float moveSpeed = 5.0f;
-        [SerializeField] private float targetWorldHeight = 1.0f; // Scaled to 1.0m height
+        [SerializeField] private float targetWorldHeight = 0.6f; // Scaled to 1.0m height - 2026-08-09: 적 크기 확대에 맞춰 축소(1.0 → 2/3 → 1/2) 후, 너무 작아 1.2배 재확대(0.5 → 0.6). 주의: Gameplay.unity/Player.prefab에 직렬화된 값이 이 기본값을 덮어쓰므로 씬/프리팹 쪽도 함께 동기화 필요.
 
         [Header("Player Health Settings")]
         [SerializeField] private int maxHealth = 100;

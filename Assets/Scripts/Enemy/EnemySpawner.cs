@@ -48,7 +48,10 @@ namespace ConductorSymphony.Enemy
         private Transform playerTransform;
         private List<EnemyMonster> activeEnemies = new List<EnemyMonster>();
 
-        private Sprite enemySprite;
+        // 2026-08-09: 음표 몬스터 도트 아트 3종(4분음표/8분음표/이음표) 연동. 스폰마다 랜덤 배정해
+        // 잡몹 무리에 시각적 다양성을 준다. 로드 실패 시(파일 누락 등) 기존 프로시저럴 마젠타
+        // 다이아몬드로 폴백.
+        private Sprite[] normalSprites;
 
         public IReadOnlyList<EnemyMonster> ActiveEnemies => activeEnemies;
         public float ElapsedTime => Mathf.Min(Time.time - startTime, mobPhaseDuration);
@@ -60,7 +63,19 @@ namespace ConductorSymphony.Enemy
             base.Awake();
             if (Instance != this) return;
 
-            enemySprite = ProceduralSpriteFactory.CreateDiamond(32, 12f, Color.magenta);
+            EnsureNormalSprites();
+        }
+
+        private void EnsureNormalSprites()
+        {
+            string[] names = { "QuarterNote", "EighthNote", "TiedNote" };
+            var loaded = new List<Sprite>();
+            foreach (var n in names)
+            {
+                Sprite s = Resources.Load<Sprite>($"Sprites/Enemy/Normal/{n}");
+                if (s != null) loaded.Add(s);
+            }
+            normalSprites = (loaded.Count > 0) ? loaded.ToArray() : new[] { ProceduralSpriteFactory.CreateDiamond(32, 12f, Color.magenta) };
         }
 
         private void Start()
@@ -218,8 +233,9 @@ namespace ConductorSymphony.Enemy
             int segment = CurrentSegmentIndex;
             int currentMonsterHp = Random.Range(mobHpMin[segment], mobHpMax[segment] + 1); // Random.Range(int,int) max is exclusive
 
+            Sprite sprite = normalSprites[Random.Range(0, normalSprites.Length)];
             EnemyMonster enemy = enemyObj.AddComponent<EnemyMonster>();
-            enemy.Initialize(playerTransform, enemySprite, new Color(1.0f, 0.3f, 0.8f), currentMonsterHp);
+            enemy.Initialize(playerTransform, sprite, Color.white, currentMonsterHp);
 
             activeEnemies.Add(enemy);
         }

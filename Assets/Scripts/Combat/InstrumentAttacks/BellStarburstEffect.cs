@@ -1,4 +1,5 @@
 using UnityEngine;
+using ConductorSymphony.Instrument;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
 {
@@ -15,10 +16,11 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             // 원인이었다(game_systems_reference.md §7-2 "벨 보스전" 항목 참고).
             Vector3 center = CombatTargetingUtility.GetNearestTargetPosition(origin, origin);
 
+            // 2026-08-09: 레벨별 배율/수치를 InstrumentLevelStats로 데이터화(순수 추출, 값 변경 없음).
             // Lv2+: 사거리 +30% (1회성 적용) × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
-            float range = 2.5f * (level >= 2 ? 1.3f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
-            int pierce = 3 + (level >= 3 ? 2 : 0);
-            int bursts = (level >= 4) ? 2 : 1; // Lv4+: 8방향 섬광 2연속 발사
+            float range = 2.5f * InstrumentLevelStats.GetRangeMultiplier(InstrumentType.Bell, level) * CombatTargetingUtility.GetRangeMultiplier();
+            int pierce = InstrumentLevelStats.GetPierceCount(InstrumentType.Bell, level);
+            int bursts = InstrumentLevelStats.GetStepCount(InstrumentType.Bell, level); // Lv4+: 8방향 섬광 2연속 발사
 
             for (int b = 0; b < bursts; b++)
             {

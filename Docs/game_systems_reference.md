@@ -414,10 +414,15 @@ public static float GetDurationMultiplier()   // 페르마타: duration에 곱�
 
 ### 아직 남은 항목
 
-- **악기별 레벨 스케일링 수치의 데이터화**: `InstrumentDamageTable.cs`는 "전체 DPS 배율"만 데이터화돼
-  있고, 그 외 레벨별 수치(범위/관통/발사수/틱 간격 등)는 여전히 7개 이펙트 클래스 안에 삼항식으로
-  흩어져 있습니다. `ScriptableObject`나 `Dictionary` 형태로 분리하면 순수 수치 조정이 재컴파일 없이
-  가능해집니다.
+- **악기별 레벨 스케일링 수치의 데이터화 - 2026-08-09 완료.** `Assets/Scripts/Instrument/
+  InstrumentLevelStats.cs` 신설 - `InstrumentDamageTable.cs`와 동일한 관례(`Dictionary<InstrumentType,
+  T[]>`, 배열 인덱스 `[level-1]`)로 10개 이펙트 클래스에 흩어져 있던 `(level >= N ? A : B)` 삼항식
+  30곳(범위/피해량/관통/발사수/넉백/크기/틱간격 배율)을 전부 데이터화했습니다. `if(level>=N){동작()}`
+  형태의 행동 분기 9곳은 로직이라 코드에 그대로 둠(데이터화 실익 없음). 순수 추출이라 밸런스 변경
+  없음 - Python으로 기존 삼항식 vs 새 테이블 조회를 레벨 1~5 전부(150개 케이스) 교차검증해 완전히
+  일치함을 확인. **Unity MCP 실측 PASS(2026-08-09)**: 컴파일 에러/경고 0건, 10종 전부 Lv1~5 API
+  실측값이 표와 100% 일치, Play 모드 실전 배선(홀드 5종 리플렉션 실측 포함)까지 정상 확인.
+  검증 가이드: `archive/instrument_level_stats_dataification_test_guide.md`.
 - **`EnemyMonster`의 상태이상 필드 일반화**: `speedMultiplier`/`stunTimer`/`damageAmpMultiplier`/
   `tempSlowTimer` 등이 악기가 늘 때마다 필드 쌍으로 즉흥적으로 추가되고 있습니다. 범용
   `StatusEffect` 리스트 + 우선순위 리듀서로 일반화하는 걸 고려할 만하지만, 설계 변경 성격이 커서
@@ -584,7 +589,47 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
 함께 옮겨서 참조 자체가 없는 상태라 안전하며, 별도 코드 변경도 필요 없습니다. 다음 Unity 에디터
 세션에서 한 번 Refresh해서 정상 인식되는지만 확인하면 됩니다.
 
-몬스터/보스 픽셀아트는 아직 미착수 상태이며 사용자가 의도적으로 나중으로 미룸.
+**몬스터/보스 픽셀아트 - 2026-08-09 착수+코드 연동+Unity MCP 실측 PASS, 검증 완료.** 일반 몬스터 3종
+(4분음표/8분음표/이음표), 엘리트 3종(바이올린/피아노/드럼 변형), 최종보스 1종(오르골 변형) 총 7장을
+`Assets/Resources/Sprites/Enemy/{Normal,Elite,Boss}/`에 배치, `EnemySpawner`/`EnemyMonster`/
+`BossMonster`에 연동함. 콜라이더(피격 판정 반경)는 root에 고정값으로 유지하고 아트는 별도 자식
+`Visual`에서 `sprite.bounds` 기준 정규화(다른 이펙트들과 동일한 content-aware normalization 패턴).
+기존 상시 색상 틴트(마젠타/빨강)를 제거하고 아트 고유 색을 그대로 노출하는 과정에서, 곱연산 tint
+기반 피격 플래시가 무틴트 상태에선 안 보이는 문제를 미리 발견해 깜빡임(비활성화) 방식으로 교체함.
+**Unity MCP 실측 PASS(2026-08-09)**: 컴파일 0건, 일반 3종/엘리트 3종/보스 1종 정상 로드+랜덤 배정,
+크기 정규화·무틴트·콜라이더 반경(0.4/2.0) 불변 확인, 피격 깜빡임 정상, 이동/사망/드롭/처치보상/
+클리어 흐름 회귀 없음(시간초과 패배 경로 1건만 테스트 환경 이슈로 코드 검토 대체 - 해당 코드는
+이번 변경에서 아예 건드리지 않은 부분). 검증 가이드: `archive/monster_art_integration_test_guide.md`.
+
+**부록 버그 - `Player_Hit` 지휘 포즈가 안 보이던 문제, 발견+수정 완료(2026-08-09).** 위 몬스터 아트
+검증과 같은 세션에서, 이번 작업과는 무관하게 QWER 박자 히트 시 지휘 포즈 모션이 전혀 안 보인다는
+리포트가 있어 같이 조사함. 원인은 그날 아침 커밋(`f8e4048`, 공격 모션 해상도 상향)에서
+`Player_Hit/point_left·lefttop·right·righttop.png` 4개를 고해상도 이미지로 교체했는데, 텍스처
+임포트 크롭 영역(`spriteSheet` rect)이 예전 저해상도 이미지 기준 값으로 남아있어서 새 텍스처의
+약 14~19%만 잘려서 스프라이트가 되고 있었던 것(`Resources.Load<Sprite>`는 null 없이 로드되므로
+콘솔 에러 無 - "존재하지만 텅 빈" 스프라이트). 4개 `.meta`의 `spriteImportMode`를 Multiple → Single로
+재임포트해 해결(코드 변경 없음). 상세: `archive/monster_art_integration_test_guide.md` 4절 부록.
+
+**엘리트/보스 시각 크기 2배 확대 + 지휘자 캐릭터 축소 + 엘리트/보스 판정 범위 동기화 - Unity MCP
+실측 PASS, 검증 완료(2026-08-09).** 위 검증이 끝난 뒤 "몬스터가 너무 작아서 안 보인다"는 피드백으로
+`EnemyMonster.ArtVisualScale`(1→2.5)·`BossMonster.EliteReferenceContentSize`(1.6→3.2)·
+`BossReferenceContentSize`(2.4→4.8)를 확대하고, 균형을 맞추려 `PlayerController.targetWorldHeight`를
+1.0→0.5로 축소(코드 기본값, `Gameplay.unity`/`Player.prefab` 직렬화 값도 동기화: 1.8→0.9, 1→0.5).
+이후 "너무 작아졌다"는 피드백으로 1.2배 재확대해 최종 0.6(코드 기본값), `Gameplay.unity` 1.08,
+`Player.prefab` 0.6으로 조정함(2026-08-09).
+이 과정에서 발견한 사이드이펙트: 이 프로젝트의 모든 공격 판정(`AreaImpactEffect` 등 7개 이펙트)은
+`Vector3.Distance(공격원점, 적.transform.position) <= radius` 순수 좌표 비교라 보스/엘리트를 반지름 0인
+점으로 취급 - 보스 몸통이 아무리 커져도 판정 거리엔 전혀 반영되지 않아 "공격했는데 판정이 안 맞는다"는
+문제가 있었음. `BossMonster.HitboxRadius`(엘리트 1.6 / 보스 2.4, 현재 비주얼 반지름) 프로퍼티를 추가해
+`AreaImpactEffect`/`CelloGravityFieldEffect`/`DrumBeatBangEffect`/`FrenchHornConeEffect`/
+`LingeringZoneEffect`/`PiercingBeamProjectile`/`ViolinOrbitEffect` 7곳의 보스 판정 거리 비교에
+`+ HitboxRadius`를 더해 보정. 몸박(플레이어 접촉 데미지) 콜라이더도 `Mathf.Max(HitboxRadius, 2.0f)`로
+맞춰서 보스(2.4)는 커진 만큼 넓어지고, 엘리트는 새 비주얼 반지름(1.6)이 기존 고정값(2.0)보다 작아
+그대로 뒀다면 오히려 좁아졌을 것을 하한선으로 방지(회귀 없이 기존 2.0 유지). **PASS** - Unity MCP
+세션이 리플렉션으로 값만 확인한 게 아니라 실제로 공격을 명중시켜 `BossMonster.CurrentHp`가
+줄어드는 것까지 실측 확인(엘리트: 순수 반경 밖 거리에서도 `HitboxRadius` 보정으로 명중, 대조군은
+정상 미스 확인 / 최종보스: 몸박 접촉으로 플레이어 HP도 정상 감소 확인). 검증 로그:
+`archive/monster_scale_and_boss_hitbox_test_guide.md`.
 
 **이펙트(VFX) 픽셀아트 - 착수함(2026-08-08).** 절차적 이펙트를 역할별로 나눠 접근하기로 함(§2 각
 악기 절 + 코드 조사 기준): 범위 링(현행 유지, 손그림 불필요) / 임팩트·버스트(다이아몬드) / 빔·투사체
@@ -638,8 +683,66 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
   정확히 반영됨을 실측 확인. 바이올린 칼날은 콘텐츠 크기 정규화만 추가(정규화 없이 그대로 붙였으면
   100배 넘게 이중 확대됐을 크기 차이, 정규화 후 기존과 동일한 0.16 크기로 확인). 세 곳 다 판정/넉백/
   디버프/틱데미지/보스 피해 회귀 없음. 코드 변경 불필요, 그대로 PASS.
-- **남은 항목**: 없음 - VFX 픽셀아트 전 항목(범위 링 제외) 코드 연동 + Unity MCP 실측 테스트 전부
-  완료. 몬스터/보스 픽셀아트만 사용자가 의도적으로 나중으로 미룬 상태로 남음.
+**인게임 배경(Background) - 착수, 가독성 문제는 해결, 스크롤 버그는 2차 시도 끝에 완전히
+재작성(2026-08-09).** 콘서트홀 마룻바닥 도트 패턴을 나노바나나로 생성해 `Assets/Resources/Sprites/
+Background/ParquetFloor.png`에 배치. `CameraController`가 플레이어를 그대로 따라다니고 이동/카메라
+경계 제한이 전혀 없는 기존 구조상, 벽으로 막힌 공간이 아니라 무한 반복 배경으로 결정함.
+`Assets/Prefabs/Environment/Background.prefab`으로 만들어 `Gameplay.unity`에 배치, 텍스처 임포트
+(Wrap Repeat/Single/Full Rect)까지 **1차 Unity MCP 실측 PASS**(`archive/background_tiling_test_guide.md`).
+
+이후 사용자 실플레이에서 리플렉션 기반 자동 검증으론 못 잡은 문제 2건 발견:
+1. **가독성 - 배경이 흰색 계열이라 판정 링/이펙트 등 흰색 UI가 잘 안 보임.** 게임 배경색(카메라
+   `m_BackGroundColor` ≈ `#314D79` 남색)에 맞춰 남색 헤링본 마룻바닥 이미지로 `ParquetFloor.png`
+   교체. **PASS** - 실제 플레이 스크린샷에서 흰색 판정 링/UI가 배경과 뚜렷하게 대비됨을 확인.
+2. **이동감 부재(버그) - 배경이 캐릭터를 따라다니는 스티커처럼 보임.** 1차 수정은
+   `material.mainTextureOffset`을 카메라 월드 좌표에 비례해 스크롤하는 방식이었고, Unity MCP
+   세션이 리플렉션으로 수치 확인 + 스크린샷 비교로 **PASS 판정**했었으나(`archive/
+   background_worldlock_scroll_test_guide.md`), **사용자가 직접 플레이해보니 여전히 배경이
+   고정돼 있었음 - 이전 PASS 판정이 오판이었던 것으로 드러남.** 진짜 원인 파악: `Sprites-Default`를
+   비롯한 대부분의 스프라이트 셰이더는 `_MainTex_ST`(Tiling/Offset)를 셰이더 코드에서 아예 읽지
+   않는다 - 스프라이트는 아틀라스 패킹 방식이라 머티리얼 오프셋으로 스크롤시키는 걸 원천적으로
+   지원하지 않음. `mainTextureOffset` 프로퍼티 값 자체는 정상 설정됐지만(그래서 리플렉션 수치
+   검증은 통과) 실제 렌더링엔 전혀 반영 안 됐던 것 - "값이 맞다"와 "화면에 반영된다"를 구분 못한
+   검증 함정. **전면 재작성**: 셰이더 트릭을 버리고 실제 타일 스프라이트 여러 장을 격자로 배치해
+   카메라를 따라 재배치하는 순수 Transform 기반 방식으로 교체(`BackgroundTiler.cs`). **PASS,
+   재검증 완료(2026-08-09)** - 이번엔 리플렉션 수치만이 아니라 실제 프로덕션 `LateUpdate()`를
+   직접 구동해 스크린샷 픽셀 단위로 무늬 위치가 실제로 이동함을 확인(플레이어 5유닛 이동 시 화면상
+   약 220px 이동, 이론값 216px와 거의 일치), 타일 래핑/왕복 일관성도 전부 확인. 알려진 한계 1건:
+   `BuildGrid()`가 `Awake()` 시점 1회만 격자 크기를 계산해서, 런타임 중 `orthographicSize`/화면
+   비율이 바뀌면 격자가 부족해질 수 있음(현재 게임은 런타임에 이 값이 안 바뀌므로 실무 영향 없음
+   - 버그가 아니라 알려진 제약). 성능(배칭)은 자동화 환경 한계로 수치 미실측, 수동 확인 권장.
+   검증 로그: `archive/background_grid_scroll_rewrite_test_guide.md`.
+
+검증 중 사소한 소동 하나: 처음 전달된 `ParquetFloor.png`가 파일 내용이 전부 0바이트인 빈 파일로
+확인되어(PNG 헤더조차 없음) 한 차례 재저장을 요청했고, 재저장 후 정상 진행됨.
+
+배경 작업 다음 UI/UX 폴리싱 우선순위를 논의한 뒤, 사용자가 1순위로 **도트 폰트 통일**을 선택.
+게임 전체 UI가 유니티 기본 폰트(Arial 계열)를 쓰고 있어 완성도가 떨어져 보인다는 피드백에서
+시작. 한글 지원 도트 폰트 **갈무리(Galmuri)**의 `Galmuri9`(본문)/`Galmuri11-Bold`(강조) 2종을
+`Assets/Resources/Fonts/`에 배치하고, 신규 정적 헬퍼 `Assets/Scripts/Utility/GameFonts.cs`
+(`GameFonts.Body`/`GameFonts.Headline`, `Resources.Load` 결과 캐싱)를 만들어 코드로 UI를 생성하는
+3개 파일 총 7곳(`LevelUpUI.cs` 카드 제목/설명, `RhythmUI.cs` 보스 HP·승리·패배 문구·메인으로
+버튼, `HitFloatingText.cs` PERFECT!/GREAT!/MISS 판정 팝업)을 전부 교체 완료. 판정 팝업에 걸려있던
+합성 `FontStyle.BoldAndItalic`도 `Normal`로 제거(도트 폰트는 합성 스타일을 걸면 픽셀이 뭉개져
+지저분해짐 - 폰트 자체가 이미 Bold라 불필요).
+
+`Assets/Prefabs/UI/MainMenuCanvas.prefab`(메인 메뉴/설정 화면)은 코드가 아니라 에디터에서 직접
+만든 프리팹이라 폰트 일괄 교체를 Unity MCP 세션에 위임했고, **실측 결과 PASS**
+(`archive/font_unification_test_guide.md`). 실제로는 문서에 적었던 "약 20개" 추정과 달리 `Text`
+컴포넌트가 **50개**였음(키 리바인드 UI가 8행×4텍스트 구조라 예상보다 많았음). Unity MCP 세션이
+전수 조사 후 위계를 직접 판단해 분류: **Headline(7곳)** - 게임 타이틀, 메인 화면 1차 CTA 3개
+(시작/설정/종료), 설정 화면 섹션 소제목 2개, 싱크 캘리브레이션 결과 라벨. **Body(43곳)** - 볼륨
+라벨, 키 리바인드 행 32개, 보조 액션 버튼(재시도/뒤로가기/닫기 등), 안내 문구 - 나머지 전부.
+적용 후 전체 50개 재검사로 Galmuri9=43/Galmuri11-Bold=7/Arial 잔존=0/Null=0 확인. Play 모드
+스크린샷으로 한글 렌더링(글리프 누락 없음), 리치텍스트 색상 태그 정상 동작, 레이아웃 회귀 없음도
+전부 확인. 부수적으로 폰트 교체 전엔 유니티 기본 폰트가 한글을 지원하지 않아 각 글자가 폭 0으로
+계산돼 한 줄에 한 글자씩 세로로 쌓이는 기형적 레이아웃이었던 것도 함께 발견/해결됨.
+
+- **남은 항목**: 없음 - 도트 폰트 통일(코드 7곳 + `MainMenuCanvas.prefab` 50곳) 포함 이번 세션
+  진행 항목 전부 Unity MCP 실측 완료. 인게임 배경(타일링/격자 스크롤/남색 아트), 엘리트/보스
+  크기·판정 범위 동기화, VFX + 몬스터/보스 픽셀아트도 전부 완료. 배경 격자의 "런타임 화면 비율
+  변경 미대응" 1건만 알려진 제약사항으로 남아있음(필요 시 추후 개선). UI 폴리싱 로드맵의 나머지
+  항목(패널/카드 9-slice 배경, HUD 아이콘/바, 애니메이션 연출)은 아직 미착수.
 
 *(관련 검증: `archive/instrument_sprite_import_test_guide.md`, `archive/impact_burst_sprite_animation_test_guide.md`)*
 
@@ -670,5 +773,13 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
 | 첼로 중력장 11프레임 스월 애니메이션 연동(자연 정렬 버그 발견+수정 포함) | Unity MCP 실측(리플렉션 기반) | PASS | `archive/cello_gravity_field_animation_test_guide.md` |
 | 플루트 소용돌이 정지 이미지 + 펄스 연동 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/flute_vortex_static_art_test_guide.md` |
 | 프렌치호른 부채꼴 회전+피벗 보정 / 잔류 장판(팀파니·벨·바이올린 Lv5) 색 틴트 / 바이올린 칼날 크기 정규화 | Unity MCP 실측(리플렉션+실스폰) | PASS | `archive/horncone_lingeringzone_blade_art_test_guide.md` |
+| 악기별 레벨 스케일링 수치 데이터화(`InstrumentLevelStats.cs`, 10종 30개 스탯) | Unity MCP 실측(API 직접호출+리플렉션+Play모드) | PASS | `archive/instrument_level_stats_dataification_test_guide.md` |
+| 몬스터/보스 도트 아트 연동(일반 3종/엘리트 3종/보스 1종, content-aware 정규화 + 무틴트 전환 + 피격 플래시 방식 교체) | Unity MCP 실측(리플렉션+Play모드+이벤트 콜백) | PASS | `archive/monster_art_integration_test_guide.md` |
+| 엘리트/보스 시각 크기 2배 확대 + 지휘자 축소 + 판정 범위 동기화(HitboxRadius, 7개 공격 이펙트) | Unity MCP 실측(실제 공격 명중시켜 HP 감소까지 확인, 대조군 미스 확인) | PASS | `archive/monster_scale_and_boss_hitbox_test_guide.md` |
+| 인게임 무한 타일링 배경(BackgroundTiler, 화면 커버리지/카메라 추적/정렬순서) | Unity MCP 실측 | PASS | `archive/background_tiling_test_guide.md` |
+| 남색 헤링본 아트 교체(가독성) | Unity MCP 실측(스크린샷 비교) | PASS | `archive/background_worldlock_scroll_test_guide.md` |
+| ~~배경 월드 고정 스크롤 버그 수정(mainTextureOffset)~~ - **오판으로 정정**: 사용자 실플레이에서 재현 안 됨. 스프라이트 셰이더가 `_MainTex_ST`를 지원 안 해서 값만 맞고 화면엔 반영 안 됐음 | Unity MCP 실측(수치만 검증, 렌더링 결과 미확인 - 검증 함정) | PASS 취소 → 아래 항목으로 대체 | `archive/background_worldlock_scroll_test_guide.md` |
+| 배경 스크롤 격자 재배치 방식 재작성(BackgroundTiler 전면 재작성, 셰이더 의존 제거) | Unity MCP 실측(리플렉션 아닌 스크린샷 픽셀 단위 대조 + 실제 프로덕션 코드 직접 구동) | PASS (런타임 화면 비율 변경 미대응은 알려진 제약으로 남김) | `archive/background_grid_scroll_rewrite_test_guide.md` |
+| 도트 폰트(갈무리) 통일 - 코드 생성 UI 7곳 + MainMenuCanvas.prefab 50곳 일괄 교체 | Unity MCP 실측(전수 검사+Play모드 스크린샷) | PASS (Galmuri9=43/Galmuri11-Bold=7/Arial 잔존 0건, 한글 렌더링·리치텍스트·레이아웃 회귀 전부 확인) | `archive/font_unification_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*

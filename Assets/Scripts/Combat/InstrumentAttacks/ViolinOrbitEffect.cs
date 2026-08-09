@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using ConductorSymphony.Enemy;
+using ConductorSymphony.Instrument;
 using ConductorSymphony.Player;
 using ConductorSymphony.Utility;
 
@@ -58,11 +59,12 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
             // Lv3+: 회전 칼날 1개 추가 + 레가토(Legato) 패시브/악기 Lv4 Multi+1(extraProjectiles)만큼
             // 칼날을 더 추가한다 - 기존 "칼날 개수 늘리기" 스탯과 완전히 같은 파라미터를 공유.
-            bladeCount = (level >= 3) ? 3 : 2;
+            // 2026-08-09: 레벨별 배율/수치를 InstrumentLevelStats로 데이터화(순수 추출, 값 변경 없음).
+            bladeCount = InstrumentLevelStats.GetStepCount(InstrumentType.Violin, level);
             bladeCount += extraProjectiles;
             // Lv2+: 회전 반경 +20% × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
-            radius = 1.4f * (level >= 2 ? 1.2f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
-            spinSpeedDegPerSec = BaseSpinSpeedDegPerSec * (level >= 2 ? 1.3f : 1f); // Lv2+: 회전 속도 증가
+            radius = 1.4f * InstrumentLevelStats.GetRangeMultiplier(InstrumentType.Violin, level) * CombatTargetingUtility.GetRangeMultiplier();
+            spinSpeedDegPerSec = BaseSpinSpeedDegPerSec * InstrumentLevelStats.ViolinSpinSpeedMultiplier[InstrumentLevelStats.Idx(level)]; // Lv2+: 회전 속도 증가
 
             // 실제 칼날 궤도 반경(radius)을 표시하는 얇은 테두리 링 - 칼날이 실제로 돌면서 어느 정도
             // 범위가 체감되긴 하지만, 칼날이 없는 빈 구간에서는 경계가 안 보인다. 프렌치호른/첼로/
@@ -156,7 +158,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             else if (BossMonster.Instance != null)
             {
                 float bossDist = Vector3.Distance(transform.position, BossMonster.Instance.transform.position);
-                if (bossDist <= radius + 0.4f)
+                if (bossDist <= radius + 0.4f + BossMonster.Instance.HitboxRadius)
                 {
                     BossMonster.Instance.TakeDamage(damage);
                     bossHitCooldownRemaining = HitCooldown * CombatTargetingUtility.GetCooldownMultiplier();
@@ -171,8 +173,9 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 : Vector2.down;
 
             const int slashCount = 3; // 밸런스 doc은 발수 변화를 언급하지 않아 고정 - Lv4는 대신 "크기" 증가
-            int pierce = 3 + (level >= 3 ? 2 : 0);
-            float sizeMultiplier = (level >= 4) ? 1.5f : 1f; // Lv4+: 참격 크기 +50%
+            // 2026-08-09: 레벨별 배율/수치를 InstrumentLevelStats로 데이터화(순수 추출, 값 변경 없음).
+            int pierce = InstrumentLevelStats.GetPierceCount(InstrumentType.Violin, level);
+            float sizeMultiplier = InstrumentLevelStats.GetSizeMultiplier(InstrumentType.Violin, level); // Lv4+: 참격 크기 +50%
             const float spreadDeg = 14f;
             // 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv" 반영.
             float range = 6f * CombatTargetingUtility.GetRangeMultiplier();

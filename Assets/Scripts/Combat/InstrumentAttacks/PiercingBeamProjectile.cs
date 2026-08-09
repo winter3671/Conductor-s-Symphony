@@ -175,7 +175,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
 
             if (!hasHitBoss && BossMonster.Instance != null)
             {
-                if (Vector3.Distance(transform.position, BossMonster.Instance.transform.position) <= hitRadius)
+                if (Vector3.Distance(transform.position, BossMonster.Instance.transform.position) <= hitRadius + BossMonster.Instance.HitboxRadius)
                 {
                     BossMonster.Instance.TakeDamage(damage);
                     hasHitBoss = true;

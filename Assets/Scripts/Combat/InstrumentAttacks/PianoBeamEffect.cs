@@ -1,4 +1,5 @@
 using UnityEngine;
+using ConductorSymphony.Instrument;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
 {
@@ -14,10 +15,11 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             Vector3 dir = targetPos - origin;
             if (dir.sqrMagnitude < 0.0001f) dir = Vector3.up; // 타겟이 origin과 완전히 겹치는 극단 케이스 방어
 
-            int scaledDamage = Mathf.Max(1, Mathf.RoundToInt(damage * (level >= 2 ? 1.25f : 1f))); // Lv2+: 피해량 +25%
-            int pierce = 2 + (level >= 3 ? 2 : 0); // Lv1~2: 2관통, Lv3+: 4관통
+            // 2026-08-09: 레벨별 배율/수치를 InstrumentLevelStats로 데이터화(순수 추출, 값 변경 없음).
+            int scaledDamage = Mathf.Max(1, Mathf.RoundToInt(damage * InstrumentLevelStats.GetDamageMultiplier(InstrumentType.Piano, level))); // Lv2+: 피해량 +25%
+            int pierce = InstrumentLevelStats.GetPierceCount(InstrumentType.Piano, level); // Lv1~2: 2관통, Lv3+: 4관통
             // Lv1~3: 1발, Lv4+: 2발 + 레가토(Legato) 패시브/악기 Lv4 Multi+1 합산치(extraProjectiles)
-            int shots = 1 + (level >= 4 ? 1 : 0) + extraProjectiles;
+            int shots = InstrumentLevelStats.GetStepCount(InstrumentType.Piano, level) + extraProjectiles;
             // 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv" 반영.
             float maxRange = 9f * CombatTargetingUtility.GetRangeMultiplier();
 
