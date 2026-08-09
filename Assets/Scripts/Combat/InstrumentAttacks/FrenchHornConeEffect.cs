@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using ConductorSymphony.Enemy;
+using ConductorSymphony.Instrument;
 using ConductorSymphony.Player;
 using ConductorSymphony.Utility;
 
@@ -48,10 +49,11 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             this.damage = damage;
             playerTransform = PlayerController.Instance != null ? PlayerController.Instance.transform : null;
 
+            // 2026-08-09: 레벨별 배율/수치를 InstrumentLevelStats로 데이터화(순수 추출, 값 변경 없음).
             // Lv2+: 사거리 +25% × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
-            range = 3.0f * (level >= 2 ? 1.25f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
-            halfAngleDeg = (level >= 5) ? 90f : 60f;                     // Lv5+: 전방 180도로 확장 (기본 120도, 각도는 범위 패시브 대상 아님)
-            knockbackSpeed = BaseKnockbackSpeed * (level >= 3 ? 1.4f : 1f); // Lv3+: 넉백 거리 +40%
+            range = 3.0f * InstrumentLevelStats.GetRangeMultiplier(InstrumentType.FrenchHorn, level) * CombatTargetingUtility.GetRangeMultiplier();
+            halfAngleDeg = InstrumentLevelStats.FrenchHornHalfAngleDeg[InstrumentLevelStats.Idx(level)]; // Lv5+: 전방 180도로 확장 (기본 120도, 각도는 범위 패시브 대상 아님)
+            knockbackSpeed = BaseKnockbackSpeed * InstrumentLevelStats.GetKnockbackMultiplier(InstrumentType.FrenchHorn, level); // Lv3+: 넉백 거리 +40%
             applyDamageAmp = level >= 4;                                 // Lv4+: 범위 내 적 피해량 증폭 디버프
 
             EnsureConeSprite();

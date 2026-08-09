@@ -1,5 +1,6 @@
 using UnityEngine;
 using ConductorSymphony.Enemy;
+using ConductorSymphony.Instrument;
 using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
@@ -35,13 +36,14 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             // "최종보스 단독 페이즈에서 팀파니가 인식을 못 한다"는 실측 리포트로 발견).
             targetPos = CombatTargetingUtility.GetNearestTargetPosition(origin, origin);
 
+            // 2026-08-09: 레벨별 배율/수치를 InstrumentLevelStats로 데이터화(순수 추출, 값 변경 없음).
             // Lv3+: 폭격 빈도 +50% × 알레그로(Allegro) 패시브 "쿨타임 감축"(값이 작을수록 더 자주 발동)
-            bombardInterval = ((level >= 3) ? (0.65f / 1.5f) : 0.65f) * CombatTargetingUtility.GetCooldownMultiplier();
+            bombardInterval = InstrumentLevelStats.TimpaniBombardIntervalBaseSeconds[InstrumentLevelStats.Idx(level)] * CombatTargetingUtility.GetCooldownMultiplier();
             applyStun = level >= 4;                                  // Lv4+: 착탄 시 1초 기절
             lingeringZone = level >= 5;                              // Lv5: 착탄 지점 3초 지진지대 잔류
 
             // Lv2+: 범위 +25% × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
-            float initialRadius = 1.0f * (level >= 2 ? 1.25f : 1f) * CombatTargetingUtility.GetRangeMultiplier();
+            float initialRadius = 1.0f * InstrumentLevelStats.GetRangeMultiplier(InstrumentType.Timpani, level) * CombatTargetingUtility.GetRangeMultiplier();
 
             // 즉발 "팀파니 캐논" - 홀드 시작 즉시 1회 착탄
             SpawnImpact(targetPos, 0.05f, initialRadius, damage, color);

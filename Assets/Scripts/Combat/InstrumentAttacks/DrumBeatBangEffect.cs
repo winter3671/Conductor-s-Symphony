@@ -1,5 +1,6 @@
 using UnityEngine;
 using ConductorSymphony.Enemy;
+using ConductorSymphony.Instrument;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
 {
@@ -13,11 +14,12 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         // 있는 투사체" 개념이 없음(2026-08-07, 사용자 결정으로 4종 제외 대상에 포함).
         public void Execute(int level, int damage, int currentCombo, Vector3 origin, Color color, int extraProjectiles)
         {
-            float radius = 2.0f * (level >= 2 ? 1.2f : 1f) * CombatTargetingUtility.GetRangeMultiplier(); // Lv2+: 범위 +20%
-            int shockwaveDamage = Mathf.Max(1, Mathf.RoundToInt(damage * (level >= 2 ? 1.2f : 1f))); // Lv2+: 피해량 +20%
-            float knockbackImpulse = 0.6f * (level >= 3 ? 2f : 1f);                                // Lv3+: 넉백 거리 2배
+            // 2026-08-09: 레벨별 배율/수치를 InstrumentLevelStats로 데이터화(순수 추출, 값 변경 없음).
+            float radius = 2.0f * InstrumentLevelStats.GetRangeMultiplier(InstrumentType.Drums, level) * CombatTargetingUtility.GetRangeMultiplier(); // Lv2+: 범위 +20%
+            int shockwaveDamage = Mathf.Max(1, Mathf.RoundToInt(damage * InstrumentLevelStats.GetDamageMultiplier(InstrumentType.Drums, level))); // Lv2+: 피해량 +20%
+            float knockbackImpulse = 0.6f * InstrumentLevelStats.GetKnockbackMultiplier(InstrumentType.Drums, level); // Lv3+: 넉백 거리 2배
             bool applySlow = level >= 3;                                                            // Lv3+: 0.5초 둔화
-            int shockwaveCount = (level >= 5) ? 2 : 1;                                              // Lv5: 2연속 중첩 충격파
+            int shockwaveCount = InstrumentLevelStats.GetStepCount(InstrumentType.Drums, level);    // Lv5: 2연속 중첩 충격파
 
             for (int i = 0; i < shockwaveCount; i++)
             {

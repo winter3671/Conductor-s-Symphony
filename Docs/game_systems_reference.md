@@ -414,10 +414,15 @@ public static float GetDurationMultiplier()   // 페르마타: duration에 곱�
 
 ### 아직 남은 항목
 
-- **악기별 레벨 스케일링 수치의 데이터화**: `InstrumentDamageTable.cs`는 "전체 DPS 배율"만 데이터화돼
-  있고, 그 외 레벨별 수치(범위/관통/발사수/틱 간격 등)는 여전히 7개 이펙트 클래스 안에 삼항식으로
-  흩어져 있습니다. `ScriptableObject`나 `Dictionary` 형태로 분리하면 순수 수치 조정이 재컴파일 없이
-  가능해집니다.
+- **악기별 레벨 스케일링 수치의 데이터화 - 2026-08-09 완료.** `Assets/Scripts/Instrument/
+  InstrumentLevelStats.cs` 신설 - `InstrumentDamageTable.cs`와 동일한 관례(`Dictionary<InstrumentType,
+  T[]>`, 배열 인덱스 `[level-1]`)로 10개 이펙트 클래스에 흩어져 있던 `(level >= N ? A : B)` 삼항식
+  30곳(범위/피해량/관통/발사수/넉백/크기/틱간격 배율)을 전부 데이터화했습니다. `if(level>=N){동작()}`
+  형태의 행동 분기 9곳은 로직이라 코드에 그대로 둠(데이터화 실익 없음). 순수 추출이라 밸런스 변경
+  없음 - Python으로 기존 삼항식 vs 새 테이블 조회를 레벨 1~5 전부(150개 케이스) 교차검증해 완전히
+  일치함을 확인. **Unity MCP 실측 PASS(2026-08-09)**: 컴파일 에러/경고 0건, 10종 전부 Lv1~5 API
+  실측값이 표와 100% 일치, Play 모드 실전 배선(홀드 5종 리플렉션 실측 포함)까지 정상 확인.
+  검증 가이드: `archive/instrument_level_stats_dataification_test_guide.md`.
 - **`EnemyMonster`의 상태이상 필드 일반화**: `speedMultiplier`/`stunTimer`/`damageAmpMultiplier`/
   `tempSlowTimer` 등이 악기가 늘 때마다 필드 쌍으로 즉흥적으로 추가되고 있습니다. 범용
   `StatusEffect` 리스트 + 우선순위 리듀서로 일반화하는 걸 고려할 만하지만, 설계 변경 성격이 커서
@@ -670,5 +675,6 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
 | 첼로 중력장 11프레임 스월 애니메이션 연동(자연 정렬 버그 발견+수정 포함) | Unity MCP 실측(리플렉션 기반) | PASS | `archive/cello_gravity_field_animation_test_guide.md` |
 | 플루트 소용돌이 정지 이미지 + 펄스 연동 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/flute_vortex_static_art_test_guide.md` |
 | 프렌치호른 부채꼴 회전+피벗 보정 / 잔류 장판(팀파니·벨·바이올린 Lv5) 색 틴트 / 바이올린 칼날 크기 정규화 | Unity MCP 실측(리플렉션+실스폰) | PASS | `archive/horncone_lingeringzone_blade_art_test_guide.md` |
+| 악기별 레벨 스케일링 수치 데이터화(`InstrumentLevelStats.cs`, 10종 30개 스탯) | Unity MCP 실측(API 직접호출+리플렉션+Play모드) | PASS | `archive/instrument_level_stats_dataification_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*

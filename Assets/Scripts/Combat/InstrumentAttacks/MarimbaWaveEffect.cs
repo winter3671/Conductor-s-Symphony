@@ -1,5 +1,6 @@
 using UnityEngine;
 using ConductorSymphony.Enemy;
+using ConductorSymphony.Instrument;
 using ConductorSymphony.Player;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
@@ -16,9 +17,10 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 ? PlayerController.Instance.GetFacingDirectionVector()
                 : Vector2.down;
 
-            int pierce = 3 + (level >= 2 ? 2 : 0);
+            // 2026-08-09: 레벨별 배율/수치를 InstrumentLevelStats로 데이터화(순수 추출, 값 변경 없음).
+            int pierce = InstrumentLevelStats.GetPierceCount(InstrumentType.Marimba, level);
             bool bounce = level >= 4;
-            float sizeMultiplier = (level >= 3) ? 1.3f : 1f; // Lv3+: 파동 크기 +30% (시각 크기 + 히트 반경 모두)
+            float sizeMultiplier = InstrumentLevelStats.GetSizeMultiplier(InstrumentType.Marimba, level); // Lv3+: 파동 크기 +30% (시각 크기 + 히트 반경 모두)
 
             System.Action<EnemyMonster, Vector3> onHit = null;
             if (level >= 5)

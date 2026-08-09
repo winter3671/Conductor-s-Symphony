@@ -1,5 +1,6 @@
 using UnityEngine;
 using ConductorSymphony.Enemy;
+using ConductorSymphony.Instrument;
 
 namespace ConductorSymphony.Combat.InstrumentAttacks
 {
@@ -18,9 +19,10 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             // 제외하지 않을 뿐, 별도 처리가 필요 없다.
             Vector3 pos = CombatTargetingUtility.GetHighestHpTargetPosition(origin, origin);
 
-            int scaledDamage = Mathf.Max(1, Mathf.RoundToInt(damage * (level >= 2 ? 1.3f : 1f))); // Lv2+: 피해량 +30%
+            // 2026-08-09: 레벨별 배율/수치를 InstrumentLevelStats로 데이터화(순수 추출, 값 변경 없음).
+            int scaledDamage = Mathf.Max(1, Mathf.RoundToInt(damage * InstrumentLevelStats.GetDamageMultiplier(InstrumentType.Glockenspiel, level))); // Lv2+: 피해량 +30%
             // Lv3+: 스플래시 추가 × 크레센도(Crescendo) 패시브 "모든 공격 범위 +10%/Lv"
-            float splashRadius = (0.6f + (level >= 3 ? 0.5f : 0f)) * CombatTargetingUtility.GetRangeMultiplier();
+            float splashRadius = InstrumentLevelStats.GlockenspielSplashRadiusBase[InstrumentLevelStats.Idx(level)] * CombatTargetingUtility.GetRangeMultiplier();
             TapAttackHelpers.SpawnImpact(pos, 0.15f, splashRadius, scaledDamage, color);
 
             bool burstReady = level >= 4 && currentCombo > 0 && currentCombo % 4 == 0;
