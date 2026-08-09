@@ -48,7 +48,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 }
             }
 
-            if (BossMonster.Instance != null && Vector3.Distance(origin, BossMonster.Instance.transform.position) <= radius)
+            if (BossMonster.Instance != null && Vector3.Distance(origin, BossMonster.Instance.transform.position) <= radius + BossMonster.Instance.HitboxRadius)
             {
                 BossMonster.Instance.TakeDamage(damage);
             }

@@ -216,7 +216,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             if (BossMonster.Instance != null)
             {
                 float bossDist = Vector3.Distance(transform.position, BossMonster.Instance.transform.position);
-                if (bossDist <= radius)
+                if (bossDist <= radius + BossMonster.Instance.HitboxRadius)
                 {
                     BossMonster.Instance.TakeDamage(damage);
                 }

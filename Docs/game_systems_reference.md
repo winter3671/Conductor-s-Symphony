@@ -589,7 +589,45 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
 함께 옮겨서 참조 자체가 없는 상태라 안전하며, 별도 코드 변경도 필요 없습니다. 다음 Unity 에디터
 세션에서 한 번 Refresh해서 정상 인식되는지만 확인하면 됩니다.
 
-몬스터/보스 픽셀아트는 아직 미착수 상태이며 사용자가 의도적으로 나중으로 미룸.
+**몬스터/보스 픽셀아트 - 2026-08-09 착수+코드 연동+Unity MCP 실측 PASS, 검증 완료.** 일반 몬스터 3종
+(4분음표/8분음표/이음표), 엘리트 3종(바이올린/피아노/드럼 변형), 최종보스 1종(오르골 변형) 총 7장을
+`Assets/Resources/Sprites/Enemy/{Normal,Elite,Boss}/`에 배치, `EnemySpawner`/`EnemyMonster`/
+`BossMonster`에 연동함. 콜라이더(피격 판정 반경)는 root에 고정값으로 유지하고 아트는 별도 자식
+`Visual`에서 `sprite.bounds` 기준 정규화(다른 이펙트들과 동일한 content-aware normalization 패턴).
+기존 상시 색상 틴트(마젠타/빨강)를 제거하고 아트 고유 색을 그대로 노출하는 과정에서, 곱연산 tint
+기반 피격 플래시가 무틴트 상태에선 안 보이는 문제를 미리 발견해 깜빡임(비활성화) 방식으로 교체함.
+**Unity MCP 실측 PASS(2026-08-09)**: 컴파일 0건, 일반 3종/엘리트 3종/보스 1종 정상 로드+랜덤 배정,
+크기 정규화·무틴트·콜라이더 반경(0.4/2.0) 불변 확인, 피격 깜빡임 정상, 이동/사망/드롭/처치보상/
+클리어 흐름 회귀 없음(시간초과 패배 경로 1건만 테스트 환경 이슈로 코드 검토 대체 - 해당 코드는
+이번 변경에서 아예 건드리지 않은 부분). 검증 가이드: `archive/monster_art_integration_test_guide.md`.
+
+**부록 버그 - `Player_Hit` 지휘 포즈가 안 보이던 문제, 발견+수정 완료(2026-08-09).** 위 몬스터 아트
+검증과 같은 세션에서, 이번 작업과는 무관하게 QWER 박자 히트 시 지휘 포즈 모션이 전혀 안 보인다는
+리포트가 있어 같이 조사함. 원인은 그날 아침 커밋(`f8e4048`, 공격 모션 해상도 상향)에서
+`Player_Hit/point_left·lefttop·right·righttop.png` 4개를 고해상도 이미지로 교체했는데, 텍스처
+임포트 크롭 영역(`spriteSheet` rect)이 예전 저해상도 이미지 기준 값으로 남아있어서 새 텍스처의
+약 14~19%만 잘려서 스프라이트가 되고 있었던 것(`Resources.Load<Sprite>`는 null 없이 로드되므로
+콘솔 에러 無 - "존재하지만 텅 빈" 스프라이트). 4개 `.meta`의 `spriteImportMode`를 Multiple → Single로
+재임포트해 해결(코드 변경 없음). 상세: `archive/monster_art_integration_test_guide.md` 4절 부록.
+
+**엘리트/보스 시각 크기 2배 확대 + 지휘자 캐릭터 축소 + 엘리트/보스 판정 범위 동기화 - 구현 완료,
+Unity MCP 실측 대기(2026-08-09).** 위 검증이 끝난 뒤 "몬스터가 너무 작아서 안 보인다"는 피드백으로
+`EnemyMonster.ArtVisualScale`(1→2.5)·`BossMonster.EliteReferenceContentSize`(1.6→3.2)·
+`BossReferenceContentSize`(2.4→4.8)를 확대하고, 균형을 맞추려 `PlayerController.targetWorldHeight`를
+1.0→0.5로 축소(코드 기본값, `Gameplay.unity`/`Player.prefab` 직렬화 값도 동기화: 1.8→0.9, 1→0.5).
+이후 "너무 작아졌다"는 피드백으로 1.2배 재확대해 최종 0.6(코드 기본값), `Gameplay.unity` 1.08,
+`Player.prefab` 0.6으로 조정함(2026-08-09).
+이 과정에서 발견한 사이드이펙트: 이 프로젝트의 모든 공격 판정(`AreaImpactEffect` 등 7개 이펙트)은
+`Vector3.Distance(공격원점, 적.transform.position) <= radius` 순수 좌표 비교라 보스/엘리트를 반지름 0인
+점으로 취급 - 보스 몸통이 아무리 커져도 판정 거리엔 전혀 반영되지 않아 "공격했는데 판정이 안 맞는다"는
+문제가 있었음. `BossMonster.HitboxRadius`(엘리트 1.6 / 보스 2.4, 현재 비주얼 반지름) 프로퍼티를 추가해
+`AreaImpactEffect`/`CelloGravityFieldEffect`/`DrumBeatBangEffect`/`FrenchHornConeEffect`/
+`LingeringZoneEffect`/`PiercingBeamProjectile`/`ViolinOrbitEffect` 7곳의 보스 판정 거리 비교에
+`+ HitboxRadius`를 더해 보정. 몸박(플레이어 접촉 데미지) 콜라이더도 `Mathf.Max(HitboxRadius, 2.0f)`로
+맞춰서 보스(2.4)는 커진 만큼 넓어지고, 엘리트는 새 비주얼 반지름(1.6)이 기존 고정값(2.0)보다 작아
+그대로 뒀다면 오히려 좁아졌을 것을 하한선으로 방지(회귀 없이 기존 2.0 유지). **아직 Unity MCP
+실측 전** - 검증 가이드:
+`monster_scale_and_boss_hitbox_test_guide.md` (검증 후 `archive/`로 이동 예정).
 
 **이펙트(VFX) 픽셀아트 - 착수함(2026-08-08).** 절차적 이펙트를 역할별로 나눠 접근하기로 함(§2 각
 악기 절 + 코드 조사 기준): 범위 링(현행 유지, 손그림 불필요) / 임팩트·버스트(다이아몬드) / 빔·투사체
@@ -643,8 +681,9 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
   정확히 반영됨을 실측 확인. 바이올린 칼날은 콘텐츠 크기 정규화만 추가(정규화 없이 그대로 붙였으면
   100배 넘게 이중 확대됐을 크기 차이, 정규화 후 기존과 동일한 0.16 크기로 확인). 세 곳 다 판정/넉백/
   디버프/틱데미지/보스 피해 회귀 없음. 코드 변경 불필요, 그대로 PASS.
-- **남은 항목**: 없음 - VFX 픽셀아트 전 항목(범위 링 제외) 코드 연동 + Unity MCP 실측 테스트 전부
-  완료. 몬스터/보스 픽셀아트만 사용자가 의도적으로 나중으로 미룬 상태로 남음.
+- **남은 항목**: 엘리트/보스 시각 크기 2배 확대·지휘자 축소·판정 범위 동기화(바로 위 항목) 1건만
+  Unity MCP 실측 대기. 그 외 VFX + 몬스터/보스 픽셀아트 전 항목은 코드 연동 + 실측 테스트 전부
+  완료.
 
 *(관련 검증: `archive/instrument_sprite_import_test_guide.md`, `archive/impact_burst_sprite_animation_test_guide.md`)*
 
@@ -676,5 +715,6 @@ Drums/Piano/Violin/Flute/FrenchHorn/Glockenspiel/Cello/Timpani/Marimba/Bell)에 
 | 플루트 소용돌이 정지 이미지 + 펄스 연동 | Unity MCP 실측(리플렉션 기반) | PASS | `archive/flute_vortex_static_art_test_guide.md` |
 | 프렌치호른 부채꼴 회전+피벗 보정 / 잔류 장판(팀파니·벨·바이올린 Lv5) 색 틴트 / 바이올린 칼날 크기 정규화 | Unity MCP 실측(리플렉션+실스폰) | PASS | `archive/horncone_lingeringzone_blade_art_test_guide.md` |
 | 악기별 레벨 스케일링 수치 데이터화(`InstrumentLevelStats.cs`, 10종 30개 스탯) | Unity MCP 실측(API 직접호출+리플렉션+Play모드) | PASS | `archive/instrument_level_stats_dataification_test_guide.md` |
+| 몬스터/보스 도트 아트 연동(일반 3종/엘리트 3종/보스 1종, content-aware 정규화 + 무틴트 전환 + 피격 플래시 방식 교체) | Unity MCP 실측(리플렉션+Play모드+이벤트 콜백) | PASS | `archive/monster_art_integration_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*

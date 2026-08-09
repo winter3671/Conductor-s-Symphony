@@ -196,7 +196,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             {
                 Vector3 toBoss = BossMonster.Instance.transform.position - playerPos;
                 float bossDist = toBoss.magnitude;
-                if (bossDist <= range && bossDist > 0.01f && Vector2.Angle(facing, toBoss) <= halfAngleDeg)
+                if (bossDist <= range + BossMonster.Instance.HitboxRadius && bossDist > 0.01f && Vector2.Angle(facing, toBoss) <= halfAngleDeg)
                 {
                     BossMonster.Instance.TakeDamage(damage);
                 }

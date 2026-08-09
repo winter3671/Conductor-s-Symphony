@@ -158,7 +158,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             else if (BossMonster.Instance != null)
             {
                 float bossDist = Vector3.Distance(transform.position, BossMonster.Instance.transform.position);
-                if (bossDist <= radius + 0.4f)
+                if (bossDist <= radius + 0.4f + BossMonster.Instance.HitboxRadius)
                 {
                     BossMonster.Instance.TakeDamage(damage);
                     bossHitCooldownRemaining = HitCooldown * CombatTargetingUtility.GetCooldownMultiplier();

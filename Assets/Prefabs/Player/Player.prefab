@@ -172,7 +172,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ConductorSymphony.Player.PlayerController
   moveSpeed: 5
-  targetWorldHeight: 1
+  targetWorldHeight: 0.6
   maxHealth: 100
   invulnerabilityDuration: 0.5
 --- !u!114 &9186083846136127345
