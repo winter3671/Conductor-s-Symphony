@@ -681,9 +681,37 @@ Unity MCP 실측 대기(2026-08-09).** 위 검증이 끝난 뒤 "몬스터가 �
   정확히 반영됨을 실측 확인. 바이올린 칼날은 콘텐츠 크기 정규화만 추가(정규화 없이 그대로 붙였으면
   100배 넘게 이중 확대됐을 크기 차이, 정규화 후 기존과 동일한 0.16 크기로 확인). 세 곳 다 판정/넉백/
   디버프/틱데미지/보스 피해 회귀 없음. 코드 변경 불필요, 그대로 PASS.
-- **남은 항목**: 엘리트/보스 시각 크기 2배 확대·지휘자 축소·판정 범위 동기화(바로 위 항목) 1건만
-  Unity MCP 실측 대기. 그 외 VFX + 몬스터/보스 픽셀아트 전 항목은 코드 연동 + 실측 테스트 전부
-  완료.
+**인게임 배경(Background) - 착수, 가독성 문제는 해결, 스크롤 버그는 2차 시도 끝에 완전히
+재작성(2026-08-09).** 콘서트홀 마룻바닥 도트 패턴을 나노바나나로 생성해 `Assets/Resources/Sprites/
+Background/ParquetFloor.png`에 배치. `CameraController`가 플레이어를 그대로 따라다니고 이동/카메라
+경계 제한이 전혀 없는 기존 구조상, 벽으로 막힌 공간이 아니라 무한 반복 배경으로 결정함.
+`Assets/Prefabs/Environment/Background.prefab`으로 만들어 `Gameplay.unity`에 배치, 텍스처 임포트
+(Wrap Repeat/Single/Full Rect)까지 **1차 Unity MCP 실측 PASS**(`archive/background_tiling_test_guide.md`).
+
+이후 사용자 실플레이에서 리플렉션 기반 자동 검증으론 못 잡은 문제 2건 발견:
+1. **가독성 - 배경이 흰색 계열이라 판정 링/이펙트 등 흰색 UI가 잘 안 보임.** 게임 배경색(카메라
+   `m_BackGroundColor` ≈ `#314D79` 남색)에 맞춰 남색 헤링본 마룻바닥 이미지로 `ParquetFloor.png`
+   교체. **PASS** - 실제 플레이 스크린샷에서 흰색 판정 링/UI가 배경과 뚜렷하게 대비됨을 확인.
+2. **이동감 부재(버그) - 배경이 캐릭터를 따라다니는 스티커처럼 보임.** 1차 수정은
+   `material.mainTextureOffset`을 카메라 월드 좌표에 비례해 스크롤하는 방식이었고, Unity MCP
+   세션이 리플렉션으로 수치 확인 + 스크린샷 비교로 **PASS 판정**했었으나(`archive/
+   background_worldlock_scroll_test_guide.md`), **사용자가 직접 플레이해보니 여전히 배경이
+   고정돼 있었음 - 이전 PASS 판정이 오판이었던 것으로 드러남.** 진짜 원인 파악: `Sprites-Default`를
+   비롯한 대부분의 스프라이트 셰이더는 `_MainTex_ST`(Tiling/Offset)를 셰이더 코드에서 아예 읽지
+   않는다 - 스프라이트는 아틀라스 패킹 방식이라 머티리얼 오프셋으로 스크롤시키는 걸 원천적으로
+   지원하지 않음. `mainTextureOffset` 프로퍼티 값 자체는 정상 설정됐지만(그래서 리플렉션 수치
+   검증은 통과) 실제 렌더링엔 전혀 반영 안 됐던 것 - "값이 맞다"와 "화면에 반영된다"를 구분 못한
+   검증 함정. **전면 재작성**: 셰이더 트릭을 버리고 실제 타일 스프라이트 여러 장을 격자로 배치해
+   카메라를 따라 재배치하는 순수 Transform 기반 방식으로 교체(`BackgroundTiler.cs`). **구현 완료,
+   Unity MCP 실측 대기 - 이번엔 스크린샷상 특징점의 화면 좌표 이동을 직접 대조하도록 검증 항목에
+   명시.** 검증 가이드: `background_grid_scroll_rewrite_test_guide.md`.
+
+검증 중 사소한 소동 하나: 처음 전달된 `ParquetFloor.png`가 파일 내용이 전부 0바이트인 빈 파일로
+확인되어(PNG 헤더조차 없음) 한 차례 재저장을 요청했고, 재저장 후 정상 진행됨.
+
+- **남은 항목**: 엘리트/보스 시각 크기 2배 확대·지휘자 축소·판정 범위 동기화, 배경 스크롤 격자
+  재배치 방식 재검증 - 둘 다 Unity MCP 실측 대기. 그 외 VFX +
+  몬스터/보스 픽셀아트 전 항목도 코드 연동 + 실측 테스트 전부 완료.
 
 *(관련 검증: `archive/instrument_sprite_import_test_guide.md`, `archive/impact_burst_sprite_animation_test_guide.md`)*
 
@@ -716,5 +744,8 @@ Unity MCP 실측 대기(2026-08-09).** 위 검증이 끝난 뒤 "몬스터가 �
 | 프렌치호른 부채꼴 회전+피벗 보정 / 잔류 장판(팀파니·벨·바이올린 Lv5) 색 틴트 / 바이올린 칼날 크기 정규화 | Unity MCP 실측(리플렉션+실스폰) | PASS | `archive/horncone_lingeringzone_blade_art_test_guide.md` |
 | 악기별 레벨 스케일링 수치 데이터화(`InstrumentLevelStats.cs`, 10종 30개 스탯) | Unity MCP 실측(API 직접호출+리플렉션+Play모드) | PASS | `archive/instrument_level_stats_dataification_test_guide.md` |
 | 몬스터/보스 도트 아트 연동(일반 3종/엘리트 3종/보스 1종, content-aware 정규화 + 무틴트 전환 + 피격 플래시 방식 교체) | Unity MCP 실측(리플렉션+Play모드+이벤트 콜백) | PASS | `archive/monster_art_integration_test_guide.md` |
+| 인게임 무한 타일링 배경(BackgroundTiler, 화면 커버리지/카메라 추적/정렬순서) | Unity MCP 실측 | PASS | `archive/background_tiling_test_guide.md` |
+| 남색 헤링본 아트 교체(가독성) | Unity MCP 실측(스크린샷 비교) | PASS | `archive/background_worldlock_scroll_test_guide.md` |
+| ~~배경 월드 고정 스크롤 버그 수정(mainTextureOffset)~~ - **오판으로 정정**: 사용자 실플레이에서 재현 안 됨. 스프라이트 셰이더가 `_MainTex_ST`를 지원 안 해서 값만 맞고 화면엔 반영 안 됐음 | Unity MCP 실측(수치만 검증, 렌더링 결과 미확인 - 검증 함정) | **PASS 취소, 격자 재배치 방식으로 재작성 중** | `archive/background_worldlock_scroll_test_guide.md` (후속: `background_grid_scroll_rewrite_test_guide.md`) |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*
