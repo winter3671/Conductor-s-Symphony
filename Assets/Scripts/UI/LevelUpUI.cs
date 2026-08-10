@@ -197,7 +197,12 @@ namespace ConductorSymphony.UI
                 // Add all unacquired instruments from remaining 9 instruments
                 foreach (InstrumentType t in System.Enum.GetValues(typeof(InstrumentType)))
                 {
-                    if (!InstrumentManager.Instance.HasInstrument(t))
+                    // 2026-08-10: HUD 작업 실측 중 발견된 별개 버그 수정 - 바로 위 191/192줄은
+                    // InstrumentManager.Instance null 체크가 있는데 여기만 없어서, 한 프레임에
+                    // 레벨을 여러 번 올려 이 메서드가 재진입하는 등의 상황에서 NullReferenceException으로
+                    // 죽을 수 있었음(Time.timeScale=0f를 이미 실행한 뒤라 게임이 영구 정지하는 심각한
+                    // 프리즈 버그). 191/192줄과 동일하게 방어.
+                    if (InstrumentManager.Instance != null && !InstrumentManager.Instance.HasInstrument(t))
                     {
                         candidates.Add(new LevelUpChoice { isPassive = false, instrumentType = t, instrumentTargetLevel = 1 });
                     }

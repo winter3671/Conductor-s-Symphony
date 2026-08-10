@@ -738,11 +738,88 @@ Background/ParquetFloor.png`에 배치. `CameraController`가 플레이어를 �
 전부 확인. 부수적으로 폰트 교체 전엔 유니티 기본 폰트가 한글을 지원하지 않아 각 글자가 폭 0으로
 계산돼 한 줄에 한 글자씩 세로로 쌓이는 기형적 레이아웃이었던 것도 함께 발견/해결됨.
 
-- **남은 항목**: 없음 - 도트 폰트 통일(코드 7곳 + `MainMenuCanvas.prefab` 50곳) 포함 이번 세션
-  진행 항목 전부 Unity MCP 실측 완료. 인게임 배경(타일링/격자 스크롤/남색 아트), 엘리트/보스
-  크기·판정 범위 동기화, VFX + 몬스터/보스 픽셀아트도 전부 완료. 배경 격자의 "런타임 화면 비율
-  변경 미대응" 1건만 알려진 제약사항으로 남아있음(필요 시 추후 개선). UI 폴리싱 로드맵의 나머지
-  항목(패널/카드 9-slice 배경, HUD 아이콘/바, 애니메이션 연출)은 아직 미착수.
+폰트 통일 다음으로, HUD의 HP/EXP/악기 슬롯을 텍스트에서 그래픽으로 전환하는 작업에 착수함(UI
+폴리싱 로드맵 2순위 - 패널 9-slice보다 노출 빈도가 높고 아이콘 아트를 기존 자산 재사용으로 해결할
+수 있어 먼저 진행). `RhythmUI.cs`의 `hpText`/`expText`/`instrumentSlotText` 3개 텍스트 필드를
+완전히 제거하고, HP 바(붉은색 `Image.Type.Filled`)·EXP 바(시안색 + `Lv.N` 라벨)·악기 슬롯 4칸(Q/R/W/E,
+장착/빈칸/잠금 3상태)으로 교체 - 전부 `bossHpText` 등 기존 `Ensure*Elements()` 코드 자동생성
+패턴을 그대로 따라 씬/프리팹 편집 없이 구현됨. 악기 슬롯 아이콘은 이미 있는
+`Resources/Sprites/Instruments/{Type}.png` 10종을 재사용해 신규 아트가 필요 없었음. 다만 HP/EXP
+바 테두리 2종과 슬롯 테두리 1종, 총 3개의 프레임 아트(`Sprites/UI/HpBarFrame`,
+`Sprites/UI/ExpBarFrame`, `Sprites/UI/InstrumentSlotFrame`)는 아직 없음 - 없어도 반투명 사각형으로
+자동 대체되어 동작에는 지장 없고, 사용자가 나노바나나로 생성해 채워 넣으면 코드 수정 없이 자동
+적용됨. 코드 구현은 됐으나 **Unity MCP 실측은 아직 진행 전** - `Docs/hud_bar_icon_test_guide.md`
+참고.
+
+**1차 Unity MCP 실측(2026-08-10)에서 4건의 문제 발견 → 전부 수정 완료, 재검증 대기 중:**
+1. 레거시 `HPText`/`ExpText`/`InstrumentSlotText`가 씬에 active 상태로 남아 새 HUD와 겹쳐 표시 →
+   `RhythmUI.Awake()`에 `DestroyLegacyTextElements()` 추가(이름으로 찾아 런타임에 비활성화, 씬 직접
+   편집 없이 처리).
+2. 새 HP/EXP 바가 기존 `ScoreText`/`ComboText`와 세로로 겹침 → 실측 좌표(Score/Combo 최하단 y=-120)
+   기준으로 바 그룹을 y=-24→-132로 내려 해소.
+3. 악기 슬롯 잠금 필요 레벨 라벨이 실제 해금 기준(Lv.5/10/15)과 어긋남(인덱스 밀림 + 오타) → `lockReqs`
+   배열 수정.
+4. 프레임 아트 3종이 Sprite Mode Multiple로 임포트되어 `Resources.Load<Sprite>`가 null을 반환했을
+   가능성(서브스프라이트 이름에 `_0` 접미사가 붙어 정확히 일치하는 이름이 없어짐) + 9-slice
+   Border 미설정 → `.meta` 3개를 직접 열어 Python으로 알파 채널 픽셀 분석해 경계 두께 실측 후
+   Single 모드로 전환, Border 값 기입. 부수적으로 HUD 작업과 무관한 별개 버그(`LevelUpUI.cs`의
+   `InstrumentManager.Instance` null 체크 누락으로 인한 잠재적 영구 정지 프리즈)도 실측 중 발견돼
+   함께 수정.
+
+Sprite Border 값은 Unity 에디터 없이 픽셀 분석으로 추정한 값이라 Unity MCP 세션의 재임포트 +
+Sprite Editor 시각 확인이 아직 필요.
+
+사용자가 직접 플레이하며 2차로 6건 피드백(§4.5)을 줌: (1) **실제 플레이 중 HP/EXP 바가 안 움직임 -
+원인 미상, 최우선 진단 필요** (execute_code 직접호출 테스트에선 정상이었는데 실제 사망 화면에서도
+HP바가 가득 차 있어 모순 - `UpdateHealthUI`/`UpdateExpUI`에 진단용 `Debug.Log` 추가해둠), (2) 사망/승리
+시 음악 미정지 → `AudioLayerManager.PauseAllAudio()` 호출 추가로 수정, (3) 악기 슬롯 크기 56→124px
+확대, (4) 슬롯 표시 순서를 판정 링 배치각과 맞춰 Q,R,W,E→Q,W,E,R로 재배열(실제 장착 데이터 순서는
+불변), (5)(6)은 코드 미반영 - 사용자 채팅 응답에 각각 리서치 기반 제안과 배치 구상만 전달.
+
+숫자 표시 방식은 "바 중앙에 오버레이" 확정 → 반영 완료(§4.6): HP/EXP 바 재확대(320x64/320x48),
+`HpValueText`/`ExpValueText` 흰 글씨+검은 Outline 오버레이 추가, EXP 바 색 시안→초록/연두로 변경.
+
+**HP/EXP 바 미동작 - 진짜 원인 발견(§4.7)**: 3차 재검증(§7.1)에서 "정상 동작"으로 결론 냈던 게
+검증 함정이었음이 사용자의 재차 제보로 드러남 - `hpBarFill`/`expBarFill`이 `Image.Type.Filled`인데
+`sprite`를 할당한 적이 없어서, `fillAmount` 프로퍼티 값은 정상적으로 바뀌는데(그래서 리플렉션
+검증은 통과) 실제 화면엔 항상 꽉 찬 사각형으로만 렌더링되는 uGUI 특성 때문이었음 - 배경 스크롤
+버그(`mainTextureOffset` 무시) 때와 같은 부류의 "값은 맞는데 화면 미반영" 함정. 기존
+`ProceduralSpriteFactory.CreateUnitSquare(Color.white)`로 흰 스프라이트를 부여해 해결. 같은
+라운드에 악기 아이콘 색 틴트 제거(원본 색 그대로), 잠긴 슬롯 안내를 구석 숫자 대신 프레임 중앙
+"Lv.N/해금" 메시지로 변경도 반영. 바 크기(320x64/320x48)는 사용자가 시간 관계상 현재 크기 유지로
+확정.
+
+**프레임 9-slice 깨짐(§4.8)**: HP 바 fillAmount는 실제로 정상 작동 확인(스크린샷에서 "90/100"
+붉은 바 정상). 다만 EXP 바/악기 슬롯 프레임이 원본 아트 해상도 대 표시 크기 불일치로 9-slice가
+깨져 보임(Exp는 조각남, Slot은 아예 안 보임) - 3개 프레임 전부 `Image.Type.Sliced`→`Simple`로
+전환해 근본적으로 해소(border 값 자체를 안 쓰게 됨).
+
+Simple 전환 후 프레임(HP/EXP/악기 슬롯) 전부 정상 표시 확인됨(§4.8 해결). 마지막 남은 미세조정은
+채움 바가 프레임 테두리 위아래로 살짝 삐져나오는 것 - `hpFillRt`/`expFillRt`의
+`offsetMin`/`offsetMax` 여백값을 조정(§4.9). 정확한 수치는 사용자가 직접 화면 보며 맞출 예정.
+
+사용자가 직접 여백 수치를 확정했고("이 정도가 딱이네"), EXP 바 옆 "Lv.N" 라벨 세로 정렬도
+`expLevelRt.sizeDelta`를 EXP 바 높이와 맞춰 수정 완료. **최종 Unity MCP 재검증까지 PASS** -
+`PlayerController.TakeDamage(45)`로 HP 45/100 상태를 실제로 만들어 스크린샷 확인한 결과 채움
+바가 프레임 안쪽에 정확히 들어맞고 위아래로 삐져나오지 않음, EXP 레벨 라벨도 바와 같은 세로
+중심선에 정렬됨을 확인. **HUD 바/아이콘 전환 작업 완료 - `archive/hud_bar_icon_test_guide.md`로
+이동함.**
+
+이번 작업은 총 6차례의 사용자 실측 피드백 라운드를 거쳤는데, 그 중 가장 값진 교훈은 **"프로퍼티
+값이 맞다"와 "화면에 실제로 그렇게 보인다"는 별개**라는 점이 두 번(배경 스크롤의
+`mainTextureOffset`, 이번 HP/EXP 바의 `Image.Type.Filled`+`sprite=null`) 반복됐다는 것 - 둘 다
+리플렉션/프로퍼티 조회만으로 "정상"이라고 결론 냈다가 사용자의 실제 스크린샷 제보로 뒤집힌
+사례. 이후 유사 검증에서는 값 조회와 별개로 반드시 스크린샷으로 실제 렌더링 결과를 확인하는
+습관을 문서에도 명시해둠. 참고로 §4.3에서 계속 "미해결"로 언급되던 `LevelUpUI.cs`의
+`InstrumentManager.Instance` null 방어 누락 버그는 이 HUD 작업 초반(§4.7 이전)에 이미 별도로
+수정 완료된 상태였음 - 각주로 정리.
+
+- **남은 항목**: 없음. UI 폴리싱 로드맵 나머지(패널/카드 9-slice 배경, 애니메이션 연출, 장신구
+  아이콘 아트 - 배치는 §하단 구상만 되어 있고 아트 제작 대기)는 미착수 상태로 대기.
+  그 외 - 도트 폰트 통일(코드 7곳 + `MainMenuCanvas.prefab` 50곳), 인게임 배경(타일링/격자 스크롤/
+  남색 아트), 엘리트/보스 크기·판정 범위 동기화, VFX + 몬스터/보스 픽셀아트 전부 완료. 배경 격자의
+  "런타임 화면 비율 변경 미대응" 1건만 알려진 제약사항으로 남아있음(필요 시 추후 개선). UI 폴리싱
+  로드맵의 나머지 항목(패널/카드 9-slice 배경, 애니메이션 연출)은 아직 미착수.
 
 *(관련 검증: `archive/instrument_sprite_import_test_guide.md`, `archive/impact_burst_sprite_animation_test_guide.md`)*
 
@@ -781,5 +858,6 @@ Background/ParquetFloor.png`에 배치. `CameraController`가 플레이어를 �
 | ~~배경 월드 고정 스크롤 버그 수정(mainTextureOffset)~~ - **오판으로 정정**: 사용자 실플레이에서 재현 안 됨. 스프라이트 셰이더가 `_MainTex_ST`를 지원 안 해서 값만 맞고 화면엔 반영 안 됐음 | Unity MCP 실측(수치만 검증, 렌더링 결과 미확인 - 검증 함정) | PASS 취소 → 아래 항목으로 대체 | `archive/background_worldlock_scroll_test_guide.md` |
 | 배경 스크롤 격자 재배치 방식 재작성(BackgroundTiler 전면 재작성, 셰이더 의존 제거) | Unity MCP 실측(리플렉션 아닌 스크린샷 픽셀 단위 대조 + 실제 프로덕션 코드 직접 구동) | PASS (런타임 화면 비율 변경 미대응은 알려진 제약으로 남김) | `archive/background_grid_scroll_rewrite_test_guide.md` |
 | 도트 폰트(갈무리) 통일 - 코드 생성 UI 7곳 + MainMenuCanvas.prefab 50곳 일괄 교체 | Unity MCP 실측(전수 검사+Play모드 스크린샷) | PASS (Galmuri9=43/Galmuri11-Bold=7/Arial 잔존 0건, 한글 렌더링·리치텍스트·레이아웃 회귀 전부 확인) | `archive/font_unification_test_guide.md` |
+| HP/EXP 바 그래프 + 악기 슬롯 4칸 아이콘 전환(텍스트 3종 제거, Q,W,E,R 재배열, 숫자 오버레이, 잠금 메시지, 프레임 Simple 전환 등 6라운드 반복 수정) | Unity MCP 실측 6라운드(4.1~4.10, 5, 7~10절) | PASS - fillAmount 렌더링 버그(sprite=null) 근본 원인 수정 후 실제 스크린샷(HP 45/100 등)으로 채움 비율 육안 확인 완료, 프레임/잠금 메시지/여백/정렬 전부 확인 | `archive/hud_bar_icon_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*
