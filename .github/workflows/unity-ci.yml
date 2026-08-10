@@ -17,6 +17,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Cache Unity packages
         uses: actions/cache@v4
@@ -30,8 +33,25 @@ jobs:
           restore-keys: |
             unity-packages-
 
+      - name: Validate Unity license secrets
+        run: |
+          if [ -z "${UNITY_LICENSE}" ] && [ -z "${UNITY_SERIAL}" ]; then
+            echo "Missing Unity activation secrets.\nSet UNITY_LICENSE or UNITY_SERIAL, plus UNITY_EMAIL and UNITY_PASSWORD in repo Secrets.";
+            exit 1;
+          fi
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+
       - name: Run Unity Builder
-        uses: game-ci/unity-builder@v3
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           targetPlatform: StandaloneLinux64
           projectPath: .
