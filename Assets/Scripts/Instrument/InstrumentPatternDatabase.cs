@@ -57,7 +57,7 @@ namespace ConductorSymphony.Instrument
             // 1. Drums (Slot 0 - Q: Downbeats every bar/measure, Kick/Snare progression)
             // Design Doc: Kick(1, 9) + Snare(5, 13) downbeats (0-indexed: 0, 4, 8, 12, 16, 20, 24, 28)
             database[InstrumentType.Drums] = new InstrumentDefinition(
-                InstrumentType.Drums, "Drums", new Color(0.9f, 0.3f, 0.3f), "360° Shockwave Beat Bang",
+                InstrumentType.Drums, "Drums", new Color(0.9f, 0.3f, 0.3f), "360도 충격파로 주변을 강타",
                 new List<int[]> {
                     ParsePattern("10000000100000001000000010000000"), // Lv 1 (Original Baseline: 4 downbeats at Step 0, 8, 16, 24)
                     ParsePattern("10000000100010001000000010001000"), // Lv 2 (6 hits: Step 0, 8, 12, 16, 24, 28 - Snare accents)
@@ -70,7 +70,7 @@ namespace ConductorSymphony.Instrument
             // 2. Piano (Slot 1 - R: Syncopated chord taps & rapid burst)
             // Design Doc: Tap only, 0% long notes. Off-beats & syncopated 6-burst cascades
             database[InstrumentType.Piano] = new InstrumentDefinition(
-                InstrumentType.Piano, "Piano", new Color(0.9f, 0.9f, 0.9f), "Auto-Target Chord Laser & Piano Cascade Volley",
+                InstrumentType.Piano, "Piano", new Color(0.9f, 0.9f, 0.9f), "자동 조준 화음 레이저와 연속 연타",
                 new List<int[]> {
                     ParsePattern("10000000000000001000000000000000"), // Lv 1 (2 hits: Step 0, 16)
                     ParsePattern("10000000100000001000000010000000"), // Lv 2 (4 hits: Step 0, 8, 16, 24)
@@ -91,7 +91,7 @@ namespace ConductorSymphony.Instrument
             // 프렌치호른/플루트처럼 "레벨이 오를수록 실제로 더 자주 발동"이 처음으로 제대로 작동한다.
             // 아래 "N hits"는 여전히 패턴 문자열의 '1' 개수일 뿐 실제 발동 횟수와 다르다.
             database[InstrumentType.Violin] = new InstrumentDefinition(
-                InstrumentType.Violin, "Violin", new Color(1.0f, 0.5f, 0.2f), "Orbiting Blades & Crescent Arc Slash",
+                InstrumentType.Violin, "Violin", new Color(1.0f, 0.5f, 0.2f), "궤도를 도는 칼날과 초승달 베기",
                 new List<int[]> {
                     ParsePattern("10000000000000001000000000000000"), // Lv 1 (2 hits: Step 0, 16)
                     ParsePattern("10000000100000001000000010000000"), // Lv 2 (4 hits: Step 0, 8, 16, 24)
@@ -104,7 +104,7 @@ namespace ConductorSymphony.Instrument
             // 4. Flute (Slot 3 - E: Off-beat woodwind swells & mini vortex pull)
             // Design Doc: Off-beat 16th steps (2, 10, 18, 26)
             database[InstrumentType.Flute] = new InstrumentDefinition(
-                InstrumentType.Flute, "Flute", new Color(0.2f, 0.9f, 1.0f), "Mini Vortex (Release Pull) & Woodwind Swells",
+                InstrumentType.Flute, "Flute", new Color(0.2f, 0.9f, 1.0f), "적을 끌어당기는 소용돌이와 목관의 파동",
                 new List<int[]> {
                     ParsePattern("00100000000000000010000000000000"), // Lv 1 (2 off-beats: Step 2, 18)
                     ParsePattern("00100000001000000010000000100000"), // Lv 2 (4 off-beats: Step 2, 10, 18, 26)
@@ -117,7 +117,7 @@ namespace ConductorSymphony.Instrument
             // 5. French Horn (Sonic Brass Cannon)
             // Design Doc: Mid-measure brass swells (Step 4, 12, 20, 28)
             database[InstrumentType.FrenchHorn] = new InstrumentDefinition(
-                InstrumentType.FrenchHorn, "FrenchHorn", new Color(1.0f, 0.85f, 0.2f), "Sonic Brass Cannon Cone Knockback",
+                InstrumentType.FrenchHorn, "FrenchHorn", new Color(1.0f, 0.85f, 0.2f), "부채꼴 음파포로 넉백",
                 new List<int[]> {
                     ParsePattern("00001000000000000000100000000000"), // Lv 1 (2 swell hits: Step 4, 20)
                     ParsePattern("00001000000010000000100000001000"), // Lv 2 (4 swell hits: Step 4, 12, 20, 28)
@@ -130,7 +130,7 @@ namespace ConductorSymphony.Instrument
             // 6. Glockenspiel (Star Fall & Gentle Chimes)
             // Design Doc: High-point accents & 4/8-burst chimes
             database[InstrumentType.Glockenspiel] = new InstrumentDefinition(
-                InstrumentType.Glockenspiel, "Glockenspiel", new Color(0.4f, 1.0f, 0.8f), "Star Fall on Highest HP Enemy",
+                InstrumentType.Glockenspiel, "Glockenspiel", new Color(0.4f, 1.0f, 0.8f), "체력이 가장 높은 적에게 별똥별 낙하",
                 new List<int[]> {
                     ParsePattern("10000000000000001000000000000000"), // Lv 1 (2 hits: Step 0, 16)
                     ParsePattern("10000000100000001000000010000000"), // Lv 2 (4 hits: Step 0, 8, 16, 24)
@@ -147,7 +147,7 @@ namespace ConductorSymphony.Instrument
             // 2회/사이클(휴식 5스텝)로 고정, Lv4~5는 위상이 밀리며 평균 2.7회/사이클(휴식 1스텝)까지
             // 늘어난다. 상세 내용은 위 바이올린 항목 주석 참고.
             database[InstrumentType.Cello] = new InstrumentDefinition(
-                InstrumentType.Cello, "Cello", new Color(0.6f, 0.3f, 0.1f), "Gravity Binding Slow Zone",
+                InstrumentType.Cello, "Cello", new Color(0.6f, 0.3f, 0.1f), "중력으로 속박하는 슬로우 장판",
                 new List<int[]> {
                     ParsePattern("10000000000000001000000000000000"), // Lv 1 (2 hits: Step 0, 16)
                     ParsePattern("10000000100000001000000010000000"), // Lv 2 (4 hits: Step 0, 8, 16, 24)
@@ -171,7 +171,7 @@ namespace ConductorSymphony.Instrument
             // 패턴 문자열 자체는 "장식성 온셋이 있다"는 걸 보여주는 참고용으로 그대로 두되, 주석의 실제
             // 발동 횟수만 정정했다.
             database[InstrumentType.Timpani] = new InstrumentDefinition(
-                InstrumentType.Timpani, "Timpani", new Color(0.7f, 0.4f, 0.2f), "Timpani Cannon Mortar Impact",
+                InstrumentType.Timpani, "Timpani", new Color(0.7f, 0.4f, 0.2f), "팀파니 포격으로 융단폭격",
                 new List<int[]> {
                     ParsePattern("10000000000000001000000000000000"), // Lv 1 (실제 발동 2회: Step 0, 16)
                     ParsePattern("10000000100000001000000010000000"), // Lv 2 (실제 발동 2회: Step 0, 16 - Step 8/24는 항상 겹쳐서 스킵됨)
@@ -184,7 +184,7 @@ namespace ConductorSymphony.Instrument
             // 9. Marimba (Off-Beat Wood Ricochet Wave)
             // Design Doc: Off-beats 3 & 11 (0-indexed: Step 2 & 10)
             database[InstrumentType.Marimba] = new InstrumentDefinition(
-                InstrumentType.Marimba, "Marimba", new Color(0.9f, 0.6f, 0.2f), "Off-Beat Marimba Ricochet Wave",
+                InstrumentType.Marimba, "Marimba", new Color(0.9f, 0.6f, 0.2f), "엇박에 튕겨나가는 마림바 파동",
                 new List<int[]> {
                     ParsePattern("00100000000000000010000000000000"), // Lv 1 (2 off-beats: Step 2, 18)
                     ParsePattern("00100000001000000010000000100000"), // Lv 2 (4 off-beats: Step 2, 10, 18, 26)
@@ -197,7 +197,7 @@ namespace ConductorSymphony.Instrument
             // 10. Bell (8-Direction Starlight Burst)
             // Design Doc: Accent 2 & 4 beats (0-indexed: Step 4 & 12)
             database[InstrumentType.Bell] = new InstrumentDefinition(
-                InstrumentType.Bell, "Bell", new Color(0.9f, 1.0f, 0.3f), "8-Direction Starlight Burst",
+                InstrumentType.Bell, "Bell", new Color(0.9f, 1.0f, 0.3f), "8방향으로 터지는 별빛 폭발",
                 new List<int[]> {
                     ParsePattern("00001000000000000000100000000000"), // Lv 1 (2 accent beats: Step 4, 20)
                     ParsePattern("00001000000010000000100000001000"), // Lv 2 (4 accent beats: Step 4, 12, 20, 28)

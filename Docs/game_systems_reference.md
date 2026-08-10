@@ -881,9 +881,77 @@ BGM 소스에 반영되는지는 테스트 시점에 보스전 BGM이 시작되�
 로직은 올바르나(재생 중인 소스가 있을 때만 조건부 갱신) 추후 실전 플레이로 재확인 권장. 검증
 완료 - `archive/pause_menu_test_guide.md`로 이동함.
 
-- **남은 항목**: 없음(ESC 일시정지 메뉴 포함 전부 완료 - 단, 위 (2) BGM 실재생 볼륨 반영은
-  참고용 미실측 항목으로 남음). 그 외 UI 폴리싱 로드맵 나머지(패널/카드 9-slice 배경, 애니메이션
-  연출, 장신구 아이콘 아트 - 배치는 구상만 되어 있고 아트 제작 대기)는 미착수 상태로 대기.
+**레벨업 카드 프레임 아트 + 확대 - 구현 완료, Unity MCP 실측 대기(2026-08-10).** 사용자가
+나노바나나로 생성한 `Assets/Resources/Sprites/UI/LevelUpCardFrame.png`(1024×1536, 2:3, 오케스트라
+테마 남색+금색 액자 디자인)를 레벨업/엘리트 보상 선택 카드에 연동하고, 카드 크기를 220×270 →
+380×570로 대폭 확대(사용자 요청 - 메이플스토리 보스전 카드 선택 정도의 크기감, 배경 여백 축소
+효과도 겸함).
+
+**작업 중 기존 버그를 발견해 함께 수정**: `LevelUpUI`의 카드 버튼 3개는 사실 코드 생성이 아니라
+예전에 Unity 에디터에서 직접 만들어져 `Gameplay.unity` 씬에 이미 저장돼 있었음(`EnsureUIComponents()`의
+"없으면 생성" 블록이 항상 스킵되고 있었던 것) - 그런데 `cardIconImages` 필드만 씬에 빈 배열로
+남아있어서 **악기/패시브 아이콘이 카드에 전혀 표시되지 않는 버그**가 있었음. `EnsureCardIcons()`를
+추가해 각 카드 버튼 아래 아이콘 자식을 개별적으로 보장하도록 수정. 또한 카드 크기가 씬에 박제된
+예전 값(220×270)에 갇혀있었다는 것도 함께 확인 - `EnsureCardVisualUpgrade()`가 매 `Awake()`마다
+새 크기를 명시적으로 덮어쓰도록 해서, 코드가 항상 최종 권한을 갖게 함(이 프로젝트에서 반복
+강조된 "씬/프리팹에 박제된 값이 코드보다 우선하는" 함정과 같은 종류).
+
+`LevelUpCardFrame.png`를 Python으로 픽셀 분석해 헤더 배너(제목)/중앙 액자 창(아이콘)/하단 패널
+(설명) 3구간의 실제 경계를 실측하고 그 값으로 텍스트/아이콘 앵커를 배치. 제목이 헤더의 장식
+그래픽과 겹칠 수 있어 HP/EXP 바 숫자 오버레이 때와 동일하게 Outline을 추가. 프레임 이미지는
+HP/EXP 바 프레임과 동일한 이유로 `Image.Type.Simple` 적용(9-slice 회피).
+
+**1차 Unity MCP 실측 결과 PASS** (`archive/levelup_card_redesign_test_guide.md`) - 프레임 아트/
+확대/아이콘 버그 수정 전부 정상 동작 확인, 검증 중 패시브 카드 타이틀 3줄이 헤더 영역을 넘쳐
+아이콘과 겹치는 별도 버그를 발견해 즉시 수정(2줄로 축약).
+
+**2차 개선 - Unity MCP 실측 결과 PASS** (`archive/levelup_card_redesign_v2_test_guide.md`). 사용자가
+1차 결과물을 실제 플레이해보고 준 피드백 4가지 반영: 카드 570×855 추가 확대, "[Key N]" 카드 밖
+분리, 테마 뱃지 하단 분리, 카드 텍스트 전체 갈무리 폰트 적용, 패시브 8종 도트 아이콘
+(`Sprites/Passives/{8종}.png`) 연동. 1920×1080 기준 카드 3장 폭이 좌우 75px 여유로 들어감을
+확인했으나, 그보다 좁은 해상도(1600×900 등)에서의 잘림 위험은 Unity MCP 세션 환경 제약으로
+재현/반증하지 못해 "위험 있음, 미확정"으로 남아있음(실제 빌드 확인 권장).
+
+**3차 개선 - Unity MCP 실측 결과 PASS** (`archive/levelup_card_redesign_v3_test_guide.md`). 사용자가
+2차 결과물을 실제 플레이해보고 준 피드백을 반영: (1) 카드+"LEVEL UP!" 타이틀 그룹 전체를 위로 60px
+이동시켜 카드가 화면 세로 중앙 부근에 오도록 조정(카드 버튼의 앵커/피벗을 (0.5,0.5)로 명시적으로
+강제해 씬에 박제됐을 수 있는 부정확한 값을 배제), (2) "LEVEL UP!" 타이틀(씬에 원래 있던
+`TitleText`, 지금까지 어떤 코드도 참조한 적 없어 유니티 기본 폰트/32pt였음)에 갈무리 폰트 적용 +
+48pt로 확대, (3) 테마 뱃지 폰트 18→22, 설명 폰트 24→30로 확대, (4) 패시브 스탯 8종 설명의
+"(최대 +N%)" 괄호를 둘째 줄로 줄바꿈(폰트가 커지면서 한 줄에 안 들어가 보일 수 있어서), (5) **악기
+10종의 설명이 전부 영어로 되어 있던 것을 발견해 전부 자연스러운 한글로 교체**(예: Drums
+"360° Shockwave Beat Bang" → "360도 충격파로 주변을 강타", Violin "Orbiting Blades & Crescent Arc
+Slash" → "궤도를 도는 칼날과 초승달 베기"). 악기 카드 하단에 하드코딩돼 있던 "(Dmg +X, Multi +Y)"도
+"(피해 +X, 투사체 +Y)"로 교체(다른 UI 전체의 기존 한글 용어와 통일).
+
+**[핵심] 좁은 해상도 카드 잘림 - 실제로 재현되어 근본 수정됨.** 2차 검증에서 미확정으로 남았던
+위험을 Unity MCP 세션이 Editor `GameViewSizes` 내부 API를 리플렉션으로 조작해 실제 1600×900
+해상도로 재현: 카드 좌우가 잘리고 "[Key N]"/"LEVEL UP!" 타이틀이 화면 위로 완전히 밀려나 안 보이는
+문제를 확인(카드 높이 855px가 화면 900px의 95%를 차지해 위쪽 여백이 없었음). 원인은
+`RhythmCanvas`의 `CanvasScaler`가 Constant Pixel Size라 화면 해상도가 작아져도 카드/폰트/오프셋이
+전부 2560×1440 기준 고정 픽셀값 그대로였던 것. `CardWidth`/`CardHeight`/`CardSpacing`/
+`GroupVerticalShift`를 `Base*` 상수로 바꾸고 `ComputeCardScale()`(현재 `Screen.width/height`를
+2560×1440 기준 대비 비율로 계산, 1.0 초과 안 함)을 추가해 카드 크기·폰트·KeyLabel 위치·간격 전체에
+곱하도록 수정, `ShowLevelUpSelection()`을 열 때마다 레이아웃을 다시 계산하도록 함. 재수정 중
+타이틀의 고정 비율 앵커가 KeyLabel과 겹치는 2차 버그를 추가로 발견해 카드 중심 기준 + 계산된
+여유 간격(`BaseTitleClearance`) 방식으로 수정. 1600×900과 2560×1440 양쪽 모두 잘림/겹침 없이
+재검증 완료.
+
+**4차 개선 - "피해 +0" 표시 개선, 구현 완료·Unity MCP 실측 대기(2026-08-10).** 사용자가 플레이 중
+Drums Lv.2 카드에서 "(피해 +0, 투사체 +0)"이 뜨는 걸 보고 버그인지 질문. 조사 결과 `extraDamage`/
+`extraProjectiles`는 전 악기 공통 범용 보너스(Lv3+/Lv5, Lv4+에서만 발생)라 계산 자체는 틀리지
+않았지만, 드럼처럼 `InstrumentLevelStats.cs`에 별도 배율(Lv2: 범위+피해량 각 +20%)이 있는 악기는
+카드에 그 실제 효과가 전혀 안 보여 "버그처럼 보이는" 문제였음. `InstrumentLevelStats.cs`에
+`GetLevelUpHighlights(type, level)`를 추가해 범위/지속시간/피해량/넉백/크기/관통/스텝 카운트 등
+모든 배율·카운트 테이블을 레벨 전후로 직접 diff해서 한글 문구를 생성(하드코딩 문자열이 아니라
+값에서 직접 계산하므로 나중에 밸런스를 조정해도 카드 문구가 자동으로 같이 바뀜). `LevelUpUI.cs`의
+`BuildInstrumentLevelUpEffectText()`가 이 결과에 extraDamage/extraProjectiles 델타까지 합쳐 카드
+설명 괄호를 구성 - 이제 Drums Lv.2는 "(범위 +20%, 피해량 +20%)"로 표시됨. 아직 컴파일/Play 모드
+확인 전. 검증 가이드: `levelup_card_effect_preview_test_guide.md`.
+
+- **남은 항목**: 레벨업 카드 4차 개선(실제 효과 문구)의 Unity MCP 실측 검증(위 항목). ESC 일시정지
+  메뉴는 완료(단, BGM 실재생 볼륨 반영은 참고용 미실측 항목으로 남음). 그 외 UI 폴리싱 로드맵
+  나머지(패널 9-slice 배경, 애니메이션 연출)는 미착수 상태로 대기.
   그 외 - 도트 폰트 통일(코드 7곳 + `MainMenuCanvas.prefab` 50곳), 인게임 배경(타일링/격자 스크롤/
   남색 아트), 엘리트/보스 크기·판정 범위 동기화, VFX + 몬스터/보스 픽셀아트 전부 완료. 배경 격자의
   "런타임 화면 비율 변경 미대응" 1건만 알려진 제약사항으로 남아있음(필요 시 추후 개선). UI 폴리싱
@@ -929,5 +997,9 @@ BGM 소스에 반영되는지는 테스트 시점에 보스전 BGM이 시작되�
 | HP/EXP 바 그래프 + 악기 슬롯 4칸 아이콘 전환(텍스트 3종 제거, Q,W,E,R 재배열, 숫자 오버레이, 잠금 메시지, 프레임 Simple 전환 등 6라운드 반복 수정) | Unity MCP 실측 6라운드(4.1~4.10, 5, 7~10절) | PASS - fillAmount 렌더링 버그(sprite=null) 근본 원인 수정 후 실제 스크린샷(HP 45/100 등)으로 채움 비율 육안 확인 완료, 프레임/잠금 메시지/여백/정렬 전부 확인 | `archive/hud_bar_icon_test_guide.md` |
 | 메인 메뉴 배경 이미지(`MainMenuBackground.png`) 연동 | Unity MCP 실측(Play모드 스크린샷) | PASS - MainPanel/SettingsPanel의 불투명 배경이 새 배경을 가리던 문제 발견+수정(alpha=0 처리) | `archive/main_menu_background_test_guide.md` |
 | ESC 일시정지 메뉴(계속하기/환경설정/메인으로/게임종료 + 확인 다이얼로그 2종) | Unity MCP 실측(실제 시뮬레이션 키 입력 + Play모드 스크린샷) | PASS - 버그 미발견(세션 아티팩트 1건은 재현 안 됨으로 결론, BGM 실볼륨 반영은 재생 중 클립 없어 미실측) | `archive/pause_menu_test_guide.md` |
+| 레벨업 카드 프레임 아트 연동 + 카드 확대(220x270→380x570) + 아이콘 미표시 버그 수정 (1차) | Unity MCP 실측 | PASS - 패시브 카드 타이틀 3줄이 헤더 영역을 넘쳐 아이콘과 겹치는 버그 발견+수정(2줄로 축약) | `archive/levelup_card_redesign_test_guide.md` |
+| 레벨업 카드 2차 개선(380x570→570x855 추가 확대, Key/테마 뱃지 카드 밖으로 재배치, 폰트 적용, 패시브 아이콘 8종 아트 연동) | Unity MCP 실측 | PASS - 1920x1080 기준 카드 3장 폭 확인(좌우 75px 여유), 그보다 좁은 해상도에서의 잘림 위험은 이 세션에서 재현 불가해 미확정으로 남김 | `archive/levelup_card_redesign_v2_test_guide.md` |
+| 레벨업 카드 3차 개선(카드+타이틀 세로 위치 조정, 폰트 크기 확대, 악기 설명 10종 한글화, 패시브 설명 줄바꿈) | Unity MCP 실측 | PASS - 좁은 해상도(1600x900) 카드 잘림/타이틀 이탈 실제 재현 후 `ComputeCardScale()` 동적 스케일링으로 근본 수정, 1600x900/2560x1440 양쪽 재검증 | `archive/levelup_card_redesign_v3_test_guide.md` |
+| 레벨업 카드 4차 개선("피해 +0" 표시를 InstrumentLevelStats 실측 배율 diff 기반 실제 효과 문구로 교체) | 구현 완료, Unity MCP 실측 대기 | 대기 | `levelup_card_effect_preview_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*
