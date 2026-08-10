@@ -116,5 +116,129 @@ namespace ConductorSymphony.Instrument
         public static readonly float[] FrenchHornHalfAngleDeg = { 60f, 60f, 60f, 60f, 90f }; // Lv5+: 전방 각도(반각) 60도→90도(전체 120도→180도)
         public static readonly float[] GlockenspielSplashRadiusBase = { 0.6f, 0.6f, 1.1f, 1.1f, 1.1f }; // Lv3+: 스플래시 반경 기준값(범위 패시브 적용 전)
         public static readonly float[] TimpaniBombardIntervalBaseSeconds = { 0.65f, 0.65f, 0.65f / 1.5f, 0.65f / 1.5f, 0.65f / 1.5f }; // Lv3+: 융단폭격 빈도 +50%(간격 감소)
+
+        // ==================== 레벨업 카드 미리보기용 실제 효과 요약 ====================
+        // 2026-08-10: 사용자 피드백 - 레벨업 카드에 찍히던 "(피해 +0, 투사체 +0)"이 위 표들의
+        // 실제 배율 인상(범위/피해량/넉백 등)을 전혀 반영하지 못해 "버그처럼 보인다"는 지적을 받음.
+        // 아래는 하드코딩된 % 문자열이 아니라 위 배열들에서 직접 diff해서 "이 레벨업으로 뭐가
+        // 좋아지는가"를 한글 문구로 만들어주는 헬퍼 - 나중에 이 파일의 밸런스 수치를 조정해도
+        // 카드 문구가 자동으로 같이 바뀐다(값과 문구가 따로 놀 일이 없음).
+        private const string DamageLabel = "피해량";
+        private const string KnockbackLabel = "넉백 거리";
+
+        private static readonly Dictionary<InstrumentType, string> rangeLabel = new Dictionary<InstrumentType, string>
+        {
+            { InstrumentType.Cello, "범위" }, { InstrumentType.Flute, "흡입범위" }, { InstrumentType.Bell, "사거리" },
+            { InstrumentType.Drums, "범위" }, { InstrumentType.FrenchHorn, "사거리" }, { InstrumentType.Violin, "회전 반경" },
+            { InstrumentType.Timpani, "낙하 범위" },
+        };
+        private static readonly Dictionary<InstrumentType, string> durationLabel = new Dictionary<InstrumentType, string>
+        {
+            { InstrumentType.Flute, "유지시간" }, { InstrumentType.Cello, "잔류시간" },
+        };
+        private static readonly Dictionary<InstrumentType, string> sizeLabel = new Dictionary<InstrumentType, string>
+        {
+            { InstrumentType.Violin, "참격 크기" }, { InstrumentType.Marimba, "파동 크기" },
+        };
+        private static readonly Dictionary<InstrumentType, string> pierceLabel = new Dictionary<InstrumentType, string>
+        {
+            { InstrumentType.Bell, "관통" }, { InstrumentType.Piano, "관통" }, { InstrumentType.Violin, "관통" }, { InstrumentType.Marimba, "관통" },
+        };
+        private static readonly Dictionary<InstrumentType, string> stepLabel = new Dictionary<InstrumentType, string>
+        {
+            { InstrumentType.Bell, "연속 발사" }, { InstrumentType.Piano, "발사 수" }, { InstrumentType.Drums, "충격파 중첩" },
+            { InstrumentType.Flute, "동시 유지 개수" }, { InstrumentType.Violin, "칼날 개수" },
+        };
+
+        private static string FormatMultiplierDelta(float from, float to)
+        {
+            if (Mathf.Approximately(from, to)) return null;
+            float ratio = to / from;
+            if (Mathf.Approximately(ratio, Mathf.Round(ratio)) && ratio >= 2f)
+            {
+                return $"{Mathf.RoundToInt(ratio)}배";
+            }
+            int percent = Mathf.RoundToInt((ratio - 1f) * 100f);
+            return $"+{percent}%";
+        }
+
+        // targetLevel로 "레벨업"했을 때 새로 켜지는 실제 효과 목록(카드 설명용). targetLevel<=1은
+        // 신규 습득이라 "레벨업 효과"라는 개념 자체가 없으므로 빈 리스트를 돌려준다.
+        public static List<string> GetLevelUpHighlights(InstrumentType type, int targetLevel)
+        {
+            var highlights = new List<string>();
+            if (targetLevel <= 1) return highlights;
+
+            int newIdx = Idx(targetLevel);
+            int prevIdx = Idx(targetLevel - 1);
+
+            void CheckFloatTable(Dictionary<InstrumentType, float[]> table, string label)
+            {
+                if (!table.TryGetValue(type, out var arr)) return;
+                string delta = FormatMultiplierDelta(arr[prevIdx], arr[newIdx]);
+                if (delta != null) highlights.Add($"{label} {delta}");
+            }
+
+            void CheckFloatTableWithLabels(Dictionary<InstrumentType, float[]> table, Dictionary<InstrumentType, string> labels)
+            {
+                if (!table.TryGetValue(type, out var arr) || !labels.TryGetValue(type, out var label)) return;
+                string delta = FormatMultiplierDelta(arr[prevIdx], arr[newIdx]);
+                if (delta != null) highlights.Add($"{label} {delta}");
+            }
+
+            void CheckIntTable(Dictionary<InstrumentType, int[]> table, Dictionary<InstrumentType, string> labels)
+            {
+                if (!table.TryGetValue(type, out var arr) || !labels.TryGetValue(type, out var label)) return;
+                if (arr[prevIdx] == arr[newIdx]) return;
+                highlights.Add($"{label} {arr[prevIdx]}→{arr[newIdx]}");
+            }
+
+            CheckFloatTableWithLabels(rangeMultiplier, rangeLabel);
+            CheckFloatTableWithLabels(durationMultiplier, durationLabel);
+            CheckFloatTable(damageMultiplier, DamageLabel);
+            CheckFloatTable(knockbackMultiplier, KnockbackLabel);
+            CheckFloatTableWithLabels(sizeMultiplier, sizeLabel);
+            CheckIntTable(pierceCount, pierceLabel);
+            CheckIntTable(stepCount, stepLabel);
+
+            // 딱 한 악기에서만 쓰이는 전용 수치들(위 Dictionary 테이블에 안 들어있음) - 개별 처리.
+            if (type == InstrumentType.Violin)
+            {
+                string d = FormatMultiplierDelta(ViolinSpinSpeedMultiplier[prevIdx], ViolinSpinSpeedMultiplier[newIdx]);
+                if (d != null) highlights.Add($"회전 속도 {d}");
+            }
+            if (type == InstrumentType.Cello)
+            {
+                float from = CelloSlowFraction[prevIdx], to = CelloSlowFraction[newIdx];
+                if (!Mathf.Approximately(from, to))
+                {
+                    highlights.Add($"슬로우 효과 {Mathf.RoundToInt(from * 100f)}%→{Mathf.RoundToInt(to * 100f)}%");
+                }
+            }
+            if (type == InstrumentType.FrenchHorn)
+            {
+                float from = FrenchHornHalfAngleDeg[prevIdx] * 2f, to = FrenchHornHalfAngleDeg[newIdx] * 2f;
+                if (!Mathf.Approximately(from, to))
+                {
+                    highlights.Add($"공격 각도 {from:0}°→{to:0}°");
+                }
+            }
+            if (type == InstrumentType.Glockenspiel)
+            {
+                string d = FormatMultiplierDelta(GlockenspielSplashRadiusBase[prevIdx], GlockenspielSplashRadiusBase[newIdx]);
+                if (d != null) highlights.Add($"스플래시 반경 {d}");
+            }
+            if (type == InstrumentType.Timpani)
+            {
+                float from = TimpaniBombardIntervalBaseSeconds[prevIdx], to = TimpaniBombardIntervalBaseSeconds[newIdx];
+                if (!Mathf.Approximately(from, to))
+                {
+                    int percent = Mathf.RoundToInt((from / to - 1f) * 100f);
+                    highlights.Add($"공격 빈도 +{percent}%");
+                }
+            }
+
+            return highlights;
+        }
     }
 }

@@ -451,5 +451,28 @@ namespace ConductorSymphony.Audio
             }
             pendingBarAlignedJoins.Clear();
         }
+
+        // 2026-08-10: 일시정지 메뉴 볼륨 슬라이더 지원용 추가. bgmSource/악기 소스들의 volume은
+        // 원래 "재생을 시작하는 시점"에만 GameSettings 값을 한 번 읽어와 곱하는 구조라(예:
+        // PlayBossBattleBGM(), ActivateInstrumentAudio()), 이미 재생 중인 소스는 슬라이더를
+        // 움직여도 볼륨이 즉시 바뀌지 않는 문제가 있었음(지금까지는 볼륨 조절이 메인 메뉴에서만
+        // 가능했고 메인 메뉴에선 이 소스들이 재생 중이지 않아서 드러나지 않았던 gap). 슬라이더
+        // 값이 바뀔 때마다 이 메서드를 호출해 현재 재생 중인 모든 소스에 즉시 재적용한다.
+        public void RefreshVolumesFromSettings()
+        {
+            if (bgmSource != null && bgmSource.clip != null)
+            {
+                // PlayBossBattleBGM()과 동일한 0.75배 기준을 공유.
+                bgmSource.volume = 0.75f * GameSettings.BgmVolume01;
+            }
+            foreach (var kvp in activeInstrumentSources)
+            {
+                if (kvp.Value != null)
+                {
+                    // ActivateInstrumentAudio()와 동일한 0.85배 기준을 공유.
+                    kvp.Value.volume = 0.85f * GameSettings.InstrumentVolume01;
+                }
+            }
+        }
     }
 }
