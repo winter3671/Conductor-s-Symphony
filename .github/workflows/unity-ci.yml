@@ -1,0 +1,40 @@
+name: Unity CI
+
+on:
+  push:
+    branches:
+      - master
+      - ci/**
+      - 'feat/**'
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  unity:
+    name: Unity Editor CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Unity packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            Library/PackageCache
+            Library/ArtifactDatabase
+            Library/SourceAssetDB
+            Library/ScriptAssemblies
+          key: unity-packages-${{ hashFiles('Packages/manifest.json') }}
+          restore-keys: |
+            unity-packages-
+
+      - name: Setup Unity
+        uses: webbertakken/setup-unity@v4
+        with:
+          unityVersion: 2024.3.5f1
+
+      - name: Run Unity in batchmode
+        run: |
+          unity -projectPath . -batchmode -nographics -quit -logFile /github/workspace/unity-ci.log
