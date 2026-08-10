@@ -35,4 +35,4 @@ jobs:
         with:
           targetPlatform: StandaloneLinux64
           projectPath: .
-          unityVersion: auto
+          unityVersion: 6000.5.5f1
