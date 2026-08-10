@@ -44,7 +44,7 @@ jobs:
 
       - name: Get Unity version
         id: unity-version
-        run: echo "version=$(awk '/m_EditorVersion/ {print $2}' ProjectSettings/ProjectVersion.txt)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(awk '/^m_EditorVersion:/ {print $2}' ProjectSettings/ProjectVersion.txt)" >> "$GITHUB_OUTPUT"
 
       - name: Free disk space
         uses: jlumbroso/free-disk-space@v1.3.1
