@@ -846,9 +846,44 @@ alpha만 0으로 낮춰(RGB/레이아웃 컨테이너 역할은 유지) 해결, 
 직접 확인하는 습관이 결정적이었음. 검증 완료 - `archive/main_menu_background_test_guide.md`로
 이동함.
 
-- **남은 항목**: 없음(메인 메뉴 배경 이미지 연동 포함 전부 완료). UI 폴리싱 로드맵 나머지(패널/
-  카드 9-slice 배경, 애니메이션 연출, 장신구 아이콘 아트 - 배치는 구상만 되어 있고 아트 제작
-  대기)는 미착수 상태로 대기.
+**ESC 일시정지 메뉴 - 구현 완료, Unity MCP 실측 대기(2026-08-10).** Gameplay 중 ESC를 누르면
+계속하기/환경설정/메인으로/게임종료 4버튼이 뜨는 일시정지 메뉴를 `RhythmUI.cs`에 기존
+`Ensure*Elements()` 패턴 그대로 추가(씬/프리팹 편집 없음). 버튼 시각 스타일은 `MainMenuCanvas.
+prefab`의 StartButton 등(커스텀 스프라이트 없이 연회색 `Image.color` + `Button` ColorTint 조합)을
+코드로 그대로 재현. 일시정지 자체는 승리/패배 화면과 동일하게 `Time.timeScale=0` +
+`AudioLayerManager.PauseAllAudio()` 재사용. "환경설정"은 사용자 결정에 따라 메인 메뉴의 전체
+설정 화면(키 리바인드 8행 + 싱크 보정 포함)을 재사용하지 않고 볼륨 3종(BGM/SFX/악기) 슬라이더만
+있는 축소판으로 별도 제작(`GameSettings` PlayerPrefs 래퍼를 메인 메뉴 설정과 공유, 값 상호
+반영됨). "메인으로"/"게임종료"는 공용 확인 다이얼로그(취소/확인) 컴포넌트 하나로 처리, 메인으로
+확인 시 `OnReturnToMenuClicked()`와 동일하게 `Time.timeScale=1` 복원 후 씬 전환.
+
+구현 중 **버그 하나를 사전에 발견해 함께 수정**: `AudioLayerManager`의 BGM/악기 소스 볼륨은 원래
+"재생 시작 시점"에만 `GameSettings`를 한 번 읽어와 곱하는 구조라(`PlayBossBattleBGM()`,
+`ActivateInstrumentAudio()`), 이미 재생 중인 소스는 볼륨 슬라이더를 움직여도 반영되지 않는
+gap이 있었음(볼륨 조절이 지금까지 메인 메뉴에서만 가능했고 거긴 이 소스들이 재생 중이지 않아
+드러나지 않았던 문제 - 게임 중 조절이 가능해지는 이번 기능이 아니었다면 계속 안 보였을 것).
+`AudioLayerManager.RefreshVolumesFromSettings()`를 신규 추가해 슬라이더 값이 바뀔 때마다
+호출, 재생 중인 소스에 즉시 재적용되도록 함. 그 외 레벨업 카드 선택 화면과의 ESC 입력 충돌을
+막기 위해 `LevelUpUI.IsSelectionActive`(최소 1줄) 프로퍼티를 추가.
+
+**Unity MCP 실측(2026-08-10) 결과 PASS.** 이 프로젝트에서 반복된 "리플렉션으로 값만 확인하고
+오판했던" 함정을 의식해, 이번엔 `InputSystem.QueueStateEvent`로 `Keyboard.current`에 실제 키
+상태 이벤트를 주입하는 방식으로 ESC 입력을 시뮬레이션(핸들러 진입점 `HandleEscapeInput()`을
+그대로 통과)해 검증함 - 일시정지 열림/재개, 환경설정 전환, 슬라이더→`PlayerPrefs` 반영, 메인으로/
+게임종료 확인 다이얼로그(취소·확인 양쪽 경로), 레벨업 카드 선택 중 ESC 무시, 승리/패배 화면에서
+ESC 무시까지 전부 실제 입력 경로로 확인. 특히 "메인으로" 확인 후 MainMenu 씬 전환이 얼어붙지
+않는지(이 프로젝트에서 `Time.timeScale` 복원 누락으로 반복됐던 패턴)를 스크린샷으로 확인, 정상.
+
+검증 중 실제 버그는 발견되지 않음. 두 가지만 참고로 남음: (1) 검증 과정에서 장시간 세션 중
+슬라이더 리스너가 한때 0개로 보이는 혼선이 있었으나, 새 Play 세션에서 재현되지 않아 검증 도구
+쪽 세션 아티팩트로 결론(게임 코드 문제 아님). (2) `RefreshVolumesFromSettings()`가 실제 재생 중인
+BGM 소스에 반영되는지는 테스트 시점에 보스전 BGM이 시작되지 않은 상태라 미실측 - 코드 리뷰상
+로직은 올바르나(재생 중인 소스가 있을 때만 조건부 갱신) 추후 실전 플레이로 재확인 권장. 검증
+완료 - `archive/pause_menu_test_guide.md`로 이동함.
+
+- **남은 항목**: 없음(ESC 일시정지 메뉴 포함 전부 완료 - 단, 위 (2) BGM 실재생 볼륨 반영은
+  참고용 미실측 항목으로 남음). 그 외 UI 폴리싱 로드맵 나머지(패널/카드 9-slice 배경, 애니메이션
+  연출, 장신구 아이콘 아트 - 배치는 구상만 되어 있고 아트 제작 대기)는 미착수 상태로 대기.
   그 외 - 도트 폰트 통일(코드 7곳 + `MainMenuCanvas.prefab` 50곳), 인게임 배경(타일링/격자 스크롤/
   남색 아트), 엘리트/보스 크기·판정 범위 동기화, VFX + 몬스터/보스 픽셀아트 전부 완료. 배경 격자의
   "런타임 화면 비율 변경 미대응" 1건만 알려진 제약사항으로 남아있음(필요 시 추후 개선). UI 폴리싱
@@ -893,5 +928,6 @@ alpha만 0으로 낮춰(RGB/레이아웃 컨테이너 역할은 유지) 해결, 
 | 도트 폰트(갈무리) 통일 - 코드 생성 UI 7곳 + MainMenuCanvas.prefab 50곳 일괄 교체 | Unity MCP 실측(전수 검사+Play모드 스크린샷) | PASS (Galmuri9=43/Galmuri11-Bold=7/Arial 잔존 0건, 한글 렌더링·리치텍스트·레이아웃 회귀 전부 확인) | `archive/font_unification_test_guide.md` |
 | HP/EXP 바 그래프 + 악기 슬롯 4칸 아이콘 전환(텍스트 3종 제거, Q,W,E,R 재배열, 숫자 오버레이, 잠금 메시지, 프레임 Simple 전환 등 6라운드 반복 수정) | Unity MCP 실측 6라운드(4.1~4.10, 5, 7~10절) | PASS - fillAmount 렌더링 버그(sprite=null) 근본 원인 수정 후 실제 스크린샷(HP 45/100 등)으로 채움 비율 육안 확인 완료, 프레임/잠금 메시지/여백/정렬 전부 확인 | `archive/hud_bar_icon_test_guide.md` |
 | 메인 메뉴 배경 이미지(`MainMenuBackground.png`) 연동 | Unity MCP 실측(Play모드 스크린샷) | PASS - MainPanel/SettingsPanel의 불투명 배경이 새 배경을 가리던 문제 발견+수정(alpha=0 처리) | `archive/main_menu_background_test_guide.md` |
+| ESC 일시정지 메뉴(계속하기/환경설정/메인으로/게임종료 + 확인 다이얼로그 2종) | Unity MCP 실측(실제 시뮬레이션 키 입력 + Play모드 스크린샷) | PASS - 버그 미발견(세션 아티팩트 1건은 재현 안 됨으로 결론, BGM 실볼륨 반영은 재생 중 클립 없어 미실측) | `archive/pause_menu_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*

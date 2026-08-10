@@ -19,6 +19,11 @@ namespace ConductorSymphony.UI
         [SerializeField] private Image[] cardIconImages;
         [SerializeField] private Text[] cardDescTexts;
 
+        // 2026-08-10: 일시정지 메뉴(RhythmUI)가 ESC 입력을 처리할 때, 레벨업 카드 선택 화면이 떠
+        // 있는 동안엔 동시에 열리면 안 되므로(둘 다 Time.timeScale=0을 쓰는 별개의 풀스크린
+        // 모달이라 겹치면 입력 처리가 꼬임) 이 상태를 밖에서 확인할 수 있도록 노출.
+        public bool IsSelectionActive => cardPanel != null && cardPanel.activeSelf;
+
         // 카드 한 장의 후보 - 악기 업그레이드/신규 악기 또는 패시브 스탯 강화 둘 중 하나를 담는다.
         // (game_balance_design.docx section 2: "성장 구간엔 기존 무기 레벨업 또는 패시브 스탯 강화 무작위 제시")
         private class LevelUpChoice

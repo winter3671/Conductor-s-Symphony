@@ -1,12 +1,16 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Events;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using ConductorSymphony.Player;
 using ConductorSymphony.Instrument;
 using ConductorSymphony.Enemy;
 using ConductorSymphony.Utility;
 using ConductorSymphony.Audio;
+using ConductorSymphony.Settings;
+using ConductorSymphony.UI;
 
 namespace ConductorSymphony.Rhythm
 {
@@ -41,6 +45,20 @@ namespace ConductorSymphony.Rhythm
         private readonly Text[] slotLevelLabels = new Text[4];
         private readonly Text[] slotLockMessages = new Text[4];
 
+        // 2026-08-10: ESC 일시정지 메뉴. 씬/프리팹 편집 없이 기존 Ensure*Elements() 패턴을 그대로
+        // 따라 코드로 생성한다(MainMenu 버튼 스타일을 코드로 복제 - MainMenuCanvas.prefab의
+        // StartButton 등이 커스텀 스프라이트 없이 순수 Image.color + Button.ColorTint 조합이라
+        // 코드로 그대로 재현 가능했음). "환경설정"은 사용자 결정에 따라 볼륨 3종 조절만 지원하는
+        // 축소판(메인 메뉴의 키 리바인드/싱크 보정 화면과는 별개)으로 구성.
+        [Header("Pause Menu")]
+        private GameObject pauseMenuRoot;       // 다임(dim) 오버레이 - 항상 존재, 하위 3개 패널의 공통 부모
+        private GameObject pauseButtonsPanel;   // 계속하기/환경설정/메인으로/게임종료
+        private GameObject pauseSettingsPanel;  // 볼륨 3종 슬라이더 + 뒤로가기
+        private GameObject confirmDialogPanel;  // 메시지 + 취소/확인 (메인으로/게임종료 공용)
+        private Text confirmMessageText;
+        private System.Action pendingConfirmAction;
+        private bool isPaused = false;
+
         private float ratingTimer = 0f;
         private bool hasEnded = false; // 승리/패배가 이미 한 번 표시되면 이후 이벤트(예: 화면 표시 직후 겹친 콜리전)는 무시
 
@@ -54,6 +72,7 @@ namespace ConductorSymphony.Rhythm
             EnsureEndScreenElements();
             EnsureHealthExpBarElements();
             EnsureInstrumentSlotElements();
+            EnsurePauseMenuElements();
         }
 
         // 2026-08-10: Unity MCP 실측에서 발견된 회귀 - 이번 세션 이전에 존재하던 레거시
@@ -569,6 +588,35 @@ namespace ConductorSymphony.Rhythm
                     ratingText.text = "";
                 }
             }
+
+            HandleEscapeInput();
+        }
+
+        // 2026-08-10: Time.timeScale이 0이어도 Update()는 계속 호출되므로(FixedUpdate/시간 기반
+        // 로직만 멈춤) 일시정지 중에도 ESC로 다시 재개할 수 있음 - PlayerController가 이미 같은
+        // 전제로 timeScale==0일 때 이동 입력을 무시하는 것과 동일한 패턴.
+        private void HandleEscapeInput()
+        {
+            if (hasEnded) return; // 승리/패배 화면에서는 일시정지 메뉴를 열지 않음
+            if (LevelUpUI.Instance != null && LevelUpUI.Instance.IsSelectionActive) return; // 레벨업 카드 선택 중엔 무시(둘 다 timeScale=0 풀스크린 모달이라 겹치면 안 됨)
+            if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
+
+            if (confirmDialogPanel != null && confirmDialogPanel.activeSelf)
+            {
+                HideConfirmDialog();
+            }
+            else if (pauseSettingsPanel != null && pauseSettingsPanel.activeSelf)
+            {
+                ClosePauseSettings();
+            }
+            else if (isPaused)
+            {
+                ResumeGame();
+            }
+            else
+            {
+                OpenPauseMenu();
+            }
         }
 
         public void UpdateHealthUI(int currentHp, int maxHp)
@@ -748,6 +796,403 @@ namespace ConductorSymphony.Rhythm
         {
             Time.timeScale = 1f; // MainMenu(및 이후 재진입할 Gameplay)가 멈춰있지 않도록 반드시 복원
             SceneManager.LoadScene("MainMenu");
+        }
+
+        // ===================== 일시정지 메뉴 =====================
+
+        private void EnsurePauseMenuElements()
+        {
+            if (pauseMenuRoot != null) return;
+
+            // 최상위 다임 오버레이 - Awake()에서 마지막에 생성되므로(다른 Ensure*보다 나중 호출)
+            // 자동으로 형제 순서상 맨 마지막이 되어 항상 다른 HUD 요소들보다 위에 그려진다.
+            pauseMenuRoot = new GameObject("PauseMenuRoot");
+            pauseMenuRoot.transform.SetParent(transform, false);
+            RectTransform rootRt = pauseMenuRoot.AddComponent<RectTransform>();
+            rootRt.anchorMin = Vector2.zero;
+            rootRt.anchorMax = Vector2.one;
+            rootRt.offsetMin = Vector2.zero;
+            rootRt.offsetMax = Vector2.zero;
+            Image dim = pauseMenuRoot.AddComponent<Image>();
+            dim.color = new Color(0f, 0f, 0f, 0.65f);
+            dim.raycastTarget = true; // 아래 게임 화면 클릭 차단
+
+            EnsurePauseButtonsPanel(pauseMenuRoot.transform);
+            EnsurePauseSettingsPanel(pauseMenuRoot.transform);
+            EnsureConfirmDialogElements(pauseMenuRoot.transform);
+
+            pauseMenuRoot.SetActive(false);
+        }
+
+        // MainMenuCanvas.prefab의 StartButton/SettingsButton/QuitButton과 동일한 스타일(커스텀
+        // 스프라이트 없이 연회색 Image.color + Button ColorTint 조합)을 코드로 재현.
+        private Button CreateMenuStyleButton(Transform parent, string label, float width, float height)
+        {
+            GameObject btnObj = new GameObject($"Btn_{label}");
+            btnObj.transform.SetParent(parent, false);
+
+            Image img = btnObj.AddComponent<Image>();
+            img.color = new Color(0.85f, 0.85f, 0.85f, 1f);
+
+            Button btn = btnObj.AddComponent<Button>();
+            ColorBlock colors = btn.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(0.96f, 0.96f, 0.96f, 1f);
+            colors.pressedColor = new Color(0.784f, 0.784f, 0.784f, 1f);
+            colors.selectedColor = new Color(0.96f, 0.96f, 0.96f, 1f);
+            colors.disabledColor = new Color(0.784f, 0.784f, 0.784f, 0.502f);
+            colors.fadeDuration = 0.1f;
+            btn.colors = colors;
+
+            LayoutElement le = btnObj.AddComponent<LayoutElement>();
+            le.preferredWidth = width;
+            le.preferredHeight = height;
+
+            GameObject labelObj = new GameObject("Label");
+            labelObj.transform.SetParent(btnObj.transform, false);
+            Text labelText = labelObj.AddComponent<Text>();
+            labelText.font = GameFonts.Body;
+            labelText.fontSize = 28;
+            labelText.color = Color.black;
+            labelText.alignment = TextAnchor.MiddleCenter;
+            labelText.text = label;
+            RectTransform lrt = labelObj.GetComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero;
+            lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = Vector2.zero;
+            lrt.offsetMax = Vector2.zero;
+
+            return btn;
+        }
+
+        private void EnsurePauseButtonsPanel(Transform parent)
+        {
+            pauseButtonsPanel = new GameObject("PauseButtonsPanel");
+            pauseButtonsPanel.transform.SetParent(parent, false);
+            RectTransform rt = pauseButtonsPanel.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(420f, 420f);
+            rt.anchoredPosition = Vector2.zero;
+
+            Image panelBg = pauseButtonsPanel.AddComponent<Image>();
+            panelBg.color = new Color(0.12f, 0.12f, 0.18f, 0.95f);
+
+            VerticalLayoutGroup layout = pauseButtonsPanel.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.spacing = 18f;
+            layout.padding = new RectOffset(30, 30, 30, 30);
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            GameObject titleObj = new GameObject("Title");
+            titleObj.transform.SetParent(pauseButtonsPanel.transform, false);
+            Text title = titleObj.AddComponent<Text>();
+            title.font = GameFonts.Headline;
+            title.fontSize = 32;
+            title.color = Color.white;
+            title.alignment = TextAnchor.MiddleCenter;
+            title.text = "일시정지";
+            LayoutElement titleLe = titleObj.AddComponent<LayoutElement>();
+            titleLe.preferredWidth = 360f;
+            titleLe.preferredHeight = 50f;
+
+            CreateMenuStyleButton(pauseButtonsPanel.transform, "계속하기", 360f, 64f).onClick.AddListener(ResumeGame);
+            CreateMenuStyleButton(pauseButtonsPanel.transform, "환경설정", 360f, 64f).onClick.AddListener(OpenPauseSettings);
+            CreateMenuStyleButton(pauseButtonsPanel.transform, "메인으로", 360f, 64f).onClick.AddListener(
+                () => ShowConfirmDialog("정말 메인으로 이동하시겠습니까?", ConfirmGoToMainMenu));
+            CreateMenuStyleButton(pauseButtonsPanel.transform, "게임종료", 360f, 64f).onClick.AddListener(
+                () => ShowConfirmDialog("정말 게임을 종료하시겠습니까?", ConfirmQuitGame));
+        }
+
+        // 사용자 결정: 메인 메뉴의 전체 설정 화면(볼륨 3종 + 키 리바인드 8행 + 싱크 보정)을 그대로
+        // 재사용하지 않고, 게임 중엔 볼륨 3종 조절만 되는 축소판으로 구성(빠른 접근 위주).
+        private void EnsurePauseSettingsPanel(Transform parent)
+        {
+            pauseSettingsPanel = new GameObject("PauseSettingsPanel");
+            pauseSettingsPanel.transform.SetParent(parent, false);
+            RectTransform rt = pauseSettingsPanel.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(460f, 400f);
+            rt.anchoredPosition = Vector2.zero;
+
+            Image panelBg = pauseSettingsPanel.AddComponent<Image>();
+            panelBg.color = new Color(0.12f, 0.12f, 0.18f, 0.95f);
+
+            VerticalLayoutGroup layout = pauseSettingsPanel.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.spacing = 20f;
+            layout.padding = new RectOffset(36, 36, 30, 30);
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            GameObject titleObj = new GameObject("Title");
+            titleObj.transform.SetParent(pauseSettingsPanel.transform, false);
+            Text title = titleObj.AddComponent<Text>();
+            title.font = GameFonts.Headline;
+            title.fontSize = 30;
+            title.color = Color.white;
+            title.alignment = TextAnchor.MiddleCenter;
+            title.text = "환경설정";
+            LayoutElement titleLe = titleObj.AddComponent<LayoutElement>();
+            titleLe.preferredWidth = 380f;
+            titleLe.preferredHeight = 46f;
+
+            CreateVolumeSliderRow(pauseSettingsPanel.transform, "배경음(BGM)", GameSettings.BgmVolume01,
+                v => { GameSettings.BgmVolume01 = v; ApplyVolumeChange(); });
+            CreateVolumeSliderRow(pauseSettingsPanel.transform, "효과음(SFX)", GameSettings.SfxVolume01,
+                v => { GameSettings.SfxVolume01 = v; ApplyVolumeChange(); });
+            CreateVolumeSliderRow(pauseSettingsPanel.transform, "악기 음량", GameSettings.InstrumentVolume01,
+                v => { GameSettings.InstrumentVolume01 = v; ApplyVolumeChange(); });
+
+            CreateMenuStyleButton(pauseSettingsPanel.transform, "뒤로가기", 300f, 60f).onClick.AddListener(ClosePauseSettings);
+
+            pauseSettingsPanel.SetActive(false);
+        }
+
+        // 2026-08-10: bgmSource/악기 소스 볼륨은 "재생 시작 시점"에만 GameSettings를 한 번 읽는
+        // 구조라(AudioLayerManager.PlayBossBattleBGM/ActivateInstrumentAudio), 이미 재생 중인
+        // 소스에 슬라이더 조작이 즉시 반영되도록 AudioLayerManager.RefreshVolumesFromSettings()를
+        // 매 슬라이더 변경마다 호출한다.
+        private void ApplyVolumeChange()
+        {
+            if (AudioLayerManager.Instance != null)
+            {
+                AudioLayerManager.Instance.RefreshVolumesFromSettings();
+            }
+        }
+
+        private void CreateVolumeSliderRow(Transform parent, string labelText, float initialValue01, UnityAction<float> onChanged)
+        {
+            GameObject rowObj = new GameObject($"Row_{labelText}");
+            rowObj.transform.SetParent(parent, false);
+            rowObj.AddComponent<RectTransform>();
+            LayoutElement rowLe = rowObj.AddComponent<LayoutElement>();
+            rowLe.preferredWidth = 380f;
+            rowLe.preferredHeight = 58f;
+
+            VerticalLayoutGroup rowLayout = rowObj.AddComponent<VerticalLayoutGroup>();
+            rowLayout.spacing = 6f;
+            rowLayout.childForceExpandWidth = true;
+            rowLayout.childForceExpandHeight = false;
+            rowLayout.childAlignment = TextAnchor.UpperLeft;
+
+            GameObject labelObj = new GameObject("Label");
+            labelObj.transform.SetParent(rowObj.transform, false);
+            Text label = labelObj.AddComponent<Text>();
+            label.font = GameFonts.Body;
+            label.fontSize = 20;
+            label.color = Color.white;
+            label.alignment = TextAnchor.MiddleLeft;
+            label.text = labelText;
+            LayoutElement labelLe = labelObj.AddComponent<LayoutElement>();
+            labelLe.preferredWidth = 380f;
+            labelLe.preferredHeight = 26f;
+
+            Slider slider = CreateSimpleSlider(rowObj.transform, 380f, 24f, initialValue01);
+            slider.onValueChanged.AddListener(onChanged);
+        }
+
+        // Unity 기본 Slider 프리팹과 동일한 최소 계층(Background/Fill Area/Fill/Handle Slide
+        // Area/Handle)을 코드로 구성. Slider는 fillRect의 anchorMax.x를 직접 갱신하는 방식이라
+        // (HP/EXP 바의 Image.Type.Filled와 달리) Fill Image에 별도 스프라이트가 없어도 정상 동작함 -
+        // sprite==null+Type.Filled일 때만 발생하는 그 렌더링 함정과는 무관한 구조.
+        private Slider CreateSimpleSlider(Transform parent, float width, float height, float initialValue01)
+        {
+            GameObject sliderObj = new GameObject("Slider");
+            sliderObj.transform.SetParent(parent, false);
+            sliderObj.AddComponent<RectTransform>();
+            LayoutElement sliderLe = sliderObj.AddComponent<LayoutElement>();
+            sliderLe.preferredWidth = width;
+            sliderLe.preferredHeight = height;
+
+            GameObject bgObj = new GameObject("Background");
+            bgObj.transform.SetParent(sliderObj.transform, false);
+            Image bgImg = bgObj.AddComponent<Image>();
+            bgImg.color = new Color(1f, 1f, 1f, 0.15f);
+            RectTransform bgRt = bgObj.GetComponent<RectTransform>();
+            bgRt.anchorMin = new Vector2(0f, 0.2f);
+            bgRt.anchorMax = new Vector2(1f, 0.8f);
+            bgRt.offsetMin = Vector2.zero;
+            bgRt.offsetMax = Vector2.zero;
+
+            GameObject fillAreaObj = new GameObject("Fill Area");
+            fillAreaObj.transform.SetParent(sliderObj.transform, false);
+            RectTransform fillAreaRt = fillAreaObj.AddComponent<RectTransform>();
+            fillAreaRt.anchorMin = new Vector2(0f, 0.2f);
+            fillAreaRt.anchorMax = new Vector2(1f, 0.8f);
+            fillAreaRt.offsetMin = new Vector2(5f, 0f);
+            fillAreaRt.offsetMax = new Vector2(-5f, 0f);
+
+            GameObject fillObj = new GameObject("Fill");
+            fillObj.transform.SetParent(fillAreaObj.transform, false);
+            Image fillImg = fillObj.AddComponent<Image>();
+            fillImg.color = new Color(0.45f, 0.85f, 0.25f, 1f); // EXP 바와 동일한 초록 계열
+            RectTransform fillRt = fillObj.GetComponent<RectTransform>();
+            fillRt.anchorMin = new Vector2(0f, 0f);
+            fillRt.anchorMax = new Vector2(0f, 1f); // Slider가 값에 따라 anchorMax.x를 직접 갱신
+            fillRt.offsetMin = Vector2.zero;
+            fillRt.offsetMax = Vector2.zero;
+
+            GameObject handleAreaObj = new GameObject("Handle Slide Area");
+            handleAreaObj.transform.SetParent(sliderObj.transform, false);
+            RectTransform handleAreaRt = handleAreaObj.AddComponent<RectTransform>();
+            handleAreaRt.anchorMin = Vector2.zero;
+            handleAreaRt.anchorMax = Vector2.one;
+            handleAreaRt.offsetMin = new Vector2(10f, 0f);
+            handleAreaRt.offsetMax = new Vector2(-10f, 0f);
+
+            GameObject handleObj = new GameObject("Handle");
+            handleObj.transform.SetParent(handleAreaObj.transform, false);
+            Image handleImg = handleObj.AddComponent<Image>();
+            handleImg.color = Color.white;
+            RectTransform handleRt = handleObj.GetComponent<RectTransform>();
+            handleRt.sizeDelta = new Vector2(20f, height + 10f);
+            handleRt.anchorMin = new Vector2(0f, 0.5f);
+            handleRt.anchorMax = new Vector2(0f, 0.5f);
+            handleRt.pivot = new Vector2(0.5f, 0.5f);
+
+            Slider slider = sliderObj.AddComponent<Slider>();
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.fillRect = fillRt;
+            slider.handleRect = handleRt;
+            slider.targetGraphic = handleImg;
+            slider.transition = Selectable.Transition.ColorTint;
+            slider.SetValueWithoutNotify(initialValue01);
+
+            return slider;
+        }
+
+        // 메인으로/게임종료 공용 확인 다이얼로그.
+        private void EnsureConfirmDialogElements(Transform parent)
+        {
+            confirmDialogPanel = new GameObject("ConfirmDialogPanel");
+            confirmDialogPanel.transform.SetParent(parent, false);
+            RectTransform rt = confirmDialogPanel.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(440f, 220f);
+            rt.anchoredPosition = Vector2.zero;
+
+            Image panelBg = confirmDialogPanel.AddComponent<Image>();
+            panelBg.color = new Color(0.12f, 0.12f, 0.18f, 0.97f);
+
+            GameObject msgObj = new GameObject("Message");
+            msgObj.transform.SetParent(confirmDialogPanel.transform, false);
+            confirmMessageText = msgObj.AddComponent<Text>();
+            confirmMessageText.font = GameFonts.Body;
+            confirmMessageText.fontSize = 24;
+            confirmMessageText.color = Color.white;
+            confirmMessageText.alignment = TextAnchor.MiddleCenter;
+            confirmMessageText.text = "";
+            RectTransform msgRt = msgObj.GetComponent<RectTransform>();
+            msgRt.anchorMin = new Vector2(0f, 0.42f);
+            msgRt.anchorMax = new Vector2(1f, 1f);
+            msgRt.offsetMin = new Vector2(20f, 0f);
+            msgRt.offsetMax = new Vector2(-20f, -20f);
+
+            GameObject buttonsRowObj = new GameObject("ButtonsRow");
+            buttonsRowObj.transform.SetParent(confirmDialogPanel.transform, false);
+            RectTransform buttonsRowRt = buttonsRowObj.AddComponent<RectTransform>();
+            buttonsRowRt.anchorMin = new Vector2(0.5f, 0f);
+            buttonsRowRt.anchorMax = new Vector2(0.5f, 0f);
+            buttonsRowRt.pivot = new Vector2(0.5f, 0f);
+            buttonsRowRt.anchoredPosition = new Vector2(0f, 28f);
+            buttonsRowRt.sizeDelta = new Vector2(380f, 64f);
+
+            HorizontalLayoutGroup rowLayout = buttonsRowObj.AddComponent<HorizontalLayoutGroup>();
+            rowLayout.spacing = 24f;
+            rowLayout.childAlignment = TextAnchor.MiddleCenter;
+            rowLayout.childForceExpandWidth = false;
+            rowLayout.childForceExpandHeight = false;
+
+            CreateMenuStyleButton(buttonsRowObj.transform, "취소", 160f, 60f).onClick.AddListener(HideConfirmDialog);
+            CreateMenuStyleButton(buttonsRowObj.transform, "확인", 160f, 60f).onClick.AddListener(OnConfirmDialogAccepted);
+
+            confirmDialogPanel.SetActive(false);
+        }
+
+        private void OpenPauseMenu()
+        {
+            if (pauseMenuRoot == null) return;
+            isPaused = true;
+            pauseMenuRoot.SetActive(true);
+            pauseButtonsPanel.SetActive(true);
+            pauseSettingsPanel.SetActive(false);
+            confirmDialogPanel.SetActive(false);
+            Time.timeScale = 0f;
+            if (AudioLayerManager.Instance != null) AudioLayerManager.Instance.PauseAllAudio();
+        }
+
+        private void ResumeGame()
+        {
+            if (!isPaused) return;
+            isPaused = false;
+            pauseMenuRoot.SetActive(false);
+            Time.timeScale = 1f;
+            if (AudioLayerManager.Instance != null) AudioLayerManager.Instance.ResumeAllAudio();
+        }
+
+        private void OpenPauseSettings()
+        {
+            pauseButtonsPanel.SetActive(false);
+            pauseSettingsPanel.SetActive(true);
+        }
+
+        private void ClosePauseSettings()
+        {
+            pauseSettingsPanel.SetActive(false);
+            pauseButtonsPanel.SetActive(true);
+            // SettingsPanelController.OnDisable()과 동일한 이유 - 슬라이더 드래그 중엔 매 프레임
+            // PlayerPrefs I/O를 피하려 저장하지 않으므로, 패널을 닫는 "확정" 시점에 한 번 flush.
+            GameSettings.Save();
+        }
+
+        private void ShowConfirmDialog(string message, System.Action onConfirm)
+        {
+            pendingConfirmAction = onConfirm;
+            confirmMessageText.text = message;
+            pauseButtonsPanel.SetActive(false);
+            pauseSettingsPanel.SetActive(false);
+            confirmDialogPanel.SetActive(true);
+        }
+
+        private void HideConfirmDialog()
+        {
+            confirmDialogPanel.SetActive(false);
+            pendingConfirmAction = null;
+            // 다이얼로그를 취소하면 항상 4버튼 패널로 돌아간다(메인으로/게임종료 둘 다 4버튼
+            // 패널에서만 열리므로, 다이얼로그 진입 경로가 설정 화면 쪽엔 없음).
+            pauseButtonsPanel.SetActive(true);
+        }
+
+        private void OnConfirmDialogAccepted()
+        {
+            System.Action action = pendingConfirmAction;
+            confirmDialogPanel.SetActive(false);
+            pendingConfirmAction = null;
+            action?.Invoke();
+        }
+
+        private void ConfirmGoToMainMenu()
+        {
+            Time.timeScale = 1f; // OnReturnToMenuClicked()와 동일 - 다음 씬이 멈춰있지 않도록 반드시 복원
+            SceneManager.LoadScene("MainMenu");
+        }
+
+        private void ConfirmQuitGame()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
         }
     }
 }
