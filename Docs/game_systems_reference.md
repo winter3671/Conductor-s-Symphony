@@ -814,8 +814,41 @@ Simple 전환 후 프레임(HP/EXP/악기 슬롯) 전부 정상 표시 확인됨
 `InstrumentManager.Instance` null 방어 누락 버그는 이 HUD 작업 초반(§4.7 이전)에 이미 별도로
 수정 완료된 상태였음 - 각주로 정리.
 
-- **남은 항목**: 없음. UI 폴리싱 로드맵 나머지(패널/카드 9-slice 배경, 애니메이션 연출, 장신구
-  아이콘 아트 - 배치는 §하단 구상만 되어 있고 아트 제작 대기)는 미착수 상태로 대기.
+**메인 메뉴 배경 이미지 연동 - 구현 완료, Unity MCP 실측 대기(2026-08-10).** 사용자가 나노바나나로
+생성한 `Assets/Resources/Sprites/Background/MainMenuBackground.png`(1672×941, 16:9에 근접)를 시작
+화면(게임 시작/설정이 있는 첫 화면)의 배경으로 연결. `MainMenu.unity`는 UI 계층 전체가
+`MainMenuCanvas.prefab` 인스턴스 하나뿐이라 프리팹을 직접 열어 검사한 결과, 전체화면 배경 역할의
+기존 엘리먼트가 없음을 확인(발견된 `Background`라는 이름의 오브젝트 3개는 전부 볼륨 슬라이더의
+표준 uGUI Slider 하위 요소였고 메뉴 배경과 무관). 씬/프리팹 직접 편집 대신 이 프로젝트의 확립된
+`Ensure*Elements()` 코드 생성 패턴을 그대로 따라 `MainMenuController.cs`(Canvas 루트에 붙어있음)의
+`Awake()`에 `EnsureBackgroundElement()`를 추가: `Resources.Load<Sprite>("Sprites/Background/
+MainMenuBackground")`로 로드해 Canvas의 첫 번째 자식(`SetAsFirstSibling()`)으로 풀스크린
+스트레치(`anchorMin (0,0)`~`anchorMax (1,1)`, offset 0) `Image`를 생성, `Image.Type.Simple` +
+`preserveAspect=false`로 표시(이미지 원본 비율이 16:9 기준 해상도 1920×1080과 거의 일치해 늘려도
+찌그러짐 체감 미미). 스프라이트 로드 실패 시엔 기존 게임 전반의 남색(`#314D79`) 폴백 색상으로
+대체해 안전망 확보. `raycastTarget=false`로 설정해 버튼 클릭을 가리지 않도록 함. 텍스처 임포트는
+기존 `ParquetFloor.png.meta`(배경류 아트 임포트 컨벤션 - Single/Full Rect Mesh)를 참고해 동일
+컨벤션으로 `.meta` 신규 작성(Wrap Clamp로 설정 - 타일링이 아닌 1장짜리 배경이라 Repeat 불필요).
+**Unity MCP 실측(2026-08-10) 결과 PASS - 이 프로젝트에서 세 번째로 반복된 "값은 정상인데 화면엔
+반영 안 됨" 함정이 또 발견됨.** 코드상 `Image.sprite`/`color`는 의도대로 정확히 할당돼 있었지만
+(리플렉션 조회로는 "정상"), 실제 Play 모드 스크린샷에는 배경 대신 짙은 남색 단색만 보였음. 원인은
+`MainPanel`/`SettingsPanel`이 `MainMenuCanvas.prefab`에 원래부터 갖고 있던 자체 전체화면 불투명
+`Image`(alpha=1)가 `MenuBackground`보다 나중 sibling이라 화면 전체를 다시 뒤덮고 있었던 것 -
+`SetAsFirstSibling()`으로 배경을 맨 뒤에 놓은 것 자체는 맞았지만 그 앞의 두 패널이 각자 색으로
+전체를 다시 채우는 걸 놓친 것. `MakePanelBackgroundTransparent()`를 추가해 두 패널 `Image.color`의
+alpha만 0으로 낮춰(RGB/레이아웃 컨테이너 역할은 유지) 해결, 재검증 스크린샷으로 배경·타이틀·
+버튼이 정상적으로 겹쳐 보임을 확인. 설정 화면 전환 후에도 배경 유지, 비율 왜곡 없음(원본 1.777 ≈
+화면 1.778), 뒤로가기 버튼 정상 동작까지 확인. 유일한 미확인 항목은 시작 버튼→Gameplay 씬 전환
+직후 Unity MCP 브리지가 세션 피로로 40초간 멈춘 것(이번 변경과 무관한 세션 이슈로 판단, 콘솔
+에러 없음) - 필요 시 재확인 권장이나 코드상 회귀 가능성은 낮음. 이 프로젝트의 "프로퍼티 값
+정확성 ≠ 화면 렌더링 정확성" 교훈(배경 스크롤 `mainTextureOffset`, HP/EXP 바
+`Image.Type.Filled`+`sprite=null`에 이은 세 번째 사례)이 다시 한번 실증됨 - 매번 스크린샷으로
+직접 확인하는 습관이 결정적이었음. 검증 완료 - `archive/main_menu_background_test_guide.md`로
+이동함.
+
+- **남은 항목**: 없음(메인 메뉴 배경 이미지 연동 포함 전부 완료). UI 폴리싱 로드맵 나머지(패널/
+  카드 9-slice 배경, 애니메이션 연출, 장신구 아이콘 아트 - 배치는 구상만 되어 있고 아트 제작
+  대기)는 미착수 상태로 대기.
   그 외 - 도트 폰트 통일(코드 7곳 + `MainMenuCanvas.prefab` 50곳), 인게임 배경(타일링/격자 스크롤/
   남색 아트), 엘리트/보스 크기·판정 범위 동기화, VFX + 몬스터/보스 픽셀아트 전부 완료. 배경 격자의
   "런타임 화면 비율 변경 미대응" 1건만 알려진 제약사항으로 남아있음(필요 시 추후 개선). UI 폴리싱
@@ -859,5 +892,6 @@ Simple 전환 후 프레임(HP/EXP/악기 슬롯) 전부 정상 표시 확인됨
 | 배경 스크롤 격자 재배치 방식 재작성(BackgroundTiler 전면 재작성, 셰이더 의존 제거) | Unity MCP 실측(리플렉션 아닌 스크린샷 픽셀 단위 대조 + 실제 프로덕션 코드 직접 구동) | PASS (런타임 화면 비율 변경 미대응은 알려진 제약으로 남김) | `archive/background_grid_scroll_rewrite_test_guide.md` |
 | 도트 폰트(갈무리) 통일 - 코드 생성 UI 7곳 + MainMenuCanvas.prefab 50곳 일괄 교체 | Unity MCP 실측(전수 검사+Play모드 스크린샷) | PASS (Galmuri9=43/Galmuri11-Bold=7/Arial 잔존 0건, 한글 렌더링·리치텍스트·레이아웃 회귀 전부 확인) | `archive/font_unification_test_guide.md` |
 | HP/EXP 바 그래프 + 악기 슬롯 4칸 아이콘 전환(텍스트 3종 제거, Q,W,E,R 재배열, 숫자 오버레이, 잠금 메시지, 프레임 Simple 전환 등 6라운드 반복 수정) | Unity MCP 실측 6라운드(4.1~4.10, 5, 7~10절) | PASS - fillAmount 렌더링 버그(sprite=null) 근본 원인 수정 후 실제 스크린샷(HP 45/100 등)으로 채움 비율 육안 확인 완료, 프레임/잠금 메시지/여백/정렬 전부 확인 | `archive/hud_bar_icon_test_guide.md` |
+| 메인 메뉴 배경 이미지(`MainMenuBackground.png`) 연동 | Unity MCP 실측(Play모드 스크린샷) | PASS - MainPanel/SettingsPanel의 불투명 배경이 새 배경을 가리던 문제 발견+수정(alpha=0 처리) | `archive/main_menu_background_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*
