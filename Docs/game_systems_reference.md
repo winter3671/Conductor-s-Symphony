@@ -738,11 +738,224 @@ Background/ParquetFloor.png`에 배치. `CameraController`가 플레이어를 �
 전부 확인. 부수적으로 폰트 교체 전엔 유니티 기본 폰트가 한글을 지원하지 않아 각 글자가 폭 0으로
 계산돼 한 줄에 한 글자씩 세로로 쌓이는 기형적 레이아웃이었던 것도 함께 발견/해결됨.
 
-- **남은 항목**: 없음 - 도트 폰트 통일(코드 7곳 + `MainMenuCanvas.prefab` 50곳) 포함 이번 세션
-  진행 항목 전부 Unity MCP 실측 완료. 인게임 배경(타일링/격자 스크롤/남색 아트), 엘리트/보스
-  크기·판정 범위 동기화, VFX + 몬스터/보스 픽셀아트도 전부 완료. 배경 격자의 "런타임 화면 비율
-  변경 미대응" 1건만 알려진 제약사항으로 남아있음(필요 시 추후 개선). UI 폴리싱 로드맵의 나머지
-  항목(패널/카드 9-slice 배경, HUD 아이콘/바, 애니메이션 연출)은 아직 미착수.
+폰트 통일 다음으로, HUD의 HP/EXP/악기 슬롯을 텍스트에서 그래픽으로 전환하는 작업에 착수함(UI
+폴리싱 로드맵 2순위 - 패널 9-slice보다 노출 빈도가 높고 아이콘 아트를 기존 자산 재사용으로 해결할
+수 있어 먼저 진행). `RhythmUI.cs`의 `hpText`/`expText`/`instrumentSlotText` 3개 텍스트 필드를
+완전히 제거하고, HP 바(붉은색 `Image.Type.Filled`)·EXP 바(시안색 + `Lv.N` 라벨)·악기 슬롯 4칸(Q/R/W/E,
+장착/빈칸/잠금 3상태)으로 교체 - 전부 `bossHpText` 등 기존 `Ensure*Elements()` 코드 자동생성
+패턴을 그대로 따라 씬/프리팹 편집 없이 구현됨. 악기 슬롯 아이콘은 이미 있는
+`Resources/Sprites/Instruments/{Type}.png` 10종을 재사용해 신규 아트가 필요 없었음. 다만 HP/EXP
+바 테두리 2종과 슬롯 테두리 1종, 총 3개의 프레임 아트(`Sprites/UI/HpBarFrame`,
+`Sprites/UI/ExpBarFrame`, `Sprites/UI/InstrumentSlotFrame`)는 아직 없음 - 없어도 반투명 사각형으로
+자동 대체되어 동작에는 지장 없고, 사용자가 나노바나나로 생성해 채워 넣으면 코드 수정 없이 자동
+적용됨. 코드 구현은 됐으나 **Unity MCP 실측은 아직 진행 전** - `Docs/hud_bar_icon_test_guide.md`
+참고.
+
+**1차 Unity MCP 실측(2026-08-10)에서 4건의 문제 발견 → 전부 수정 완료, 재검증 대기 중:**
+1. 레거시 `HPText`/`ExpText`/`InstrumentSlotText`가 씬에 active 상태로 남아 새 HUD와 겹쳐 표시 →
+   `RhythmUI.Awake()`에 `DestroyLegacyTextElements()` 추가(이름으로 찾아 런타임에 비활성화, 씬 직접
+   편집 없이 처리).
+2. 새 HP/EXP 바가 기존 `ScoreText`/`ComboText`와 세로로 겹침 → 실측 좌표(Score/Combo 최하단 y=-120)
+   기준으로 바 그룹을 y=-24→-132로 내려 해소.
+3. 악기 슬롯 잠금 필요 레벨 라벨이 실제 해금 기준(Lv.5/10/15)과 어긋남(인덱스 밀림 + 오타) → `lockReqs`
+   배열 수정.
+4. 프레임 아트 3종이 Sprite Mode Multiple로 임포트되어 `Resources.Load<Sprite>`가 null을 반환했을
+   가능성(서브스프라이트 이름에 `_0` 접미사가 붙어 정확히 일치하는 이름이 없어짐) + 9-slice
+   Border 미설정 → `.meta` 3개를 직접 열어 Python으로 알파 채널 픽셀 분석해 경계 두께 실측 후
+   Single 모드로 전환, Border 값 기입. 부수적으로 HUD 작업과 무관한 별개 버그(`LevelUpUI.cs`의
+   `InstrumentManager.Instance` null 체크 누락으로 인한 잠재적 영구 정지 프리즈)도 실측 중 발견돼
+   함께 수정.
+
+Sprite Border 값은 Unity 에디터 없이 픽셀 분석으로 추정한 값이라 Unity MCP 세션의 재임포트 +
+Sprite Editor 시각 확인이 아직 필요.
+
+사용자가 직접 플레이하며 2차로 6건 피드백(§4.5)을 줌: (1) **실제 플레이 중 HP/EXP 바가 안 움직임 -
+원인 미상, 최우선 진단 필요** (execute_code 직접호출 테스트에선 정상이었는데 실제 사망 화면에서도
+HP바가 가득 차 있어 모순 - `UpdateHealthUI`/`UpdateExpUI`에 진단용 `Debug.Log` 추가해둠), (2) 사망/승리
+시 음악 미정지 → `AudioLayerManager.PauseAllAudio()` 호출 추가로 수정, (3) 악기 슬롯 크기 56→124px
+확대, (4) 슬롯 표시 순서를 판정 링 배치각과 맞춰 Q,R,W,E→Q,W,E,R로 재배열(실제 장착 데이터 순서는
+불변), (5)(6)은 코드 미반영 - 사용자 채팅 응답에 각각 리서치 기반 제안과 배치 구상만 전달.
+
+숫자 표시 방식은 "바 중앙에 오버레이" 확정 → 반영 완료(§4.6): HP/EXP 바 재확대(320x64/320x48),
+`HpValueText`/`ExpValueText` 흰 글씨+검은 Outline 오버레이 추가, EXP 바 색 시안→초록/연두로 변경.
+
+**HP/EXP 바 미동작 - 진짜 원인 발견(§4.7)**: 3차 재검증(§7.1)에서 "정상 동작"으로 결론 냈던 게
+검증 함정이었음이 사용자의 재차 제보로 드러남 - `hpBarFill`/`expBarFill`이 `Image.Type.Filled`인데
+`sprite`를 할당한 적이 없어서, `fillAmount` 프로퍼티 값은 정상적으로 바뀌는데(그래서 리플렉션
+검증은 통과) 실제 화면엔 항상 꽉 찬 사각형으로만 렌더링되는 uGUI 특성 때문이었음 - 배경 스크롤
+버그(`mainTextureOffset` 무시) 때와 같은 부류의 "값은 맞는데 화면 미반영" 함정. 기존
+`ProceduralSpriteFactory.CreateUnitSquare(Color.white)`로 흰 스프라이트를 부여해 해결. 같은
+라운드에 악기 아이콘 색 틴트 제거(원본 색 그대로), 잠긴 슬롯 안내를 구석 숫자 대신 프레임 중앙
+"Lv.N/해금" 메시지로 변경도 반영. 바 크기(320x64/320x48)는 사용자가 시간 관계상 현재 크기 유지로
+확정.
+
+**프레임 9-slice 깨짐(§4.8)**: HP 바 fillAmount는 실제로 정상 작동 확인(스크린샷에서 "90/100"
+붉은 바 정상). 다만 EXP 바/악기 슬롯 프레임이 원본 아트 해상도 대 표시 크기 불일치로 9-slice가
+깨져 보임(Exp는 조각남, Slot은 아예 안 보임) - 3개 프레임 전부 `Image.Type.Sliced`→`Simple`로
+전환해 근본적으로 해소(border 값 자체를 안 쓰게 됨).
+
+Simple 전환 후 프레임(HP/EXP/악기 슬롯) 전부 정상 표시 확인됨(§4.8 해결). 마지막 남은 미세조정은
+채움 바가 프레임 테두리 위아래로 살짝 삐져나오는 것 - `hpFillRt`/`expFillRt`의
+`offsetMin`/`offsetMax` 여백값을 조정(§4.9). 정확한 수치는 사용자가 직접 화면 보며 맞출 예정.
+
+사용자가 직접 여백 수치를 확정했고("이 정도가 딱이네"), EXP 바 옆 "Lv.N" 라벨 세로 정렬도
+`expLevelRt.sizeDelta`를 EXP 바 높이와 맞춰 수정 완료. **최종 Unity MCP 재검증까지 PASS** -
+`PlayerController.TakeDamage(45)`로 HP 45/100 상태를 실제로 만들어 스크린샷 확인한 결과 채움
+바가 프레임 안쪽에 정확히 들어맞고 위아래로 삐져나오지 않음, EXP 레벨 라벨도 바와 같은 세로
+중심선에 정렬됨을 확인. **HUD 바/아이콘 전환 작업 완료 - `archive/hud_bar_icon_test_guide.md`로
+이동함.**
+
+이번 작업은 총 6차례의 사용자 실측 피드백 라운드를 거쳤는데, 그 중 가장 값진 교훈은 **"프로퍼티
+값이 맞다"와 "화면에 실제로 그렇게 보인다"는 별개**라는 점이 두 번(배경 스크롤의
+`mainTextureOffset`, 이번 HP/EXP 바의 `Image.Type.Filled`+`sprite=null`) 반복됐다는 것 - 둘 다
+리플렉션/프로퍼티 조회만으로 "정상"이라고 결론 냈다가 사용자의 실제 스크린샷 제보로 뒤집힌
+사례. 이후 유사 검증에서는 값 조회와 별개로 반드시 스크린샷으로 실제 렌더링 결과를 확인하는
+습관을 문서에도 명시해둠. 참고로 §4.3에서 계속 "미해결"로 언급되던 `LevelUpUI.cs`의
+`InstrumentManager.Instance` null 방어 누락 버그는 이 HUD 작업 초반(§4.7 이전)에 이미 별도로
+수정 완료된 상태였음 - 각주로 정리.
+
+**메인 메뉴 배경 이미지 연동 - 구현 완료, Unity MCP 실측 대기(2026-08-10).** 사용자가 나노바나나로
+생성한 `Assets/Resources/Sprites/Background/MainMenuBackground.png`(1672×941, 16:9에 근접)를 시작
+화면(게임 시작/설정이 있는 첫 화면)의 배경으로 연결. `MainMenu.unity`는 UI 계층 전체가
+`MainMenuCanvas.prefab` 인스턴스 하나뿐이라 프리팹을 직접 열어 검사한 결과, 전체화면 배경 역할의
+기존 엘리먼트가 없음을 확인(발견된 `Background`라는 이름의 오브젝트 3개는 전부 볼륨 슬라이더의
+표준 uGUI Slider 하위 요소였고 메뉴 배경과 무관). 씬/프리팹 직접 편집 대신 이 프로젝트의 확립된
+`Ensure*Elements()` 코드 생성 패턴을 그대로 따라 `MainMenuController.cs`(Canvas 루트에 붙어있음)의
+`Awake()`에 `EnsureBackgroundElement()`를 추가: `Resources.Load<Sprite>("Sprites/Background/
+MainMenuBackground")`로 로드해 Canvas의 첫 번째 자식(`SetAsFirstSibling()`)으로 풀스크린
+스트레치(`anchorMin (0,0)`~`anchorMax (1,1)`, offset 0) `Image`를 생성, `Image.Type.Simple` +
+`preserveAspect=false`로 표시(이미지 원본 비율이 16:9 기준 해상도 1920×1080과 거의 일치해 늘려도
+찌그러짐 체감 미미). 스프라이트 로드 실패 시엔 기존 게임 전반의 남색(`#314D79`) 폴백 색상으로
+대체해 안전망 확보. `raycastTarget=false`로 설정해 버튼 클릭을 가리지 않도록 함. 텍스처 임포트는
+기존 `ParquetFloor.png.meta`(배경류 아트 임포트 컨벤션 - Single/Full Rect Mesh)를 참고해 동일
+컨벤션으로 `.meta` 신규 작성(Wrap Clamp로 설정 - 타일링이 아닌 1장짜리 배경이라 Repeat 불필요).
+**Unity MCP 실측(2026-08-10) 결과 PASS - 이 프로젝트에서 세 번째로 반복된 "값은 정상인데 화면엔
+반영 안 됨" 함정이 또 발견됨.** 코드상 `Image.sprite`/`color`는 의도대로 정확히 할당돼 있었지만
+(리플렉션 조회로는 "정상"), 실제 Play 모드 스크린샷에는 배경 대신 짙은 남색 단색만 보였음. 원인은
+`MainPanel`/`SettingsPanel`이 `MainMenuCanvas.prefab`에 원래부터 갖고 있던 자체 전체화면 불투명
+`Image`(alpha=1)가 `MenuBackground`보다 나중 sibling이라 화면 전체를 다시 뒤덮고 있었던 것 -
+`SetAsFirstSibling()`으로 배경을 맨 뒤에 놓은 것 자체는 맞았지만 그 앞의 두 패널이 각자 색으로
+전체를 다시 채우는 걸 놓친 것. `MakePanelBackgroundTransparent()`를 추가해 두 패널 `Image.color`의
+alpha만 0으로 낮춰(RGB/레이아웃 컨테이너 역할은 유지) 해결, 재검증 스크린샷으로 배경·타이틀·
+버튼이 정상적으로 겹쳐 보임을 확인. 설정 화면 전환 후에도 배경 유지, 비율 왜곡 없음(원본 1.777 ≈
+화면 1.778), 뒤로가기 버튼 정상 동작까지 확인. 유일한 미확인 항목은 시작 버튼→Gameplay 씬 전환
+직후 Unity MCP 브리지가 세션 피로로 40초간 멈춘 것(이번 변경과 무관한 세션 이슈로 판단, 콘솔
+에러 없음) - 필요 시 재확인 권장이나 코드상 회귀 가능성은 낮음. 이 프로젝트의 "프로퍼티 값
+정확성 ≠ 화면 렌더링 정확성" 교훈(배경 스크롤 `mainTextureOffset`, HP/EXP 바
+`Image.Type.Filled`+`sprite=null`에 이은 세 번째 사례)이 다시 한번 실증됨 - 매번 스크린샷으로
+직접 확인하는 습관이 결정적이었음. 검증 완료 - `archive/main_menu_background_test_guide.md`로
+이동함.
+
+**ESC 일시정지 메뉴 - 구현 완료, Unity MCP 실측 대기(2026-08-10).** Gameplay 중 ESC를 누르면
+계속하기/환경설정/메인으로/게임종료 4버튼이 뜨는 일시정지 메뉴를 `RhythmUI.cs`에 기존
+`Ensure*Elements()` 패턴 그대로 추가(씬/프리팹 편집 없음). 버튼 시각 스타일은 `MainMenuCanvas.
+prefab`의 StartButton 등(커스텀 스프라이트 없이 연회색 `Image.color` + `Button` ColorTint 조합)을
+코드로 그대로 재현. 일시정지 자체는 승리/패배 화면과 동일하게 `Time.timeScale=0` +
+`AudioLayerManager.PauseAllAudio()` 재사용. "환경설정"은 사용자 결정에 따라 메인 메뉴의 전체
+설정 화면(키 리바인드 8행 + 싱크 보정 포함)을 재사용하지 않고 볼륨 3종(BGM/SFX/악기) 슬라이더만
+있는 축소판으로 별도 제작(`GameSettings` PlayerPrefs 래퍼를 메인 메뉴 설정과 공유, 값 상호
+반영됨). "메인으로"/"게임종료"는 공용 확인 다이얼로그(취소/확인) 컴포넌트 하나로 처리, 메인으로
+확인 시 `OnReturnToMenuClicked()`와 동일하게 `Time.timeScale=1` 복원 후 씬 전환.
+
+구현 중 **버그 하나를 사전에 발견해 함께 수정**: `AudioLayerManager`의 BGM/악기 소스 볼륨은 원래
+"재생 시작 시점"에만 `GameSettings`를 한 번 읽어와 곱하는 구조라(`PlayBossBattleBGM()`,
+`ActivateInstrumentAudio()`), 이미 재생 중인 소스는 볼륨 슬라이더를 움직여도 반영되지 않는
+gap이 있었음(볼륨 조절이 지금까지 메인 메뉴에서만 가능했고 거긴 이 소스들이 재생 중이지 않아
+드러나지 않았던 문제 - 게임 중 조절이 가능해지는 이번 기능이 아니었다면 계속 안 보였을 것).
+`AudioLayerManager.RefreshVolumesFromSettings()`를 신규 추가해 슬라이더 값이 바뀔 때마다
+호출, 재생 중인 소스에 즉시 재적용되도록 함. 그 외 레벨업 카드 선택 화면과의 ESC 입력 충돌을
+막기 위해 `LevelUpUI.IsSelectionActive`(최소 1줄) 프로퍼티를 추가.
+
+**Unity MCP 실측(2026-08-10) 결과 PASS.** 이 프로젝트에서 반복된 "리플렉션으로 값만 확인하고
+오판했던" 함정을 의식해, 이번엔 `InputSystem.QueueStateEvent`로 `Keyboard.current`에 실제 키
+상태 이벤트를 주입하는 방식으로 ESC 입력을 시뮬레이션(핸들러 진입점 `HandleEscapeInput()`을
+그대로 통과)해 검증함 - 일시정지 열림/재개, 환경설정 전환, 슬라이더→`PlayerPrefs` 반영, 메인으로/
+게임종료 확인 다이얼로그(취소·확인 양쪽 경로), 레벨업 카드 선택 중 ESC 무시, 승리/패배 화면에서
+ESC 무시까지 전부 실제 입력 경로로 확인. 특히 "메인으로" 확인 후 MainMenu 씬 전환이 얼어붙지
+않는지(이 프로젝트에서 `Time.timeScale` 복원 누락으로 반복됐던 패턴)를 스크린샷으로 확인, 정상.
+
+검증 중 실제 버그는 발견되지 않음. 두 가지만 참고로 남음: (1) 검증 과정에서 장시간 세션 중
+슬라이더 리스너가 한때 0개로 보이는 혼선이 있었으나, 새 Play 세션에서 재현되지 않아 검증 도구
+쪽 세션 아티팩트로 결론(게임 코드 문제 아님). (2) `RefreshVolumesFromSettings()`가 실제 재생 중인
+BGM 소스에 반영되는지는 테스트 시점에 보스전 BGM이 시작되지 않은 상태라 미실측 - 코드 리뷰상
+로직은 올바르나(재생 중인 소스가 있을 때만 조건부 갱신) 추후 실전 플레이로 재확인 권장. 검증
+완료 - `archive/pause_menu_test_guide.md`로 이동함.
+
+**레벨업 카드 프레임 아트 + 확대 - 구현 완료, Unity MCP 실측 대기(2026-08-10).** 사용자가
+나노바나나로 생성한 `Assets/Resources/Sprites/UI/LevelUpCardFrame.png`(1024×1536, 2:3, 오케스트라
+테마 남색+금색 액자 디자인)를 레벨업/엘리트 보상 선택 카드에 연동하고, 카드 크기를 220×270 →
+380×570로 대폭 확대(사용자 요청 - 메이플스토리 보스전 카드 선택 정도의 크기감, 배경 여백 축소
+효과도 겸함).
+
+**작업 중 기존 버그를 발견해 함께 수정**: `LevelUpUI`의 카드 버튼 3개는 사실 코드 생성이 아니라
+예전에 Unity 에디터에서 직접 만들어져 `Gameplay.unity` 씬에 이미 저장돼 있었음(`EnsureUIComponents()`의
+"없으면 생성" 블록이 항상 스킵되고 있었던 것) - 그런데 `cardIconImages` 필드만 씬에 빈 배열로
+남아있어서 **악기/패시브 아이콘이 카드에 전혀 표시되지 않는 버그**가 있었음. `EnsureCardIcons()`를
+추가해 각 카드 버튼 아래 아이콘 자식을 개별적으로 보장하도록 수정. 또한 카드 크기가 씬에 박제된
+예전 값(220×270)에 갇혀있었다는 것도 함께 확인 - `EnsureCardVisualUpgrade()`가 매 `Awake()`마다
+새 크기를 명시적으로 덮어쓰도록 해서, 코드가 항상 최종 권한을 갖게 함(이 프로젝트에서 반복
+강조된 "씬/프리팹에 박제된 값이 코드보다 우선하는" 함정과 같은 종류).
+
+`LevelUpCardFrame.png`를 Python으로 픽셀 분석해 헤더 배너(제목)/중앙 액자 창(아이콘)/하단 패널
+(설명) 3구간의 실제 경계를 실측하고 그 값으로 텍스트/아이콘 앵커를 배치. 제목이 헤더의 장식
+그래픽과 겹칠 수 있어 HP/EXP 바 숫자 오버레이 때와 동일하게 Outline을 추가. 프레임 이미지는
+HP/EXP 바 프레임과 동일한 이유로 `Image.Type.Simple` 적용(9-slice 회피).
+
+**1차 Unity MCP 실측 결과 PASS** (`archive/levelup_card_redesign_test_guide.md`) - 프레임 아트/
+확대/아이콘 버그 수정 전부 정상 동작 확인, 검증 중 패시브 카드 타이틀 3줄이 헤더 영역을 넘쳐
+아이콘과 겹치는 별도 버그를 발견해 즉시 수정(2줄로 축약).
+
+**2차 개선 - Unity MCP 실측 결과 PASS** (`archive/levelup_card_redesign_v2_test_guide.md`). 사용자가
+1차 결과물을 실제 플레이해보고 준 피드백 4가지 반영: 카드 570×855 추가 확대, "[Key N]" 카드 밖
+분리, 테마 뱃지 하단 분리, 카드 텍스트 전체 갈무리 폰트 적용, 패시브 8종 도트 아이콘
+(`Sprites/Passives/{8종}.png`) 연동. 1920×1080 기준 카드 3장 폭이 좌우 75px 여유로 들어감을
+확인했으나, 그보다 좁은 해상도(1600×900 등)에서의 잘림 위험은 Unity MCP 세션 환경 제약으로
+재현/반증하지 못해 "위험 있음, 미확정"으로 남아있음(실제 빌드 확인 권장).
+
+**3차 개선 - Unity MCP 실측 결과 PASS** (`archive/levelup_card_redesign_v3_test_guide.md`). 사용자가
+2차 결과물을 실제 플레이해보고 준 피드백을 반영: (1) 카드+"LEVEL UP!" 타이틀 그룹 전체를 위로 60px
+이동시켜 카드가 화면 세로 중앙 부근에 오도록 조정(카드 버튼의 앵커/피벗을 (0.5,0.5)로 명시적으로
+강제해 씬에 박제됐을 수 있는 부정확한 값을 배제), (2) "LEVEL UP!" 타이틀(씬에 원래 있던
+`TitleText`, 지금까지 어떤 코드도 참조한 적 없어 유니티 기본 폰트/32pt였음)에 갈무리 폰트 적용 +
+48pt로 확대, (3) 테마 뱃지 폰트 18→22, 설명 폰트 24→30로 확대, (4) 패시브 스탯 8종 설명의
+"(최대 +N%)" 괄호를 둘째 줄로 줄바꿈(폰트가 커지면서 한 줄에 안 들어가 보일 수 있어서), (5) **악기
+10종의 설명이 전부 영어로 되어 있던 것을 발견해 전부 자연스러운 한글로 교체**(예: Drums
+"360° Shockwave Beat Bang" → "360도 충격파로 주변을 강타", Violin "Orbiting Blades & Crescent Arc
+Slash" → "궤도를 도는 칼날과 초승달 베기"). 악기 카드 하단에 하드코딩돼 있던 "(Dmg +X, Multi +Y)"도
+"(피해 +X, 투사체 +Y)"로 교체(다른 UI 전체의 기존 한글 용어와 통일).
+
+**[핵심] 좁은 해상도 카드 잘림 - 실제로 재현되어 근본 수정됨.** 2차 검증에서 미확정으로 남았던
+위험을 Unity MCP 세션이 Editor `GameViewSizes` 내부 API를 리플렉션으로 조작해 실제 1600×900
+해상도로 재현: 카드 좌우가 잘리고 "[Key N]"/"LEVEL UP!" 타이틀이 화면 위로 완전히 밀려나 안 보이는
+문제를 확인(카드 높이 855px가 화면 900px의 95%를 차지해 위쪽 여백이 없었음). 원인은
+`RhythmCanvas`의 `CanvasScaler`가 Constant Pixel Size라 화면 해상도가 작아져도 카드/폰트/오프셋이
+전부 2560×1440 기준 고정 픽셀값 그대로였던 것. `CardWidth`/`CardHeight`/`CardSpacing`/
+`GroupVerticalShift`를 `Base*` 상수로 바꾸고 `ComputeCardScale()`(현재 `Screen.width/height`를
+2560×1440 기준 대비 비율로 계산, 1.0 초과 안 함)을 추가해 카드 크기·폰트·KeyLabel 위치·간격 전체에
+곱하도록 수정, `ShowLevelUpSelection()`을 열 때마다 레이아웃을 다시 계산하도록 함. 재수정 중
+타이틀의 고정 비율 앵커가 KeyLabel과 겹치는 2차 버그를 추가로 발견해 카드 중심 기준 + 계산된
+여유 간격(`BaseTitleClearance`) 방식으로 수정. 1600×900과 2560×1440 양쪽 모두 잘림/겹침 없이
+재검증 완료.
+
+**4차 개선 - "피해 +0" 표시 개선, 구현 완료·Unity MCP 실측 대기(2026-08-10).** 사용자가 플레이 중
+Drums Lv.2 카드에서 "(피해 +0, 투사체 +0)"이 뜨는 걸 보고 버그인지 질문. 조사 결과 `extraDamage`/
+`extraProjectiles`는 전 악기 공통 범용 보너스(Lv3+/Lv5, Lv4+에서만 발생)라 계산 자체는 틀리지
+않았지만, 드럼처럼 `InstrumentLevelStats.cs`에 별도 배율(Lv2: 범위+피해량 각 +20%)이 있는 악기는
+카드에 그 실제 효과가 전혀 안 보여 "버그처럼 보이는" 문제였음. `InstrumentLevelStats.cs`에
+`GetLevelUpHighlights(type, level)`를 추가해 범위/지속시간/피해량/넉백/크기/관통/스텝 카운트 등
+모든 배율·카운트 테이블을 레벨 전후로 직접 diff해서 한글 문구를 생성(하드코딩 문자열이 아니라
+값에서 직접 계산하므로 나중에 밸런스를 조정해도 카드 문구가 자동으로 같이 바뀜). `LevelUpUI.cs`의
+`BuildInstrumentLevelUpEffectText()`가 이 결과에 extraDamage/extraProjectiles 델타까지 합쳐 카드
+설명 괄호를 구성 - 이제 Drums Lv.2는 "(범위 +20%, 피해량 +20%)"로 표시됨. 아직 컴파일/Play 모드
+확인 전. 검증 가이드: `levelup_card_effect_preview_test_guide.md`.
+
+- **남은 항목**: 레벨업 카드 4차 개선(실제 효과 문구)의 Unity MCP 실측 검증(위 항목). ESC 일시정지
+  메뉴는 완료(단, BGM 실재생 볼륨 반영은 참고용 미실측 항목으로 남음). 그 외 UI 폴리싱 로드맵
+  나머지(패널 9-slice 배경, 애니메이션 연출)는 미착수 상태로 대기.
+  그 외 - 도트 폰트 통일(코드 7곳 + `MainMenuCanvas.prefab` 50곳), 인게임 배경(타일링/격자 스크롤/
+  남색 아트), 엘리트/보스 크기·판정 범위 동기화, VFX + 몬스터/보스 픽셀아트 전부 완료. 배경 격자의
+  "런타임 화면 비율 변경 미대응" 1건만 알려진 제약사항으로 남아있음(필요 시 추후 개선). UI 폴리싱
+  로드맵의 나머지 항목(패널/카드 9-slice 배경, 애니메이션 연출)은 아직 미착수.
 
 *(관련 검증: `archive/instrument_sprite_import_test_guide.md`, `archive/impact_burst_sprite_animation_test_guide.md`)*
 
@@ -781,5 +994,12 @@ Background/ParquetFloor.png`에 배치. `CameraController`가 플레이어를 �
 | ~~배경 월드 고정 스크롤 버그 수정(mainTextureOffset)~~ - **오판으로 정정**: 사용자 실플레이에서 재현 안 됨. 스프라이트 셰이더가 `_MainTex_ST`를 지원 안 해서 값만 맞고 화면엔 반영 안 됐음 | Unity MCP 실측(수치만 검증, 렌더링 결과 미확인 - 검증 함정) | PASS 취소 → 아래 항목으로 대체 | `archive/background_worldlock_scroll_test_guide.md` |
 | 배경 스크롤 격자 재배치 방식 재작성(BackgroundTiler 전면 재작성, 셰이더 의존 제거) | Unity MCP 실측(리플렉션 아닌 스크린샷 픽셀 단위 대조 + 실제 프로덕션 코드 직접 구동) | PASS (런타임 화면 비율 변경 미대응은 알려진 제약으로 남김) | `archive/background_grid_scroll_rewrite_test_guide.md` |
 | 도트 폰트(갈무리) 통일 - 코드 생성 UI 7곳 + MainMenuCanvas.prefab 50곳 일괄 교체 | Unity MCP 실측(전수 검사+Play모드 스크린샷) | PASS (Galmuri9=43/Galmuri11-Bold=7/Arial 잔존 0건, 한글 렌더링·리치텍스트·레이아웃 회귀 전부 확인) | `archive/font_unification_test_guide.md` |
+| HP/EXP 바 그래프 + 악기 슬롯 4칸 아이콘 전환(텍스트 3종 제거, Q,W,E,R 재배열, 숫자 오버레이, 잠금 메시지, 프레임 Simple 전환 등 6라운드 반복 수정) | Unity MCP 실측 6라운드(4.1~4.10, 5, 7~10절) | PASS - fillAmount 렌더링 버그(sprite=null) 근본 원인 수정 후 실제 스크린샷(HP 45/100 등)으로 채움 비율 육안 확인 완료, 프레임/잠금 메시지/여백/정렬 전부 확인 | `archive/hud_bar_icon_test_guide.md` |
+| 메인 메뉴 배경 이미지(`MainMenuBackground.png`) 연동 | Unity MCP 실측(Play모드 스크린샷) | PASS - MainPanel/SettingsPanel의 불투명 배경이 새 배경을 가리던 문제 발견+수정(alpha=0 처리) | `archive/main_menu_background_test_guide.md` |
+| ESC 일시정지 메뉴(계속하기/환경설정/메인으로/게임종료 + 확인 다이얼로그 2종) | Unity MCP 실측(실제 시뮬레이션 키 입력 + Play모드 스크린샷) | PASS - 버그 미발견(세션 아티팩트 1건은 재현 안 됨으로 결론, BGM 실볼륨 반영은 재생 중 클립 없어 미실측) | `archive/pause_menu_test_guide.md` |
+| 레벨업 카드 프레임 아트 연동 + 카드 확대(220x270→380x570) + 아이콘 미표시 버그 수정 (1차) | Unity MCP 실측 | PASS - 패시브 카드 타이틀 3줄이 헤더 영역을 넘쳐 아이콘과 겹치는 버그 발견+수정(2줄로 축약) | `archive/levelup_card_redesign_test_guide.md` |
+| 레벨업 카드 2차 개선(380x570→570x855 추가 확대, Key/테마 뱃지 카드 밖으로 재배치, 폰트 적용, 패시브 아이콘 8종 아트 연동) | Unity MCP 실측 | PASS - 1920x1080 기준 카드 3장 폭 확인(좌우 75px 여유), 그보다 좁은 해상도에서의 잘림 위험은 이 세션에서 재현 불가해 미확정으로 남김 | `archive/levelup_card_redesign_v2_test_guide.md` |
+| 레벨업 카드 3차 개선(카드+타이틀 세로 위치 조정, 폰트 크기 확대, 악기 설명 10종 한글화, 패시브 설명 줄바꿈) | Unity MCP 실측 | PASS - 좁은 해상도(1600x900) 카드 잘림/타이틀 이탈 실제 재현 후 `ComputeCardScale()` 동적 스케일링으로 근본 수정, 1600x900/2560x1440 양쪽 재검증 | `archive/levelup_card_redesign_v3_test_guide.md` |
+| 레벨업 카드 4차 개선("피해 +0" 표시를 InstrumentLevelStats 실측 배율 diff 기반 실제 효과 문구로 교체) | 구현 완료, Unity MCP 실측 대기 | 대기 | `levelup_card_effect_preview_test_guide.md` |
 
 *(원본: `instrument_mechanics_implementation_summary.md` §6 + 각 섹션 산재 검증 요약)*
