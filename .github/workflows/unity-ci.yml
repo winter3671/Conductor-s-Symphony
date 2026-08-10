@@ -4,46 +4,61 @@ on:
   push:
     branches:
       - master
-      - ci/**
+      - 'ci/**'
       - 'feat/**'
   pull_request:
     branches:
       - master
+  workflow_dispatch:
+
+concurrency:
+  group: unity-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unity:
     name: Unity Editor CI
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: true
-
-      - name: Cache Unity packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            Library/PackageCache
-            Library/ArtifactDatabase
-            Library/SourceAssetDB
-            Library/ScriptAssemblies
-          key: unity-packages-${{ hashFiles('Packages/manifest.json') }}
-          restore-keys: |
-            unity-packages-
 
       - name: Validate Unity license secrets
-        run: |
-          if [ -z "${UNITY_LICENSE}" ] && [ -z "${UNITY_SERIAL}" ]; then
-            echo "Missing Unity activation secrets.\nSet UNITY_LICENSE or UNITY_SERIAL, plus UNITY_EMAIL and UNITY_PASSWORD in repo Secrets.";
-            exit 1;
-          fi
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          if [ -n "${UNITY_LICENSE}" ]; then
+            echo "Using UNITY_LICENSE (ULF) activation."
+          elif [ -n "${UNITY_SERIAL}" ] && [ -n "${UNITY_EMAIL}" ] && [ -n "${UNITY_PASSWORD}" ]; then
+            echo "Using UNITY_SERIAL activation."
+          else
+            echo "::error::Missing Unity activation secrets."
+            echo "Set UNITY_LICENSE (Personal license ULF file contents),"
+            echo "or UNITY_SERIAL + UNITY_EMAIL + UNITY_PASSWORD (Pro/Plus), in repo Secrets."
+            exit 1
+          fi
+
+      - name: Get Unity version
+        id: unity-version
+        run: echo "version=$(awk '/m_EditorVersion/ {print $2}' ProjectSettings/ProjectVersion.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          large-packages: true
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ runner.os }}-${{ steps.unity-version.outputs.version }}-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json') }}
+          restore-keys: |
+            Library-${{ runner.os }}-${{ steps.unity-version.outputs.version }}-
 
       - name: Run Unity Builder
         uses: game-ci/unity-builder@v4
@@ -55,4 +70,11 @@ jobs:
         with:
           targetPlatform: StandaloneLinux64
           projectPath: .
-          unityVersion: 6000.5.5f1
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Build-StandaloneLinux64
+          path: build
+          retention-days: 7
