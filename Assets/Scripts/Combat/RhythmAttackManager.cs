@@ -1,4 +1,5 @@
 using UnityEngine;
+using ConductorSymphony.CameraControl;
 using ConductorSymphony.Player;
 using ConductorSymphony.Rhythm;
 using ConductorSymphony.Utility;
@@ -78,6 +79,22 @@ namespace ConductorSymphony.Combat
             }
 
             Color projColor = (rating == HitRating.Perfect) ? Color.yellow : Color.cyan;
+
+            // 타격감(Juice): 판정 성공 시 카메라 쉐이크 + PERFECT는 짧은 히트스탑까지 추가해 정확히
+            // 누를수록 화면 피드백도 강해지게 한다(리듬 판정/오디오 싱크에는 영향 없음 - CameraController
+            // 주석 참고).
+            if (CameraController.Instance != null)
+            {
+                if (rating == HitRating.Perfect)
+                {
+                    CameraController.Instance.Shake(0.12f, 0.09f);
+                    CameraController.Instance.HitStop(0.03f);
+                }
+                else
+                {
+                    CameraController.Instance.Shake(0.08f, 0.05f);
+                }
+            }
 
             // extraDamage/extraProjectiles는 "지금 판정된 그 악기"만의 값을 쓴다(2026-08-07 수정 -
             // 이전엔 InstrumentManager.GetTotalExtraDamage()/GetTotalExtraProjectiles()로 장착된 4슬롯

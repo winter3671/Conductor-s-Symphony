@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using ConductorSymphony.CameraControl;
 using ConductorSymphony.Enemy;
 using ConductorSymphony.Passive;
 using ConductorSymphony.Rhythm;
@@ -361,6 +362,13 @@ namespace ConductorSymphony.Player
             invulnerableTimer = invulnerabilityDuration;
 
             OnHealthChangedEvent?.Invoke(currentHealth, maxHealth);
+
+            // 타격감(Juice): 피격 시에도 화면 피드백을 줘서 "지금 맞았다"는 걸 체력바를 안 봐도 즉시
+            // 인지할 수 있게 한다. 기존 빨간 스프라이트 점멸(FlashRoutine)에 카메라 쉐이크를 더함.
+            if (CameraController.Instance != null)
+            {
+                CameraController.Instance.Shake(0.18f, 0.14f);
+            }
 
             if (spriteRenderer != null)
             {
