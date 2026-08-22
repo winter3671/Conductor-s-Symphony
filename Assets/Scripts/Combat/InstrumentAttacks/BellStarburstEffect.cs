@@ -22,12 +22,20 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             int pierce = InstrumentLevelStats.GetPierceCount(InstrumentType.Bell, level);
             int bursts = InstrumentLevelStats.GetStepCount(InstrumentType.Bell, level); // Lv4+: 8방향 섬광 2연속 발사
 
+            // 2026-08-22 버그 수정(team_review_needed.md §2-5): 모든 성광이 center(가장 가까운 적의
+            // 현재 위치)에서 발사되다 보니, 그 자리에 서 있는 보스/엘리트는 발사 즉시 모든 빔과 거리 0로
+            // 겹쳐 한 번의 연주로 8~16회 중복 피격당했다(보스전이 다른 악기 대비 유독 쉬워지는 원인).
+            // 이 연주(Execute 1회) 안에서 스폰되는 모든 빔이 이 배열 하나를 공유해, 보스는 총 1회만
+            // 맞도록 캡을 건다. 잡몹(EnemyMonster)은 기존처럼 빔마다 독립적으로 각자 맞는다 - 다수
+            // 잡몹을 흩어 때리는 광역 소탕력은 그대로 유지된다.
+            bool[] bossHitGuard = new bool[1];
+
             for (int b = 0; b < bursts; b++)
             {
                 for (int i = 0; i < 8; i++)
                 {
                     Vector3 dir = Quaternion.Euler(0f, 0f, i * 45f) * Vector3.right;
-                    TapAttackHelpers.SpawnBeam(center, dir, damage, pierce, range, false, color);
+                    TapAttackHelpers.SpawnBeam(center, dir, damage, pierce, range, false, color, sharedBossHitGuard: bossHitGuard);
                 }
             }
 
@@ -36,7 +44,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             for (int e = 0; e < extraProjectiles; e++)
             {
                 Vector3 extraDir = Quaternion.Euler(0f, 0f, 22.5f + e * 45f) * Vector3.right;
-                TapAttackHelpers.SpawnBeam(center, extraDir, damage, pierce, range, false, color);
+                TapAttackHelpers.SpawnBeam(center, extraDir, damage, pierce, range, false, color, sharedBossHitGuard: bossHitGuard);
             }
 
             if (level >= 5)

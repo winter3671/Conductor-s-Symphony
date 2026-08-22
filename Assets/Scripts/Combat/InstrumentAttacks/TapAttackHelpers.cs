@@ -27,12 +27,12 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             if (starSprite == null) starSprite = ProceduralSpriteFactory.CreateDiamond(20, 9f, Color.white);
         }
 
-        internal static void SpawnBeam(Vector3 start, Vector3 dir, int damage, int pierce, float maxRange, bool bounce, Color color, float sizeMultiplier = 1f, System.Action<EnemyMonster, Vector3> onHitEnemy = null)
+        internal static void SpawnBeam(Vector3 start, Vector3 dir, int damage, int pierce, float maxRange, bool bounce, Color color, float sizeMultiplier = 1f, System.Action<EnemyMonster, Vector3> onHitEnemy = null, bool[] sharedBossHitGuard = null)
         {
             EnsureSprites();
             GameObject obj = new GameObject("InstrumentBeam");
             PiercingBeamProjectile beam = obj.AddComponent<PiercingBeamProjectile>();
-            beam.Initialize(start, dir, speed: 14f, damage, pierce, maxRange, bounce, beamSprite, color, visualLength: 1.1f, sizeMultiplier: sizeMultiplier, onHitEnemy: onHitEnemy);
+            beam.Initialize(start, dir, speed: 14f, damage, pierce, maxRange, bounce, beamSprite, color, visualLength: 1.1f, sizeMultiplier: sizeMultiplier, onHitEnemy: onHitEnemy, sharedBossHitGuard: sharedBossHitGuard);
         }
 
         internal static void SpawnImpact(Vector3 pos, float delay, float radius, int damage, Color color)

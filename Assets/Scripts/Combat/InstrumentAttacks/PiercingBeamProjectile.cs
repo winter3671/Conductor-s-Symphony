@@ -29,6 +29,15 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         private readonly HashSet<EnemyMonster> hitEnemies = new HashSet<EnemyMonster>();
         private bool hasHitBoss = false;
 
+        // 2026-08-22 버그 수정: 벨(Bell)의 8방향(Lv4+ 16방향) 성광이 전부 "타겟 위치"를 발사 원점으로
+        // 공유하다 보니, 보스/엘리트가 그 타겟일 때 모든 빔이 동시에 보스와 겹쳐 있어 한 번의 벨 연주로
+        // 보스가 8~16회 중복 피격당하던 문제(team_review_needed.md §2-5). 잡몹 대상 밸런스는 "한 빔이
+        // 한 적을 1회만 타격"하는 기존 hitEnemies 방식 그대로 두고, 보스/엘리트(BossMonster는 항상
+        // 싱글톤 1체)에 한해서만 "같은 벨 연주(Execute 1회) 안에서 스폰된 여러 빔 전체가 보스를 총
+        // 1회만 타격"하도록 활성화 빔들끼리 공유하는 가드를 선택적으로 받는다. null이면(피아노/마림바 등
+        // 다른 악기) 기존 동작 그대로 각 빔이 독립적으로 보스를 1회씩 타격한다.
+        private bool[] sharedBossHitGuard;
+
         // 2026-08-08: 나노바나나로 그린 4프레임 "에너지 볼트" 반짝임 애니메이션(Assets/Resources/Sprites/
         // Effects/Beam/Beam1~4 - 미세한 반짝임 정도만 있고 형태 변화는 거의 없음). 피아노/벨/마림바가
         // 이 클래스를 공유하므로 여기 한 곳에서만 로딩하면 세 악기 모두 자동 적용된다. 프레임 로딩
@@ -59,7 +68,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
         // 작으면 이 상수만 더 올리면 됨.
         private const float ArtVisualScale = 6f;
 
-        public void Initialize(Vector3 startPos, Vector3 dir, float speed, int damage, int pierceCount, float maxRange, bool bounceOnMaxRange, Sprite sprite, Color color, float visualLength = 1.1f, float sizeMultiplier = 1f, System.Action<EnemyMonster, Vector3> onHitEnemy = null)
+        public void Initialize(Vector3 startPos, Vector3 dir, float speed, int damage, int pierceCount, float maxRange, bool bounceOnMaxRange, Sprite sprite, Color color, float visualLength = 1.1f, float sizeMultiplier = 1f, System.Action<EnemyMonster, Vector3> onHitEnemy = null, bool[] sharedBossHitGuard = null)
         {
             transform.position = startPos;
             direction = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector3.up;
@@ -72,6 +81,7 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
             this.hitRadius = BaseHitRadius * sizeMultiplier;
             this.onHitEnemy = onHitEnemy;
             this.visualLength = visualLength;
+            this.sharedBossHitGuard = sharedBossHitGuard;
 
             EnsureBeamFrames();
 
@@ -173,12 +183,14 @@ namespace ConductorSymphony.Combat.InstrumentAttacks
                 }
             }
 
-            if (!hasHitBoss && BossMonster.Instance != null)
+            bool guardAlreadyConsumed = sharedBossHitGuard != null && sharedBossHitGuard[0];
+            if (!hasHitBoss && !guardAlreadyConsumed && BossMonster.Instance != null)
             {
                 if (Vector3.Distance(transform.position, BossMonster.Instance.transform.position) <= hitRadius + BossMonster.Instance.HitboxRadius)
                 {
                     BossMonster.Instance.TakeDamage(damage);
                     hasHitBoss = true;
+                    if (sharedBossHitGuard != null) sharedBossHitGuard[0] = true;
                     remainingPierce--;
                 }
             }
