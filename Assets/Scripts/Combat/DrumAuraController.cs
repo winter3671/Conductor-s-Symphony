@@ -23,6 +23,15 @@ namespace ConductorSymphony.Combat
         private const float TickInterval = 0.5f;
         private const float BaseRadius = 1.6f;
 
+        // 2026-08-22: 기존엔 얇은 정적 링 하나뿐이라 "이게 뭔지 모르겠다"는 피드백을 받았다. 리그 오브
+        // 레전드 소나(Sona) 오라처럼, 바닥에서 계속 음파가 퍼져나가는 느낌으로 교체 - 은은한 상시
+        // 장판(항상 켜져 있다는 지속감) 위에 얇은 링 3개가 위상을 엇갈려 가며 중심에서 바깥으로
+        // 퍼졌다 사라지기를 반복한다("지금 이 범위 안에서 계속 소리가 퍼지고 있다"는 인상을 주기 위함).
+        private const int PulseRingCount = 3;
+        private const float PulseDuration = 2.8f; // 2026-08-22: 요청으로 펄스 속도 절반으로 (기존 1.4f)
+        private SpriteRenderer[] pulseRings;
+        private float pulseTimer;
+
         private void OnDestroy()
         {
             if (auraVisual != null) Destroy(auraVisual);
@@ -55,6 +64,7 @@ namespace ConductorSymphony.Combat
                 // BaseRadius 기준 고정 크기로만 그려서, 레벨이 오르거나 범위 패시브를 먹어도 오라가
                 // 실제로 얼마나 넓어졌는지 화면으로는 전혀 알 수 없었다.
                 auraVisual.transform.localScale = Vector3.one * radius;
+                UpdatePulseRings();
             }
 
             // 알레그로(Allegro) 패시브 "쿨타임 감축" 반영 - 값이 작을수록(배율<1) 더 자주 틱.
@@ -104,18 +114,57 @@ namespace ConductorSymphony.Combat
                 if (auraVisual == null)
                 {
                     auraVisual = new GameObject("DrumBeatAura");
-                    SpriteRenderer sr = auraVisual.AddComponent<SpriteRenderer>();
-                    // CreateUnitRing: scale=1일 때 링 바깥쪽 끝이 정확히 반지름 1 유닛이 되므로,
-                    // localScale = Vector3.one * 실제판정반경만 하면 항상 정확히 일치한다(매 프레임
-                    // Update()에서 갱신 - 최초 생성 시점의 크기는 다음 프레임에 바로 덮어써진다).
-                    sr.sprite = ProceduralSpriteFactory.CreateUnitRing(0.985f, 1f, new Color(0.9f, 0.3f, 0.3f, 0.6f));
-                    sr.sortingOrder = 2;
+
+                    // 은은한 상시 바닥 장판 - 판정 반경 전체를 옅게 채워서 "이 범위 안이 항상 오라의
+                    // 영향권"이라는 걸 펄스가 없는 순간에도 계속 인지할 수 있게 한다.
+                    GameObject baseDisc = new GameObject("AuraBaseDisc");
+                    baseDisc.transform.SetParent(auraVisual.transform, false);
+                    SpriteRenderer baseSr = baseDisc.AddComponent<SpriteRenderer>();
+                    baseSr.sprite = ProceduralSpriteFactory.CreateFilledCircle(64, 32f, new Color(0.95f, 0.45f, 0.2f, 0.08f));
+                    baseSr.sortingOrder = 1;
+
+                    // 중심에서 바깥으로 퍼져나가는 음파 링 - 소나(Sona) 오라 참고. 위상을 엇갈려 시작해
+                    // 항상 1개 이상이 화면에 보이게 한다. 부모(auraVisual)의 localScale이 매 프레임
+                    // 실제 판정 반경으로 갱신되므로, 이 링들의 localScale(0~1)은 "그 반경의 몇 %인지"만
+                    // 표현하면 된다.
+                    pulseRings = new SpriteRenderer[PulseRingCount];
+                    for (int i = 0; i < PulseRingCount; i++)
+                    {
+                        GameObject ringObj = new GameObject($"AuraPulseRing_{i}");
+                        ringObj.transform.SetParent(auraVisual.transform, false);
+                        SpriteRenderer ringSr = ringObj.AddComponent<SpriteRenderer>();
+                        ringSr.sprite = ProceduralSpriteFactory.CreateUnitRing(0.85f, 1f, new Color(0.95f, 0.45f, 0.2f, 0.55f));
+                        ringSr.sortingOrder = 2;
+                        pulseRings[i] = ringSr;
+                    }
                 }
                 auraVisual.SetActive(true);
             }
             else if (auraVisual != null)
             {
                 auraVisual.SetActive(false);
+            }
+        }
+
+        private void UpdatePulseRings()
+        {
+            if (pulseRings == null) return;
+
+            pulseTimer += Time.deltaTime;
+            for (int i = 0; i < pulseRings.Length; i++)
+            {
+                if (pulseRings[i] == null) continue;
+
+                // 링마다 시작 위상을 1/PulseRingCount씩 어긋나게 해서 겹치지 않고 계속 이어지는
+                // 파동처럼 보이게 한다.
+                float phase = (pulseTimer / PulseDuration + (float)i / pulseRings.Length) % 1f;
+                float scale01 = Mathf.Lerp(0.2f, 1f, phase); // 중심 가까이에서 시작해 반경 끝까지 확장
+                float alpha = Mathf.Lerp(0.6f, 0f, phase);   // 퍼질수록 옅어지며 사라짐
+
+                pulseRings[i].transform.localScale = Vector3.one * scale01;
+                Color c = pulseRings[i].color;
+                c.a = alpha;
+                pulseRings[i].color = c;
             }
         }
     }

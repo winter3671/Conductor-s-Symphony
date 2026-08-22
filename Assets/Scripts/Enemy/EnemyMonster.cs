@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using ConductorSymphony.Rhythm;
 
 namespace ConductorSymphony.Enemy
 {
@@ -161,11 +162,13 @@ namespace ConductorSymphony.Enemy
             int amplifiedDamage = Mathf.Max(1, Mathf.RoundToInt(damage * damageAmpMultiplier));
             currentHealth -= amplifiedDamage;
 
-            // 피격 피드백
+            // 피격 피드백: 기존 깜빡임(색상 무관하게 항상 보임)에 더해, 타격 지점에 작은 음파 링을
+            // 하나 터뜨려 "맞았다"는 느낌을 시각적으로 더 또렷하게 준다(2026-08-22).
             if (spriteRenderer != null)
             {
                 StartCoroutine(FlashRedRoutine());
             }
+            SpawnHitSpark();
 
             if (currentHealth <= 0)
             {
@@ -185,6 +188,13 @@ namespace ConductorSymphony.Enemy
             {
                 spriteRenderer.enabled = true;
             }
+        }
+
+        private void SpawnHitSpark()
+        {
+            GameObject sparkObj = new GameObject("HitSpark");
+            SoundwaveRingEffect spark = sparkObj.AddComponent<SoundwaveRingEffect>();
+            spark.Initialize(transform.position, new Color(1f, 0.95f, 0.75f, 0.9f), startRadius: 0.1f, endRadius: 0.45f, duration: 0.18f);
         }
 
         private void Die()

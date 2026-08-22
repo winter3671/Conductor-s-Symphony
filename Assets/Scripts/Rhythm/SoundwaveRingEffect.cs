@@ -14,8 +14,15 @@ namespace ConductorSymphony.Rhythm
         private Color ringColor;
         private static int segments = 48;
 
-        public void Initialize(Vector3 spawnCenter, Color color)
+        // 2026-08-22: 잡몹/보스 피격 이펙트(EnemyMonster/BossMonster.TakeDamage)로 재사용하면서 크기/
+        // 지속시간을 호출부에서 조절할 수 있도록 파라미터화. 기본값은 기존 하드코딩 값 그대로라 다른
+        // 호출부는 영향 없음.
+        public void Initialize(Vector3 spawnCenter, Color color, float startRadius = 0.3f, float endRadius = 1.6f, float duration = 0.28f)
         {
+            this.startRadius = startRadius;
+            this.endRadius = endRadius;
+            this.duration = duration;
+
             centerPos = spawnCenter;
             ringColor = color;
             transform.position = centerPos;

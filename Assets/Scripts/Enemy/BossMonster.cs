@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using ConductorSymphony.Player;
+using ConductorSymphony.Rhythm;
 using ConductorSymphony.Utility;
 
 namespace ConductorSymphony.Enemy
@@ -283,6 +284,7 @@ namespace ConductorSymphony.Enemy
         {
             currentHp -= damage;
             StartCoroutine(FlashDamageRoutine());
+            SpawnHitSpark();
 
             OnBossHpChangedEvent?.Invoke(currentHp, maxHp);
 
@@ -301,6 +303,15 @@ namespace ConductorSymphony.Enemy
             spriteRenderer.enabled = false;
             yield return new WaitForSeconds(0.1f);
             if (spriteRenderer != null) spriteRenderer.enabled = true;
+        }
+
+        // 2026-08-22: EnemyMonster와 동일한 피격 스파크. 보스 스프라이트가 훨씬 커서 잡몹보다 조금
+        // 크게 잡았다.
+        private void SpawnHitSpark()
+        {
+            GameObject sparkObj = new GameObject("HitSpark");
+            SoundwaveRingEffect spark = sparkObj.AddComponent<SoundwaveRingEffect>();
+            spark.Initialize(transform.position, new Color(1f, 0.95f, 0.75f, 0.9f), startRadius: 0.2f, endRadius: 0.9f, duration: 0.22f);
         }
 
         private void Die()

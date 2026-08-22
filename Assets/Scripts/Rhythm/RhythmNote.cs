@@ -200,11 +200,22 @@ namespace ConductorSymphony.Rhythm
             }
             else
             {
-                // Missed phase: only dip slightly past the judgment ring (not a fast rush to the
-                // character) and vanish near the line once the Miss window (above) expires.
-                float lateProgress = Mathf.Clamp01((progress - 1f) * travelDuration / missWindow);
+                // Missed phase: continue past the judgment ring at the SAME speed as the approach
+                // phase (no sudden slowdown), then hold in place once it has drifted missOvershoot
+                // units past the line - it does not rush toward the character, it just stops.
+                //
+                // 2026-08-22 수정: 기존에는 판정선을 넘은 뒤 missOvershoot(judgmentRadius의 25%)만큼을
+                // missWindow(약 0.45초) 전체에 걸쳐 나눠 움직였다. 반면 GREAT 판정 허용 범위(±0.22초)가
+                // missWindow보다 좁아서, 플레이어가 정박에 딱 맞지 않게(거의 항상 그렇듯) 입력하는
+                // 순간엔 노트가 이미 접근 속도의 1/5 이하로 뚝 떨어진 "느린 구간"에 들어가 있었다 -
+                // 이게 "판정선 근처에서 노트가 이상하게 느려진다"는 체감의 정체였다. 접근 구간과 동일한
+                // 속도로 짧게(여기 수치 기준 약 0.1초) 더 다가가다 자연스럽게 멈추도록 바꿔 속도가
+                // 갑자기 꺾이는 지점을 없앴다.
+                float approachSpeed = (initialDistance - judgmentRadius) / Mathf.Max(0.0001f, travelDuration);
                 float missOvershoot = judgmentRadius * 0.25f;
-                currentDistance = Mathf.Lerp(judgmentRadius, judgmentRadius - missOvershoot, lateProgress);
+                float timeSincePassed = (progress - 1f) * travelDuration;
+                float overshootDistance = Mathf.Min(missOvershoot, approachSpeed * timeSincePassed);
+                currentDistance = judgmentRadius - overshootDistance;
             }
 
             Vector3 centerPos = (targetTransform != null) ? targetTransform.position : Vector3.zero;
