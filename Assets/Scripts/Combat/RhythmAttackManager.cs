@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using UnityEngine;
-using ConductorSymphony.Enemy;
 using ConductorSymphony.Player;
 using ConductorSymphony.Rhythm;
 using ConductorSymphony.Utility;
@@ -11,8 +9,6 @@ namespace ConductorSymphony.Combat
     {
         private PlayerController player;
 
-        private Sprite projectileSprite;
-
         // 드럼 "상시 비트 오라"는 판정 디스패치와 무관한 별도 책임이라 DrumAuraController로 분리했다
         // (리팩토링 배경은 DrumAuraController.cs 상단 주석 참고). MonoSingleton으로 만들지 않고 여기서
         // 자식 GameObject로 직접 생성한다 - 씬 파일에 수동 배치가 필요 없다.
@@ -22,8 +18,6 @@ namespace ConductorSymphony.Combat
         {
             base.Awake();
             if (Instance != this) return;
-
-            projectileSprite = ProceduralSpriteFactory.CreateFilledCircle(20, 8f, Color.yellow);
         }
 
         private void Start()
@@ -83,7 +77,6 @@ namespace ConductorSymphony.Combat
                 }
             }
 
-            Sprite projSprite = projectileSprite;
             Color projColor = (rating == HitRating.Perfect) ? Color.yellow : Color.cyan;
 
             // extraDamage/extraProjectiles는 "지금 판정된 그 악기"만의 값을 쓴다(2026-08-07 수정 -
@@ -109,7 +102,6 @@ namespace ConductorSymphony.Combat
                 ? Instrument.InstrumentDamageTable.GetDamageMultiplier(hitInstrument.type, hitInstrument.level)
                 : 1f;
             int damage = DamageFormula.ComputeFinalDamage(baseDamage, mRhythm, mStat, instrumentDpsMultiplier);
-            int projCount = 1 + extraProj;
 
             // 10종 악기별 공격 메커니즘 기획서: 탭+오토타겟 5종(피아노/벨/마림바/글록켄슈필/드럼)은 여기서,
             if (hitInstrument != null && InstrumentAttacks.InstrumentAttackDispatcher.IsImplemented(hitInstrument.type))
@@ -125,42 +117,6 @@ namespace ConductorSymphony.Combat
             if (hitInstrument != null && InstrumentAttacks.InstrumentAttackDispatcher.IsHoldImplemented(hitInstrument.type))
             {
                 InstrumentAttacks.HoldEffectCoordinator.BeginHold(lane, hitInstrument.type, hitInstrument.level, damage, spawnPos, projColor, extraProj);
-                return;
-            }
-
-            // 아래는 10종 악기별 전용 디스패처가 생기기 전부터 있던 범용 투사체 폴백 로직이다.
-            // 현재는 위 두 분기(IsImplemented/IsHoldImplemented)가 10종 전체를 커버하므로 실질적으로
-            // 도달하지 않는다(신규 악기 추가 시를 대비한 안전장치로 의도적으로 유지 - 리팩토링 대상에서
-            // 제외). 레가토(Legato) 패시브·Multi+1 스탯(extraProj)은 2026-08-07부터 위 두 분기가 실제
-            // 소비하므로(6종 악기 - game_systems_reference.md §4 참고), 더 이상 이 폴백 로직만의
-            // 전유물이 아니다 - 아래 projCount 계산은 이 폴백 경로가 실행될 경우를 위해 남아있다.
-
-            // Collect all potential target components (regular trash mobs + boss)
-            List<Component> potentialTargets = new List<Component>();
-            if (BossMonster.Instance != null) potentialTargets.Add(BossMonster.Instance);
-
-            foreach (var enemy in CombatTargetingUtility.GetActiveEnemies())
-            {
-                if (enemy != null) potentialTargets.Add(enemy);
-            }
-
-            if (potentialTargets.Count == 0)
-            {
-                // Fire default single projectile forward if no targets
-                GameObject projObj = new GameObject($"Proj_{Time.frameCount}");
-                AttackProjectile proj = projObj.AddComponent<AttackProjectile>();
-                proj.Initialize(null, spawnPos, projSprite, projColor, damage);
-                return;
-            }
-
-            // Sort targets by distance to player
-            potentialTargets.Sort((a, b) => Vector3.Distance(spawnPos, a.transform.position).CompareTo(Vector3.Distance(spawnPos, b.transform.position)));
-
-            for (int i = 0; i < Mathf.Min(projCount, potentialTargets.Count); i++)
-            {
-                GameObject projObj = new GameObject($"Proj_{i}_{Time.frameCount}");
-                AttackProjectile proj = projObj.AddComponent<AttackProjectile>();
-                proj.Initialize(potentialTargets[i], spawnPos, projSprite, projColor, damage);
             }
         }
     }
